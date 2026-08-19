@@ -1,0 +1,27 @@
+name: backend-security-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  postgres-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase
+        run: supabase start
+      - name: Rebuild database from migrations
+        run: supabase db reset
+      - name: Run pgTAP tests
+        run: supabase test db
+      - name: Lint database
+        run: supabase db lint --level warning
+      - name: Run real concurrency gate
+        run: bash scripts/concurrency_gate.sh
