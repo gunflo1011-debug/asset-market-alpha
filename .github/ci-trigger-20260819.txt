@@ -1,0 +1,1 @@
+Trigger GitHub Actions after repository Actions permissions were enabled on 2026-08-19.
