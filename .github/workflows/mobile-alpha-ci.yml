@@ -29,6 +29,10 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Reject client-side Supabase secrets
+        run: npm run check:client-secrets
+      - name: Verify Expo dependency compatibility
+        run: npm run check:expo-deps
       - name: Typecheck strict TypeScript
         run: npm run typecheck
       - name: Export Android bundle smoke build
