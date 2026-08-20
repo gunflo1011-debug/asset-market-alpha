@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  typecheck:
+  mobile-gate:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,3 +31,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck strict TypeScript
         run: npm run typecheck
+      - name: Export Android bundle smoke build
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+        run: npx expo export --platform android --output-dir dist-ci
