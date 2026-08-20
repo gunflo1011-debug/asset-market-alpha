@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
-    "check:expo-deps": "npx expo install --check"
+    "check:expo-deps": "npx expo install --check",
+    "smoke:hosted-alpha": "node scripts/hosted-alpha-smoke.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
