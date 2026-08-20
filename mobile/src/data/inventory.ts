@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { trackAlphaEvent } from './analytics';
 
 export type CatalogVariant = {
   id: string;
@@ -91,6 +92,8 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
+
+  void trackAlphaEvent('INVENTORY_VIEWED');
   return (data ?? []) as unknown as PrivateInventoryItem[];
 }
 
@@ -109,5 +112,7 @@ export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<st
 
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Inventory command returned no item id.');
+
+  void trackAlphaEvent('DEVICE_ADDED', data);
   return data;
 }
