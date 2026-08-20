@@ -35,8 +35,13 @@ jobs:
         run: npm run check:expo-deps
       - name: Typecheck strict TypeScript
         run: npm run typecheck
+      - name: Validate closed-alpha mobile configuration
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        run: npm run check:alpha-config
       - name: Export Android bundle smoke build
         env:
-          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+          EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: npx expo export --platform android --output-dir dist-ci
