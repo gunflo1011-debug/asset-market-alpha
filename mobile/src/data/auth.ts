@@ -1,4 +1,4 @@
-import type { Session } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { trackAlphaEvent } from './analytics';
 import { assertAlphaBackendCompatible } from './readiness';
@@ -25,6 +25,13 @@ export async function getSession(): Promise<Session | null> {
   const session = await requireCompatibleSession(data.session);
   void trackAlphaEvent('SESSION_RESTORED');
   return session;
+}
+
+export async function getCurrentAccount(): Promise<User> {
+  const { data, error } = await client().auth.getUser();
+  if (error) throw error;
+  if (!data.user) throw new Error('No authenticated Things account is available.');
+  return data.user;
 }
 
 export function onAuthStateChange(callback: (session: Session | null) => void) {
@@ -58,6 +65,13 @@ export async function signUp(email: string, password: string): Promise<string> {
   return data.session
     ? 'Account created and signed in.'
     : 'Account created. Confirm the email before signing in.';
+}
+
+export async function resendSignupConfirmation(email: string): Promise<void> {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Enter a valid email address.');
+  const { error } = await client().auth.resend({ type: 'signup', email: normalizedEmail });
+  if (error) throw error;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
@@ -109,6 +123,32 @@ export async function updateRecoveredPassword(password: string): Promise<void> {
   void trackAlphaEvent('PASSWORD_RECOVERY_SUCCEEDED');
   const { error: signOutError } = await client().auth.signOut();
   if (signOutError) throw signOutError;
+}
+
+export async function updateAccountPassword(password: string): Promise<void> {
+  if (password.length < 8) throw new Error('Use at least 8 characters for your new password.');
+  await getCurrentAccount();
+  const { error } = await client().auth.updateUser({ password });
+  if (error) throw error;
+}
+
+export async function requestAccountEmailChange(email: string): Promise<void> {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Enter a valid email address.');
+  await getCurrentAccount();
+  const { error } = await client().auth.updateUser({ email: normalizedEmail });
+  if (error) throw error;
+}
+
+export async function reauthenticateWithPassword(password: string): Promise<void> {
+  const user = await getCurrentAccount();
+  if (!user.email) throw new Error('This account does not have an email login.');
+  const { data, error } = await client().auth.signInWithPassword({ email: user.email, password });
+  if (error) throw error;
+  if (!data.session || data.user.id !== user.id) {
+    await client().auth.signOut();
+    throw new Error('Could not verify the current account.');
+  }
 }
 
 export async function signOut(): Promise<void> {
