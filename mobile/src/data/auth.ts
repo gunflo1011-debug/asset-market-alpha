@@ -3,9 +3,25 @@ import { supabase } from '../lib/supabase';
 import { trackAlphaEvent } from './analytics';
 import { assertAlphaBackendCompatible } from './readiness';
 
+const MIN_PASSWORD_LENGTH = 8;
+const EMAIL_CONFIRM_REDIRECT = 'thingsalpha://auth/confirmed';
+const PASSWORD_RESET_REDIRECT = 'thingsalpha://auth/reset-password';
+
 function client() {
   if (!supabase) throw new Error('Supabase is not configured for this build.');
   return supabase;
+}
+
+function normalizeEmail(email: string): string {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || !normalized.includes('@')) throw new Error('Enter a valid email address.');
+  return normalized;
+}
+
+function assertStrongEnoughPassword(password: string): void {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`);
+  }
 }
 
 async function requireCompatibleSession(session: Session): Promise<Session> {
@@ -48,7 +64,7 @@ export function onAuthStateChange(callback: (session: Session | null) => void) {
 }
 
 export async function signIn(email: string, password: string): Promise<void> {
-  const { data, error } = await client().auth.signInWithPassword({ email, password });
+  const { data, error } = await client().auth.signInWithPassword({ email: normalizeEmail(email), password });
   if (error) throw error;
   if (!data.session) throw new Error('Supabase did not return an authenticated session.');
   await requireCompatibleSession(data.session);
@@ -56,7 +72,13 @@ export async function signIn(email: string, password: string): Promise<void> {
 }
 
 export async function signUp(email: string, password: string): Promise<string> {
-  const { data, error } = await client().auth.signUp({ email, password });
+  const normalizedEmail = normalizeEmail(email);
+  assertStrongEnoughPassword(password);
+  const { data, error } = await client().auth.signUp({
+    email: normalizedEmail,
+    password,
+    options: { emailRedirectTo: EMAIL_CONFIRM_REDIRECT },
+  });
   if (error) throw error;
   if (data.session) {
     await requireCompatibleSession(data.session);
@@ -64,19 +86,22 @@ export async function signUp(email: string, password: string): Promise<string> {
   }
   return data.session
     ? 'Account created and signed in.'
-    : 'Account created. Confirm the email before signing in.';
+    : 'Account created. Check your email to confirm it before signing in.';
 }
 
 export async function resendSignupConfirmation(email: string): Promise<void> {
-  const normalizedEmail = email.trim();
-  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Enter a valid email address.');
-  const { error } = await client().auth.resend({ type: 'signup', email: normalizedEmail });
+  const normalizedEmail = normalizeEmail(email);
+  const { error } = await client().auth.resend({
+    type: 'signup',
+    email: normalizedEmail,
+    options: { emailRedirectTo: EMAIL_CONFIRM_REDIRECT },
+  });
   if (error) throw error;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const { error } = await client().auth.resetPasswordForEmail(email, {
-    redirectTo: 'thingsalpha://auth/reset-password',
+  const { error } = await client().auth.resetPasswordForEmail(normalizeEmail(email), {
+    redirectTo: PASSWORD_RESET_REDIRECT,
   });
   if (error) throw error;
 }
@@ -94,7 +119,7 @@ function recoveryParam(url: string, key: string): string | null {
 }
 
 export async function beginPasswordRecoveryFromUrl(url: string): Promise<void> {
-  if (!url.startsWith('thingsalpha://auth/reset-password')) {
+  if (!url.startsWith(PASSWORD_RESET_REDIRECT)) {
     throw new Error('This password reset link is not valid for Things.');
   }
 
@@ -117,7 +142,7 @@ export async function beginPasswordRecoveryFromUrl(url: string): Promise<void> {
 }
 
 export async function updateRecoveredPassword(password: string): Promise<void> {
-  if (password.length < 8) throw new Error('Use at least 8 characters for your new password.');
+  assertStrongEnoughPassword(password);
   const { error } = await client().auth.updateUser({ password });
   if (error) throw error;
   void trackAlphaEvent('PASSWORD_RECOVERY_SUCCEEDED');
@@ -126,17 +151,18 @@ export async function updateRecoveredPassword(password: string): Promise<void> {
 }
 
 export async function updateAccountPassword(password: string): Promise<void> {
-  if (password.length < 8) throw new Error('Use at least 8 characters for your new password.');
+  assertStrongEnoughPassword(password);
   await getCurrentAccount();
   const { error } = await client().auth.updateUser({ password });
   if (error) throw error;
 }
 
 export async function requestAccountEmailChange(email: string): Promise<void> {
-  const normalizedEmail = email.trim();
-  if (!normalizedEmail || !normalizedEmail.includes('@')) throw new Error('Enter a valid email address.');
+  const normalizedEmail = normalizeEmail(email);
   await getCurrentAccount();
-  const { error } = await client().auth.updateUser({ email: normalizedEmail });
+  const { error } = await client().auth.updateUser({ email: normalizedEmail }, {
+    emailRedirectTo: EMAIL_CONFIRM_REDIRECT,
+  });
   if (error) throw error;
 }
 
