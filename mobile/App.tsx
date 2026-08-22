@@ -15,10 +15,12 @@ import {
   beginPasswordRecoveryFromUrl,
   getSession,
   onAuthStateChange,
+  requestAccountEmailChange,
   requestPasswordReset,
   signIn,
   signOut,
   signUp,
+  updateAccountPassword,
   updateRecoveredPassword,
 } from './src/data/auth';
 import {
@@ -52,6 +54,7 @@ function friendlyAuthError(error: unknown): string {
   if (raw.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
   if (raw.includes('expired')) return 'This link has expired. Request a new password-reset email.';
   if (raw.includes('invalid email')) return 'Enter a valid email address.';
+  if (raw.includes('same password')) return 'Choose a password you have not used for this account.';
   return error instanceof Error ? error.message : 'Authentication failed. Please try again.';
 }
 
@@ -67,6 +70,10 @@ export default function App() {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
 
   const selectedVariant = useMemo(
     () => catalog.find((variant) => variant.id === selectedVariantId) ?? null,
@@ -133,8 +140,10 @@ export default function App() {
     if (!session || authMode === 'recovery') {
       setItems([]);
       setCatalog([]);
+      setShowAccount(false);
       return;
     }
+    setAccountEmail(session.user.email ?? '');
     void refreshData();
   }, [session, authMode]);
 
@@ -205,6 +214,51 @@ export default function App() {
       setConfirmPassword('');
       setAuthMode('signin');
       setMessage('Password updated. Sign in with your new password.');
+    } catch (error) {
+      setMessage(friendlyAuthError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAccountEmail() {
+    const normalized = accountEmail.trim();
+    if (!normalized || !normalized.includes('@')) {
+      setMessage('Enter a valid email address.');
+      return;
+    }
+    if (normalized.toLowerCase() === (session?.user.email ?? '').toLowerCase()) {
+      setMessage('This is already your current login email.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      await requestAccountEmailChange(normalized);
+      setMessage('Email change requested. Follow the verification email before using the new address to sign in.');
+    } catch (error) {
+      setMessage(friendlyAuthError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAccountPassword() {
+    if (accountPassword.length < 8) {
+      setMessage('Use at least 8 characters for your new password.');
+      return;
+    }
+    if (accountPassword !== accountPasswordConfirm) {
+      setMessage('The new passwords do not match.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      await updateAccountPassword(accountPassword);
+      setAccountPassword('');
+      setAccountPasswordConfirm('');
+      setMessage('Password updated successfully.');
     } catch (error) {
       setMessage(friendlyAuthError(error));
     } finally {
@@ -283,10 +337,45 @@ export default function App() {
     );
   }
 
+  if (showAccount) {
+    const verified = Boolean(session.user.email_confirmed_at);
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.rowBetween}>
+            <View style={styles.flex}><Text style={styles.eyebrow}>THINGS · ACCOUNT</Text><Text style={styles.title}>Account & Security</Text></View>
+            <TouchableOpacity disabled={busy} onPress={() => { setShowAccount(false); setMessage(null); }}><Text style={styles.link}>Done</Text></TouchableOpacity>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Sign-in email</Text>
+            <Text style={styles.helper}>Current: {session.user.email ?? 'No email available'}</Text>
+            <View style={styles.badge}><Text style={styles.badgeText}>{verified ? 'EMAIL VERIFIED' : 'EMAIL NOT VERIFIED'}</Text></View>
+            <TextInput value={accountEmail} onChangeText={setAccountEmail} placeholder="New email address" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" style={styles.input} />
+            <TouchableOpacity style={[styles.secondaryButton, busy ? styles.disabled : null]} disabled={busy} onPress={() => void saveAccountEmail()}><Text style={styles.secondaryButtonText}>{busy ? 'Saving…' : 'Change email'}</Text></TouchableOpacity>
+            <Text style={styles.helper}>Changing your email may require confirmation before the new address becomes your login.</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Password</Text>
+            <Text style={styles.helper}>Choose a new password with at least 8 characters.</Text>
+            <TextInput value={accountPassword} onChangeText={setAccountPassword} placeholder="New password" secureTextEntry textContentType="newPassword" style={styles.input} />
+            <TextInput value={accountPasswordConfirm} onChangeText={setAccountPasswordConfirm} placeholder="Confirm new password" secureTextEntry textContentType="newPassword" style={styles.input} />
+            <TouchableOpacity style={[styles.primaryButton, (busy || accountPassword.length < 8 || accountPassword !== accountPasswordConfirm) ? styles.disabled : null]} disabled={busy || accountPassword.length < 8 || accountPassword !== accountPasswordConfirm} onPress={() => void saveAccountPassword()}><Text style={styles.primaryButtonText}>{busy ? 'Updating…' : 'Update password'}</Text></TouchableOpacity>
+          </View>
+          {message ? <Text style={styles.notice}>{message}</Text> : null}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Session</Text>
+            <Text style={styles.helper}>Signing out removes the current Things session from this device.</Text>
+            <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => void signOut()}><Text style={styles.secondaryButtonText}>Sign out</Text></TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>My devices</Text></View><TouchableOpacity onPress={() => void signOut()}><Text style={styles.link}>Sign out</Text></TouchableOpacity></View>
+        <View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>My devices</Text></View><TouchableOpacity onPress={() => { setAccountEmail(session.user.email ?? ''); setMessage(null); setShowAccount(true); }}><Text style={styles.link}>Account</Text></TouchableOpacity></View>
         <View style={styles.card}><Text style={styles.metric}>{items.length}</Text><Text style={styles.metricLabel}>private device{items.length === 1 ? '' : 's'}</Text><Text style={styles.helper}>Only your authenticated account can read these inventory rows.</Text></View>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Add a device privately</Text>
