@@ -10,7 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getSession, onAuthStateChange, signIn, signOut, signUp } from './src/data/auth';
+import {
+  getSession,
+  onAuthStateChange,
+  requestPasswordReset,
+  signIn,
+  signOut,
+  signUp,
+} from './src/data/auth';
 import {
   addPrivateDevice,
   CatalogVariant,
@@ -19,6 +26,8 @@ import {
   PrivateInventoryItem,
 } from './src/data/inventory';
 import { hasSupabaseConfig } from './src/lib/supabase';
+
+type AuthMode = 'signin' | 'signup' | 'forgot';
 
 function variantTitle(variant: CatalogVariant): string {
   const product = variant.products;
@@ -33,9 +42,19 @@ function itemTitle(item: PrivateInventoryItem): string {
   return `${product.brand} ${product.family}${variant.storage_gb ? ` · ${variant.storage_gb} GB` : ''}`;
 }
 
+function friendlyAuthError(error: unknown): string {
+  const raw = error instanceof Error ? error.message.toLowerCase() : '';
+  if (raw.includes('invalid login credentials')) return 'Email or password is incorrect.';
+  if (raw.includes('email not confirmed')) return 'Please confirm your email before signing in.';
+  if (raw.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
+  if (raw.includes('invalid email')) return 'Enter a valid email address.';
+  return error instanceof Error ? error.message : 'Authentication failed. Please try again.';
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [items, setItems] = useState<PrivateInventoryItem[]>([]);
@@ -115,10 +134,34 @@ export default function App() {
         setMessage(await signUp(email.trim(), password));
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Authentication failed.');
+      setMessage(friendlyAuthError(error));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function sendPasswordReset() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      setMessage('Enter the email address you use for Things.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      await requestPasswordReset(normalizedEmail);
+      setMessage('If an account exists for this email, a password-reset link has been sent.');
+    } catch (error) {
+      setMessage(friendlyAuthError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchAuthMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setMessage(null);
+    if (mode === 'forgot') setPassword('');
   }
 
   async function createPrivateDevice() {
@@ -163,10 +206,14 @@ export default function App() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
-          <Text style={styles.eyebrow}>CLOSED ALPHA</Text>
-          <Text style={styles.title}>Your possessions start private.</Text>
+          <Text style={styles.eyebrow}>THINGS · PRIVATE BY DEFAULT</Text>
+          <Text style={styles.title}>
+            {authMode === 'forgot' ? 'Reset your password.' : authMode === 'signup' ? 'Create your Things account.' : 'Welcome back.'}
+          </Text>
           <Text style={styles.subtitle}>
-            Sign in to keep a private device inventory. Nothing becomes a public listing automatically.
+            {authMode === 'forgot'
+              ? 'Enter your email and we will send a secure reset link. We never reveal whether an account exists.'
+              : 'Your inventory starts private and stays under your control.'}
           </Text>
           <View style={styles.card}>
             <TextInput
@@ -174,22 +221,59 @@ export default function App() {
               onChangeText={setEmail}
               placeholder="Email"
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
+              textContentType="emailAddress"
               style={styles.input}
             />
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              secureTextEntry
-              style={styles.input}
-            />
-            <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signin')}>
-              <Text style={styles.primaryButtonText}>{busy ? 'Please wait…' : 'Sign in'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => void authenticate('signup')}>
-              <Text style={styles.secondaryButtonText}>Create alpha account</Text>
-            </TouchableOpacity>
+            {authMode !== 'forgot' ? (
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                secureTextEntry
+                textContentType={authMode === 'signup' ? 'newPassword' : 'password'}
+                style={styles.input}
+              />
+            ) : null}
+
+            {authMode === 'signin' ? (
+              <>
+                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signin')}>
+                  <Text style={styles.primaryButtonText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity disabled={busy} onPress={() => switchAuthMode('forgot')}>
+                  <Text style={styles.linkCentered}>Forgot password?</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signup')}>
+                  <Text style={styles.secondaryButtonText}>Create account</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {authMode === 'signup' ? (
+              <>
+                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signup')}>
+                  <Text style={styles.primaryButtonText}>{busy ? 'Creating account…' : 'Create account'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.helper}>You may need to confirm your email before your first sign-in.</Text>
+                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}>
+                  <Text style={styles.secondaryButtonText}>Back to sign in</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {authMode === 'forgot' ? (
+              <>
+                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void sendPasswordReset()}>
+                  <Text style={styles.primaryButtonText}>{busy ? 'Sending…' : 'Send reset link'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}>
+                  <Text style={styles.secondaryButtonText}>Back to sign in</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+
             {message ? <Text style={styles.helper}>{message}</Text> : null}
           </View>
         </View>
@@ -312,6 +396,7 @@ const styles = StyleSheet.create({
   badge: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#EEF2F6', paddingHorizontal: 10, paddingVertical: 6 },
   badgeText: { fontSize: 12, fontWeight: '600', color: '#344054' },
   link: { fontSize: 14, fontWeight: '700', color: '#344054' },
+  linkCentered: { fontSize: 14, fontWeight: '700', color: '#344054', textAlign: 'center', paddingVertical: 4 },
   variantButton: { borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, padding: 11 },
   variantButtonSelected: { borderWidth: 2, borderColor: '#101828' },
   variantText: { fontSize: 14, color: '#344054' },
