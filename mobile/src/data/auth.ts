@@ -67,6 +67,50 @@ export async function requestPasswordReset(email: string): Promise<void> {
   if (error) throw error;
 }
 
+function recoveryParam(url: string, key: string): string | null {
+  const hashIndex = url.indexOf('#');
+  const queryIndex = url.indexOf('?');
+  const raw = hashIndex >= 0 ? url.slice(hashIndex + 1) : queryIndex >= 0 ? url.slice(queryIndex + 1) : '';
+  for (const part of raw.split('&')) {
+    const [encodedKey, ...valueParts] = part.split('=');
+    if (decodeURIComponent(encodedKey ?? '') !== key) continue;
+    return decodeURIComponent(valueParts.join('=') || '');
+  }
+  return null;
+}
+
+export async function beginPasswordRecoveryFromUrl(url: string): Promise<void> {
+  if (!url.startsWith('thingsalpha://auth/reset-password')) {
+    throw new Error('This password reset link is not valid for Things.');
+  }
+
+  const errorDescription = recoveryParam(url, 'error_description');
+  if (errorDescription) throw new Error(errorDescription.replace(/\+/g, ' '));
+
+  const accessToken = recoveryParam(url, 'access_token');
+  const refreshToken = recoveryParam(url, 'refresh_token');
+  const type = recoveryParam(url, 'type');
+  if (type && type !== 'recovery') throw new Error('This link is not a password recovery link.');
+  if (!accessToken || !refreshToken) throw new Error('This password reset link is incomplete or expired.');
+
+  const { data, error } = await client().auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error) throw error;
+  if (!data.session) throw new Error('Could not start a secure password recovery session.');
+  await requireCompatibleSession(data.session);
+}
+
+export async function updateRecoveredPassword(password: string): Promise<void> {
+  if (password.length < 8) throw new Error('Use at least 8 characters for your new password.');
+  const { error } = await client().auth.updateUser({ password });
+  if (error) throw error;
+  void trackAlphaEvent('PASSWORD_RECOVERY_SUCCEEDED');
+  const { error: signOutError } = await client().auth.signOut();
+  if (signOutError) throw signOutError;
+}
+
 export async function signOut(): Promise<void> {
   const { error } = await client().auth.signOut();
   if (error) throw error;
