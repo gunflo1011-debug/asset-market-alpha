@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
   ActivityIndicator,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import {
+  beginPasswordRecoveryFromUrl,
   getSession,
   onAuthStateChange,
   requestPasswordReset,
   signIn,
   signOut,
   signUp,
+  updateRecoveredPassword,
 } from './src/data/auth';
 import {
   addPrivateDevice,
@@ -27,7 +30,7 @@ import {
 } from './src/data/inventory';
 import { hasSupabaseConfig } from './src/lib/supabase';
 
-type AuthMode = 'signin' | 'signup' | 'forgot';
+type AuthMode = 'signin' | 'signup' | 'forgot' | 'recovery';
 
 function variantTitle(variant: CatalogVariant): string {
   const product = variant.products;
@@ -47,6 +50,7 @@ function friendlyAuthError(error: unknown): string {
   if (raw.includes('invalid login credentials')) return 'Email or password is incorrect.';
   if (raw.includes('email not confirmed')) return 'Please confirm your email before signing in.';
   if (raw.includes('rate limit')) return 'Too many attempts. Please wait a moment and try again.';
+  if (raw.includes('expired')) return 'This link has expired. Request a new password-reset email.';
   if (raw.includes('invalid email')) return 'Enter a valid email address.';
   return error instanceof Error ? error.message : 'Authentication failed. Please try again.';
 }
@@ -57,6 +61,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [items, setItems] = useState<PrivateInventoryItem[]>([]);
   const [catalog, setCatalog] = useState<CatalogVariant[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
@@ -94,22 +99,50 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
+    if (!hasSupabaseConfig) return;
+    let active = true;
+
+    const handleRecoveryUrl = async (url: string | null) => {
+      if (!url || !url.startsWith('thingsalpha://auth/reset-password')) return;
+      try {
+        setBusy(true);
+        setMessage(null);
+        await beginPasswordRecoveryFromUrl(url);
+        if (!active) return;
+        setPassword('');
+        setConfirmPassword('');
+        setAuthMode('recovery');
+      } catch (error) {
+        if (!active) return;
+        setAuthMode('forgot');
+        setMessage(friendlyAuthError(error));
+      } finally {
+        if (active) setBusy(false);
+      }
+    };
+
+    void Linking.getInitialURL().then(handleRecoveryUrl);
+    const subscription = Linking.addEventListener('url', ({ url }) => void handleRecoveryUrl(url));
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session || authMode === 'recovery') {
       setItems([]);
       setCatalog([]);
       return;
     }
     void refreshData();
-  }, [session]);
+  }, [session, authMode]);
 
   async function refreshData() {
     try {
       setBusy(true);
       setMessage(null);
-      const [nextItems, nextCatalog] = await Promise.all([
-        loadPrivateInventory(),
-        loadCatalog(),
-      ]);
+      const [nextItems, nextCatalog] = await Promise.all([loadPrivateInventory(), loadCatalog()]);
       setItems(nextItems);
       setCatalog(nextCatalog);
       setSelectedVariantId((current) => current ?? nextCatalog[0]?.id ?? null);
@@ -128,11 +161,8 @@ export default function App() {
     try {
       setBusy(true);
       setMessage(null);
-      if (mode === 'signin') {
-        await signIn(email.trim(), password);
-      } else {
-        setMessage(await signUp(email.trim(), password));
-      }
+      if (mode === 'signin') await signIn(email.trim(), password);
+      else setMessage(await signUp(email.trim(), password));
     } catch (error) {
       setMessage(friendlyAuthError(error));
     } finally {
@@ -158,10 +188,35 @@ export default function App() {
     }
   }
 
+  async function finishPasswordRecovery() {
+    if (password.length < 8) {
+      setMessage('Use at least 8 characters for your new password.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage('The passwords do not match.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      await updateRecoveredPassword(password);
+      setPassword('');
+      setConfirmPassword('');
+      setAuthMode('signin');
+      setMessage('Password updated. Sign in with your new password.');
+    } catch (error) {
+      setMessage(friendlyAuthError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function switchAuthMode(mode: AuthMode) {
     setAuthMode(mode);
     setMessage(null);
     if (mode === 'forgot') setPassword('');
+    setConfirmPassword('');
   }
 
   async function createPrivateDevice() {
@@ -180,23 +235,29 @@ export default function App() {
   }
 
   if (!authReady) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>Restoring secure session…</Text>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.centered}><ActivityIndicator /><Text style={styles.muted}>Restoring secure session…</Text></SafeAreaView>;
   }
 
   if (!hasSupabaseConfig) {
+    return <SafeAreaView style={styles.safe}><View style={styles.container}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>Backend connection required.</Text><Text style={styles.subtitle}>This build intentionally does not fall back to fake inventory. Configure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to test the real private-data flow.</Text></View></SafeAreaView>;
+  }
+
+  if (authMode === 'recovery') {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
-          <Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text>
-          <Text style={styles.title}>Backend connection required.</Text>
-          <Text style={styles.subtitle}>
-            This build intentionally does not fall back to fake inventory. Configure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to test the real private-data flow.
-          </Text>
+          <Text style={styles.eyebrow}>THINGS · ACCOUNT RECOVERY</Text>
+          <Text style={styles.title}>Choose a new password.</Text>
+          <Text style={styles.subtitle}>Your reset link was verified. Set a new password to secure your account.</Text>
+          <View style={styles.card}>
+            <TextInput value={password} onChangeText={setPassword} placeholder="New password" secureTextEntry textContentType="newPassword" style={styles.input} />
+            <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm new password" secureTextEntry textContentType="newPassword" style={styles.input} />
+            <Text style={styles.helper}>Use at least 8 characters.</Text>
+            <TouchableOpacity style={[styles.primaryButton, (busy || password.length < 8 || password !== confirmPassword) ? styles.disabled : null]} disabled={busy || password.length < 8 || password !== confirmPassword} onPress={() => void finishPasswordRecovery()}>
+              <Text style={styles.primaryButtonText}>{busy ? 'Updating…' : 'Update password'}</Text>
+            </TouchableOpacity>
+            {message ? <Text style={styles.helper}>{message}</Text> : null}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -207,73 +268,14 @@ export default function App() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.container}>
           <Text style={styles.eyebrow}>THINGS · PRIVATE BY DEFAULT</Text>
-          <Text style={styles.title}>
-            {authMode === 'forgot' ? 'Reset your password.' : authMode === 'signup' ? 'Create your Things account.' : 'Welcome back.'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {authMode === 'forgot'
-              ? 'Enter your email and we will send a secure reset link. We never reveal whether an account exists.'
-              : 'Your inventory starts private and stays under your control.'}
-          </Text>
+          <Text style={styles.title}>{authMode === 'forgot' ? 'Reset your password.' : authMode === 'signup' ? 'Create your Things account.' : 'Welcome back.'}</Text>
+          <Text style={styles.subtitle}>{authMode === 'forgot' ? 'Enter your email and we will send a secure reset link. We never reveal whether an account exists.' : 'Your inventory starts private and stays under your control.'}</Text>
           <View style={styles.card}>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              style={styles.input}
-            />
-            {authMode !== 'forgot' ? (
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                secureTextEntry
-                textContentType={authMode === 'signup' ? 'newPassword' : 'password'}
-                style={styles.input}
-              />
-            ) : null}
-
-            {authMode === 'signin' ? (
-              <>
-                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signin')}>
-                  <Text style={styles.primaryButtonText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity disabled={busy} onPress={() => switchAuthMode('forgot')}>
-                  <Text style={styles.linkCentered}>Forgot password?</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signup')}>
-                  <Text style={styles.secondaryButtonText}>Create account</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-
-            {authMode === 'signup' ? (
-              <>
-                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signup')}>
-                  <Text style={styles.primaryButtonText}>{busy ? 'Creating account…' : 'Create account'}</Text>
-                </TouchableOpacity>
-                <Text style={styles.helper}>You may need to confirm your email before your first sign-in.</Text>
-                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}>
-                  <Text style={styles.secondaryButtonText}>Back to sign in</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-
-            {authMode === 'forgot' ? (
-              <>
-                <TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void sendPasswordReset()}>
-                  <Text style={styles.primaryButtonText}>{busy ? 'Sending…' : 'Send reset link'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}>
-                  <Text style={styles.secondaryButtonText}>Back to sign in</Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-
+            <TextInput value={email} onChangeText={setEmail} placeholder="Email" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" style={styles.input} />
+            {authMode !== 'forgot' ? <TextInput value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry textContentType={authMode === 'signup' ? 'newPassword' : 'password'} style={styles.input} /> : null}
+            {authMode === 'signin' ? <><TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signin')}><Text style={styles.primaryButtonText}>{busy ? 'Signing in…' : 'Sign in'}</Text></TouchableOpacity><TouchableOpacity disabled={busy} onPress={() => switchAuthMode('forgot')}><Text style={styles.linkCentered}>Forgot password?</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signup')}><Text style={styles.secondaryButtonText}>Create account</Text></TouchableOpacity></> : null}
+            {authMode === 'signup' ? <><TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void authenticate('signup')}><Text style={styles.primaryButtonText}>{busy ? 'Creating account…' : 'Create account'}</Text></TouchableOpacity><Text style={styles.helper}>You may need to confirm your email before your first sign-in.</Text><TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}><Text style={styles.secondaryButtonText}>Back to sign in</Text></TouchableOpacity></> : null}
+            {authMode === 'forgot' ? <><TouchableOpacity style={styles.primaryButton} disabled={busy} onPress={() => void sendPasswordReset()}><Text style={styles.primaryButtonText}>{busy ? 'Sending…' : 'Send reset link'}</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={() => switchAuthMode('signin')}><Text style={styles.secondaryButtonText}>Back to sign in</Text></TouchableOpacity></> : null}
             {message ? <Text style={styles.helper}>{message}</Text> : null}
           </View>
         </View>
@@ -284,87 +286,19 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.rowBetween}>
-          <View style={styles.flex}>
-            <Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text>
-            <Text style={styles.title}>My devices</Text>
-          </View>
-          <TouchableOpacity onPress={() => void signOut()}>
-            <Text style={styles.link}>Sign out</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.metric}>{items.length}</Text>
-          <Text style={styles.metricLabel}>private device{items.length === 1 ? '' : 's'}</Text>
-          <Text style={styles.helper}>Only your authenticated account can read these inventory rows.</Text>
-        </View>
-
+        <View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>My devices</Text></View><TouchableOpacity onPress={() => void signOut()}><Text style={styles.link}>Sign out</Text></TouchableOpacity></View>
+        <View style={styles.card}><Text style={styles.metric}>{items.length}</Text><Text style={styles.metricLabel}>private device{items.length === 1 ? '' : 's'}</Text><Text style={styles.helper}>Only your authenticated account can read these inventory rows.</Text></View>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Add a device privately</Text>
-          {catalog.length === 0 ? (
-            <Text style={styles.helper}>No catalog variants are available yet.</Text>
-          ) : (
-            catalog.slice(0, 8).map((variant) => {
-              const selected = variant.id === selectedVariantId;
-              return (
-                <TouchableOpacity
-                  key={variant.id}
-                  style={[styles.variantButton, selected ? styles.variantButtonSelected : null]}
-                  onPress={() => setSelectedVariantId(variant.id)}
-                >
-                  <Text style={styles.variantText}>{variantTitle(variant)}</Text>
-                </TouchableOpacity>
-              );
-            })
-          )}
-          <TouchableOpacity
-            style={[styles.primaryButton, !selectedVariant ? styles.disabled : null]}
-            disabled={!selectedVariant || busy}
-            onPress={() => void createPrivateDevice()}
-          >
-            <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Add privately'}</Text>
-          </TouchableOpacity>
+          {catalog.length === 0 ? <Text style={styles.helper}>No catalog variants are available yet.</Text> : catalog.slice(0, 8).map((variant) => { const selected = variant.id === selectedVariantId; return <TouchableOpacity key={variant.id} style={[styles.variantButton, selected ? styles.variantButtonSelected : null]} onPress={() => setSelectedVariantId(variant.id)}><Text style={styles.variantText}>{variantTitle(variant)}</Text></TouchableOpacity>; })}
+          <TouchableOpacity style={[styles.primaryButton, !selectedVariant ? styles.disabled : null]} disabled={!selectedVariant || busy} onPress={() => void createPrivateDevice()}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Add privately'}</Text></TouchableOpacity>
           <Text style={styles.helper}>Creating an item never creates a public marketplace listing.</Text>
         </View>
-
         {message ? <Text style={styles.notice}>{message}</Text> : null}
-
-        <View style={styles.rowBetween}>
-          <Text style={styles.sectionTitle}>Inventory</Text>
-          <TouchableOpacity disabled={busy} onPress={() => void refreshData()}>
-            <Text style={styles.link}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
-
-        {items.length === 0 && !busy ? (
-          <View style={styles.card}>
-            <Text style={styles.helper}>No devices yet. Add the first one above.</Text>
-          </View>
-        ) : null}
-
-        {items.map((item) => {
-          const snapshot = item.condition_snapshots[0];
-          return (
-            <View key={item.id} style={styles.itemCard}>
-              <Text style={styles.itemTitle}>{itemTitle(item)}</Text>
-              <Text style={styles.muted}>Condition: {snapshot?.housing_state ?? 'not captured'}</Text>
-              {snapshot?.battery_health != null ? (
-                <Text style={styles.muted}>Battery health: {snapshot.battery_health}%</Text>
-              ) : null}
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>PRIVATE · eligible for demand matching</Text>
-              </View>
-            </View>
-          );
-        })}
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Alpha rule</Text>
-          <Text style={styles.helper}>
-            No public inventory browsing and no automatic sale. A future verified buyer match may only open a private owner decision flow.
-          </Text>
-        </View>
+        <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Inventory</Text><TouchableOpacity disabled={busy} onPress={() => void refreshData()}><Text style={styles.link}>Refresh</Text></TouchableOpacity></View>
+        {items.length === 0 && !busy ? <View style={styles.card}><Text style={styles.helper}>No devices yet. Add the first one above.</Text></View> : null}
+        {items.map((item) => { const snapshot = item.condition_snapshots[0]; return <View key={item.id} style={styles.itemCard}><Text style={styles.itemTitle}>{itemTitle(item)}</Text><Text style={styles.muted}>Condition: {snapshot?.housing_state ?? 'not captured'}</Text>{snapshot?.battery_health != null ? <Text style={styles.muted}>Battery health: {snapshot.battery_health}%</Text> : null}<View style={styles.badge}><Text style={styles.badgeText}>PRIVATE · eligible for demand matching</Text></View></View>; })}
+        <View style={styles.card}><Text style={styles.sectionTitle}>Alpha rule</Text><Text style={styles.helper}>No public inventory browsing and no automatic sale. A future verified buyer match may only open a private owner decision flow.</Text></View>
       </ScrollView>
     </SafeAreaView>
   );
