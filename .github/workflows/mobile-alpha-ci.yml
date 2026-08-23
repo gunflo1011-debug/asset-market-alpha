@@ -45,3 +45,31 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: npx expo export --platform android --output-dir dist-ci
+
+  hosted-alpha-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_dTP4W0G3LHUhIN88wOk2PQ_w_GBXku3
+      ALPHA_TEST_EMAIL: ${{ secrets.ALPHA_TEST_EMAIL }}
+      ALPHA_TEST_PASSWORD: ${{ secrets.ALPHA_TEST_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Require hosted closed-alpha credentials
+        run: |
+          test -n "$ALPHA_TEST_EMAIL" || { echo "Missing repository secret ALPHA_TEST_EMAIL"; exit 1; }
+          test -n "$ALPHA_TEST_PASSWORD" || { echo "Missing repository secret ALPHA_TEST_PASSWORD"; exit 1; }
+      - name: Run authenticated hosted happy-path and RLS smoke
+        run: npm run smoke:hosted-alpha
+
