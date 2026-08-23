@@ -13,6 +13,10 @@ export type CatalogVariant = {
 
 export type PrivateInventoryItem = {
   id: string;
+  custom_name: string | null;
+  category: string | null;
+  location_label: string | null;
+  notes: string | null;
   color: string | null;
   created_at: string;
   product_variants: {
@@ -48,6 +52,13 @@ export type AddPrivateDeviceInput = {
   otherDefect?: boolean;
 };
 
+export type AddPrivateThingInput = {
+  name: string;
+  category?: string;
+  location?: string;
+  notes?: string;
+};
+
 function client() {
   if (!supabase) {
     throw new Error('Supabase is not configured for this build.');
@@ -70,6 +81,10 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
     .from('items')
     .select(`
       id,
+      custom_name,
+      category,
+      location_label,
+      notes,
       color,
       created_at,
       product_variants(
@@ -95,6 +110,24 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
 
   void trackAlphaEvent('INVENTORY_VIEWED');
   return (data ?? []) as unknown as PrivateInventoryItem[];
+}
+
+export async function addPrivateThing(input: AddPrivateThingInput): Promise<string> {
+  const name = input.name.trim();
+  if (!name) throw new Error('Give this Thing a name.');
+
+  const { data, error } = await client().rpc('add_private_thing', {
+    p_name: name,
+    p_category: input.category?.trim() || null,
+    p_location: input.location?.trim() || null,
+    p_notes: input.notes?.trim() || null,
+  });
+
+  if (error) throw error;
+  if (typeof data !== 'string') throw new Error('Thing command returned no item id.');
+
+  void trackAlphaEvent('THING_ADDED', data);
+  return data;
 }
 
 export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<string> {
