@@ -145,7 +145,6 @@ export async function updateRecoveredPassword(password: string): Promise<void> {
   assertStrongEnoughPassword(password);
   const { error } = await client().auth.updateUser({ password });
   if (error) throw error;
-  void trackAlphaEvent('PASSWORD_RECOVERY_SUCCEEDED');
   const { error: signOutError } = await client().auth.signOut();
   if (signOutError) throw signOutError;
 }
