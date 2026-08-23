@@ -25,6 +25,7 @@ import {
 } from './src/data/auth';
 import {
   addPrivateDevice,
+  addPrivateThing,
   CatalogVariant,
   loadCatalog,
   loadPrivateInventory,
@@ -41,9 +42,10 @@ function variantTitle(variant: CatalogVariant): string {
 }
 
 function itemTitle(item: PrivateInventoryItem): string {
+  if (item.custom_name?.trim()) return item.custom_name.trim();
   const variant = item.product_variants;
   const product = variant?.products;
-  if (!variant || !product) return 'Private device';
+  if (!variant || !product) return 'Private Thing';
   return `${product.brand} ${product.family}${variant.storage_gb ? ` · ${variant.storage_gb} GB` : ''}`;
 }
 
@@ -68,6 +70,9 @@ export default function App() {
   const [items, setItems] = useState<PrivateInventoryItem[]>([]);
   const [catalog, setCatalog] = useState<CatalogVariant[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [thingName, setThingName] = useState('');
+  const [thingCategory, setThingCategory] = useState('');
+  const [thingLocation, setThingLocation] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showAccount, setShowAccount] = useState(false);
@@ -273,6 +278,28 @@ export default function App() {
     setConfirmPassword('');
   }
 
+  async function createPrivateThing() {
+    const name = thingName.trim();
+    if (!name) {
+      setMessage('Give your Thing a name first.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      await addPrivateThing({ name, category: thingCategory, location: thingLocation });
+      setThingName('');
+      setThingCategory('');
+      setThingLocation('');
+      await refreshData();
+      setMessage('Thing saved privately. Only you can see it.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save Thing.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createPrivateDevice() {
     if (!selectedVariantId) return;
     try {
@@ -293,7 +320,7 @@ export default function App() {
   }
 
   if (!hasSupabaseConfig) {
-    return <SafeAreaView style={styles.safe}><View style={styles.container}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>Backend connection required.</Text><Text style={styles.subtitle}>This build intentionally does not fall back to fake inventory. Configure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to test the real private-data flow.</Text></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safe}><View style={styles.container}><Text style={styles.eyebrow}>THINGS · PRIVATE INVENTORY</Text><Text style={styles.title}>Backend connection required.</Text><Text style={styles.subtitle}>This build intentionally does not fall back to fake inventory. Configure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to test the real private-data flow.</Text></View></SafeAreaView>;
   }
 
   if (authMode === 'recovery') {
@@ -374,20 +401,39 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.eyebrow}>PRIVATE INVENTORY ALPHA</Text><Text style={styles.title}>My devices</Text></View><TouchableOpacity onPress={() => { setAccountEmail(session.user.email ?? ''); setMessage(null); setShowAccount(true); }}><Text style={styles.link}>Account</Text></TouchableOpacity></View>
-        <View style={styles.card}><Text style={styles.metric}>{items.length}</Text><Text style={styles.metricLabel}>private device{items.length === 1 ? '' : 's'}</Text><Text style={styles.helper}>Only your authenticated account can read these inventory rows.</Text></View>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.eyebrow}>THINGS · PRIVATE BY DEFAULT</Text><Text style={styles.title}>My things</Text></View><TouchableOpacity onPress={() => { setAccountEmail(session.user.email ?? ''); setMessage(null); setShowAccount(true); }}><Text style={styles.link}>Account</Text></TouchableOpacity></View>
+        <View style={styles.card}><Text style={styles.metric}>{items.length}</Text><Text style={styles.metricLabel}>Thing{items.length === 1 ? '' : 's'} saved privately</Text><Text style={styles.helper}>Start with what you own. Only your authenticated account can read these inventory rows.</Text></View>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Add a device privately</Text>
+          <Text style={styles.sectionTitle}>Quick add anything</Text>
+          <Text style={styles.helper}>A drill, bicycle, record player, document box, camera — if you own it, it can be a Thing.</Text>
+          <TextInput value={thingName} onChangeText={setThingName} placeholder="What is it? e.g. Cordless drill" maxLength={120} style={styles.input} />
+          <TextInput value={thingCategory} onChangeText={setThingCategory} placeholder="Category (optional)" maxLength={80} style={styles.input} />
+          <TextInput value={thingLocation} onChangeText={setThingLocation} placeholder="Where is it? (optional)" maxLength={120} style={styles.input} />
+          <TouchableOpacity style={[styles.primaryButton, (!thingName.trim() || busy) ? styles.disabled : null]} disabled={!thingName.trim() || busy} onPress={() => void createPrivateThing()}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Save Thing privately'}</Text></TouchableOpacity>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Add a known device</Text>
+          <Text style={styles.helper}>Catalog-backed devices keep structured details for future valuation and private demand matching.</Text>
           {catalog.length === 0 ? <Text style={styles.helper}>No catalog variants are available yet.</Text> : catalog.slice(0, 8).map((variant) => { const selected = variant.id === selectedVariantId; return <TouchableOpacity key={variant.id} style={[styles.variantButton, selected ? styles.variantButtonSelected : null]} onPress={() => setSelectedVariantId(variant.id)}><Text style={styles.variantText}>{variantTitle(variant)}</Text></TouchableOpacity>; })}
-          <TouchableOpacity style={[styles.primaryButton, !selectedVariant ? styles.disabled : null]} disabled={!selectedVariant || busy} onPress={() => void createPrivateDevice()}><Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'Add privately'}</Text></TouchableOpacity>
-          <Text style={styles.helper}>Creating an item never creates a public marketplace listing.</Text>
+          <TouchableOpacity style={[styles.secondaryButton, !selectedVariant || busy ? styles.disabled : null]} disabled={!selectedVariant || busy} onPress={() => void createPrivateDevice()}><Text style={styles.secondaryButtonText}>{busy ? 'Saving…' : 'Add catalog device'}</Text></TouchableOpacity>
         </View>
         {message ? <Text style={styles.notice}>{message}</Text> : null}
         <View style={styles.rowBetween}><Text style={styles.sectionTitle}>Inventory</Text><TouchableOpacity disabled={busy} onPress={() => void refreshData()}><Text style={styles.link}>Refresh</Text></TouchableOpacity></View>
-        {items.length === 0 && !busy ? <View style={styles.card}><Text style={styles.helper}>No devices yet. Add the first one above.</Text></View> : null}
-        {items.map((item) => { const snapshot = item.condition_snapshots[0]; return <View key={item.id} style={styles.itemCard}><Text style={styles.itemTitle}>{itemTitle(item)}</Text><Text style={styles.muted}>Condition: {snapshot?.housing_state ?? 'not captured'}</Text>{snapshot?.battery_health != null ? <Text style={styles.muted}>Battery health: {snapshot.battery_health}%</Text> : null}<View style={styles.badge}><Text style={styles.badgeText}>PRIVATE · eligible for demand matching</Text></View></View>; })}
-        <View style={styles.card}><Text style={styles.sectionTitle}>Alpha rule</Text><Text style={styles.helper}>No public inventory browsing and no automatic sale. A future verified buyer match may only open a private owner decision flow.</Text></View>
+        {items.length === 0 && !busy ? <View style={styles.card}><Text style={styles.helper}>Nothing here yet. Add the first Thing above — it takes only a name.</Text></View> : null}
+        {items.map((item) => {
+          const snapshot = item.condition_snapshots[0];
+          const isCatalogDevice = Boolean(item.product_variants);
+          return <View key={item.id} style={styles.itemCard}>
+            <Text style={styles.itemTitle}>{itemTitle(item)}</Text>
+            {item.category ? <Text style={styles.muted}>{item.category}</Text> : null}
+            {item.location_label ? <Text style={styles.muted}>Stored at: {item.location_label}</Text> : null}
+            {isCatalogDevice ? <Text style={styles.muted}>Condition: {snapshot?.housing_state ?? 'not captured'}</Text> : null}
+            {snapshot?.battery_health != null ? <Text style={styles.muted}>Battery health: {snapshot.battery_health}%</Text> : null}
+            <View style={styles.badge}><Text style={styles.badgeText}>{isCatalogDevice ? 'PRIVATE · structured device' : 'PRIVATE THING'}</Text></View>
+          </View>;
+        })}
+        <View style={styles.card}><Text style={styles.sectionTitle}>Your inventory, not a public profile</Text><Text style={styles.helper}>Saving a Thing never lists it for sale. Marketplace or sharing features must always be an explicit choice later.</Text></View>
       </ScrollView>
     </SafeAreaView>
   );
