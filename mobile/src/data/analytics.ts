@@ -5,7 +5,8 @@ export type AlphaEventName =
   | 'SIGN_IN_SUCCEEDED'
   | 'SIGN_UP_REQUESTED'
   | 'INVENTORY_VIEWED'
-  | 'DEVICE_ADDED';
+  | 'DEVICE_ADDED'
+  | 'THING_ADDED';
 
 /**
  * Best-effort, privacy-minimal closed-alpha telemetry.
