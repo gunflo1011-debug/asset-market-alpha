@@ -36,10 +36,16 @@ expectError({ lawfulOwnershipConfirmed: false }, 'lawfulOwnershipConfirmed');
 expectError({ priceFloorCents: 0 }, 'priceFloorCents');
 expectError({ localArea: '' }, 'localArea');
 expectError({ localArea: 'Hauptstraße 12' }, 'localArea');
+expectError({ localArea: 'Hauptstrasse 12' }, 'localArea');
+expectError({ localArea: 'Main Street 12' }, 'localArea');
+expectError({ localArea: '12 Main Street' }, 'localArea');
 expectError({ defects: 'IMEI 490154203237518' }, 'defects');
 expectError({ model: 'serial ABC123' }, 'defects');
 
 const unknownBattery = validateConciergeIntake(validIntake({ batteryHealth: null }));
 assert(conciergeIntakeReady(unknownBattery), 'Battery health must be optional');
+
+const coarsePostalArea = validateConciergeIntake(validIntake({ localArea: '76133 Karlsruhe' }));
+assert(conciergeIntakeReady(coarsePostalArea), `Postal-code + city must remain allowed, got ${JSON.stringify(coarsePostalArea)}`);
 
 console.log('concierge intake unit tests passed');
