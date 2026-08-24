@@ -129,3 +129,26 @@ The advisor also reports leaked-password protection disabled. Reference: [Supaba
 This audit does **not** make PR #3 merge-ready. The live authenticated hosted smoke still needs a dedicated non-privileged test identity and secrets, and the repository migration drift plus authenticated SECURITY DEFINER warnings should be resolved or explicitly accepted first.
 
 **User action now:** none. The next work belongs to the repository/PR owner; no personal account or password should be placed in chat.
+
+
+## Remediation executed — 2026-08-24
+
+**Status:** `P0_CLOSED__RPC_BOUNDARIES_HARDENED`
+
+Repository delivery:
+
+- `b47500caed180ed11b0fde113de2c6491a06a99d` adds the idempotent successor migration `20260824115500_rpc_security_reproducibility.sql`.
+- `c48f9cbd695b4ee433e8503cc38be4a9e42ad279` adds a 10-assertion pgTAP contract covering SECURITY INVOKER/DEFINER modes, empty search paths, anonymous denial, authenticated allowlisting, and conditional hardening of the generic Things command.
+
+Hosted migration `rpc_security_reproducibility` applied successfully without touching application data. Exact live readback now proves:
+
+| Function | Mode | search_path | anon EXECUTE | authenticated EXECUTE |
+|---|---|---|---:|---:|
+| `alpha_backend_info()` | SECURITY INVOKER | empty | false | true |
+| `add_private_device(...)` | SECURITY DEFINER | empty | false | true |
+| `add_private_thing(text,text)` | SECURITY DEFINER | empty | false | true |
+| `track_alpha_event(text,uuid)` | SECURITY DEFINER | empty | false | true |
+
+The live migration ledger records `rpc_security_reproducibility`. Supabase Security Advisor still reports the three expected lint-0029 warnings for intentional authenticated command RPCs, plus leaked-password protection disabled. It reports no ERROR. These three warnings are accepted architecture signals pending authenticated owner/cross-owner behavior evidence; the dangerous mutable search path has been removed.
+
+The repository backend workflow is push-triggered and will rebuild migrations, run pgTAP, lint, and the real concurrency gate. Its check-run identifier was not exposed through the available commit-status interface during this run, so no green GitHub Actions claim is made here. The hosted schema assertions and migration application are green; PR #3 remains unmerged.
