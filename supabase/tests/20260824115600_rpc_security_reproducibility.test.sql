@@ -1,5 +1,5 @@
 begin;
-select plan(10);
+select plan(16);
 
 select is(
   (select p.prosecdef
@@ -35,14 +35,65 @@ select is(
    from pg_catalog.pg_proc p
    where p.oid = 'public.add_private_device(uuid,text,text,text,boolean,boolean,smallint,boolean,boolean)'::regprocedure),
   true,
-  'inventory command remains intentionally SECURITY DEFINER'
+  'device inventory command remains intentionally SECURITY DEFINER'
 );
 
 select ok(
   (select p.proconfig @> array['search_path=""']::text[]
    from pg_catalog.pg_proc p
    where p.oid = 'public.add_private_device(uuid,text,text,text,boolean,boolean,smallint,boolean,boolean)'::regprocedure),
-  'inventory command has an empty search_path'
+  'device inventory command has an empty search_path'
+);
+
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.add_private_device(uuid,text,text,text,boolean,boolean,smallint,boolean,boolean)',
+    'EXECUTE'
+  ),
+  'anon cannot execute the device inventory command'
+);
+
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.add_private_device(uuid,text,text,text,boolean,boolean,smallint,boolean,boolean)',
+    'EXECUTE'
+  ),
+  'authenticated may execute the guarded device inventory command'
+);
+
+select is(
+  (select p.prosecdef
+   from pg_catalog.pg_proc p
+   where p.oid = 'public.add_private_thing(text,text)'::regprocedure),
+  true,
+  'generic Things command is reproducibly present and SECURITY DEFINER'
+);
+
+select ok(
+  (select p.proconfig @> array['search_path=""']::text[]
+   from pg_catalog.pg_proc p
+   where p.oid = 'public.add_private_thing(text,text)'::regprocedure),
+  'generic Things command has an empty search_path'
+);
+
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.add_private_thing(text,text)',
+    'EXECUTE'
+  ),
+  'anon cannot execute the generic Things command'
+);
+
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.add_private_thing(text,text)',
+    'EXECUTE'
+  ),
+  'authenticated may execute the guarded generic Things command'
 );
 
 select is(
@@ -61,19 +112,21 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.add_private_device(uuid,text,text,text,boolean,boolean,smallint,boolean,boolean)', 'EXECUTE')
-  and not has_function_privilege('anon', 'public.track_alpha_event(text,uuid)', 'EXECUTE'),
-  'anon cannot execute either privileged write command'
+  not has_function_privilege(
+    'anon',
+    'public.track_alpha_event(text,uuid)',
+    'EXECUTE'
+  ),
+  'anon cannot execute the telemetry command'
 );
 
 select ok(
-  pg_catalog.to_regprocedure('public.add_private_thing(text,text)') is null
-  or (
-    select p.proconfig @> array['search_path=""']::text[]
-    from pg_catalog.pg_proc p
-    where p.oid = pg_catalog.to_regprocedure('public.add_private_thing(text,text)')
+  has_function_privilege(
+    'authenticated',
+    'public.track_alpha_event(text,uuid)',
+    'EXECUTE'
   ),
-  'generic Things command is hardened when present'
+  'authenticated may execute the guarded telemetry command'
 );
 
 select * from finish();
