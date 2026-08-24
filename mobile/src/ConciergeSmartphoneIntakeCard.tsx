@@ -6,7 +6,11 @@ import { ConciergeCondition, conciergeIntakeReady, validateConciergeIntake } fro
 
 const conditions: ConciergeCondition[] = ['EXCELLENT', 'GOOD', 'FAIR', 'DAMAGED'];
 
-export function ConciergeSmartphoneIntakeCard() {
+type Props = {
+  onDraftStateChange?: (hasDraft: boolean) => void;
+};
+
+export function ConciergeSmartphoneIntakeCard({ onDraftStateChange }: Props) {
   const [model, setModel] = useState('');
   const [storage, setStorage] = useState('');
   const [condition, setCondition] = useState<ConciergeCondition>('GOOD');
@@ -21,6 +25,7 @@ export function ConciergeSmartphoneIntakeCard() {
 
   useEffect(() => {
     void loadConciergeDraft(AsyncStorage).then((draft) => {
+      onDraftStateChange?.(Boolean(draft));
       if (!draft) return;
       const value = draft.intake;
       setModel(value.model);
@@ -34,7 +39,7 @@ export function ConciergeSmartphoneIntakeCard() {
       setLocalArea(value.localArea);
       setDraftStatus('Draft restored from this device. Nothing was published or shared.');
     });
-  }, []);
+  }, [onDraftStateChange]);
 
   const intake = useMemo(() => ({
     model,
@@ -52,11 +57,13 @@ export function ConciergeSmartphoneIntakeCard() {
 
   const saveDraft = async () => {
     await saveConciergeDraft(AsyncStorage, intake);
+    onDraftStateChange?.(true);
     setDraftStatus('Draft saved only on this device. Nothing was published or shared.');
   };
 
   const discardDraft = async () => {
     await discardConciergeDraft(AsyncStorage);
+    onDraftStateChange?.(false);
     setModel(''); setStorage(''); setCondition('GOOD'); setDefects(''); setBattery('');
     setActivationLockRemoved(false); setLawfulOwnershipConfirmed(false); setPriceFloor(''); setLocalArea(''); setSubmitted(false);
     setDraftStatus('Draft discarded. Nothing was published or shared.');
