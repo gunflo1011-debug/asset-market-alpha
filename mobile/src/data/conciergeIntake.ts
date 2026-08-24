@@ -15,7 +15,7 @@ export type ConciergeSmartphoneIntake = {
 export type ConciergeIntakeErrors = Partial<Record<keyof ConciergeSmartphoneIntake, string>>;
 
 const sensitiveIdentifierPattern = /\b(?:\d[ -]?){14,16}\d\b|\b(?:imei|serial|s\/n)\b/i;
-const fullAddressPattern = /\b(?:straße|strasse|str\.|street|road|rd\.|avenue|ave\.|weg|platz)\s*\d+|\b\d+\s+(?:street|road|avenue)\b/i;
+const fullAddressPattern = /(?:\b[\p{L}.'-]*(?:straße|strasse|str\.|street|road|rd\.|avenue|ave\.|weg|platz)\s+\d+\b)|(?:\b\d+\s+[\p{L}.'-]*(?:street|road|avenue)\b)/iu;
 
 export function validateConciergeIntake(input: ConciergeSmartphoneIntake): ConciergeIntakeErrors {
   const errors: ConciergeIntakeErrors = {};
