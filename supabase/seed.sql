@@ -14,8 +14,15 @@ insert into public.product_variants(id,product_id,storage_gb,region)
 values('00000000-0000-0000-0000-000000000302','00000000-0000-0000-0000-000000000301',256,'EU')
 on conflict(id) do nothing;
 
-insert into public.items(id,owner_id,variant_id,color)
-values('00000000-0000-0000-0000-000000000401','00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000302','Natural Titanium')
+insert into public.items(id,owner_id,variant_id,color,display_name,category_id)
+values(
+  '00000000-0000-0000-0000-000000000401',
+  '00000000-0000-0000-0000-000000000101',
+  '00000000-0000-0000-0000-000000000302',
+  'Natural Titanium',
+  'Apple iPhone 15 Pro',
+  (select id from public.thing_categories where key='electronics.phone')
+)
 on conflict(id) do nothing;
 
 insert into public.condition_snapshots(id,item_id,purpose,display_state,housing_state,cameras_working,biometrics_working,battery_health,network_locked,other_defect)
