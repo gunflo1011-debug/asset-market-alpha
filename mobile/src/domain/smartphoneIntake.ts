@@ -25,15 +25,24 @@ export type Validation = { ok: true; value: SmartphoneIntake } | { ok: false; is
 export type CatalogRow = Readonly<{ variantId: string; canonicalModel: string; storageGb: number; market: string }>;
 export type ResolvedVariant = Readonly<SmartphoneIntake & { variantId: string; canonicalModel: string }>;
 export type ResolveResult = { ok: true; value: ResolvedVariant } | { ok: false; reason: 'UNKNOWN_CATALOG_VARIANT' | 'AMBIGUOUS_CATALOG_VARIANT' };
-export type BuyerIntent = Readonly<{ variantId: string; maxPriceCents: number; startsOn: string; expiresOn: string; minBatteryPercent?: number; requireIntactDisplay?: boolean; requireBiometrics?: boolean }>;
-export type OperatorGate = Readonly<{
-  possessionStatus: 'VERIFIED' | 'UNVERIFIED';
-  marketState: 'MARKET_ELIGIBLE' | 'PRIVATE';
-  provenance: 'TRUSTED_SERVER';
+export type BuyerIntent = Readonly<{
+  variantId: string;
+  maxPriceCents: number;
+  startsOn: string;
+  expiresOn: string;
+  minBatteryPercent?: number;
+  requireIntactDisplay?: boolean;
+  requireBiometrics?: boolean;
+}>;
+export type CandidateEvaluation = Readonly<{
+  matchable: boolean;
+  eligible: false;
+  eligibility: 'REQUIRES_SERVER_DECISION';
+  reasons: ReadonlyArray<string>;
 }>;
 
 const ALLOWED = new Set(['phoneModel', 'storageGb', 'condition', 'defects', 'defectNote', 'batteryHealthPercent', 'activationLockReady', 'ownershipConfirmed', 'minimumPriceCents', 'region', 'availableFromDate', 'availableUntilDate', 'profileDisclosureConsent', 'networkLockStatus']);
-const UNSAFE = /(?:imei|serial|credential|password|passcode|full.?address|street|house.?number|latitude|longitude|gps|variant.?id|possession.?status|market.?state|verified|market.?eligible|provenance)/i;
+const UNSAFE = /(?:imei|serial|credential|password|passcode|full.?address|street|house.?number|latitude|longitude|gps|variant.?id|possession.?status|market.?state|verified|market.?eligible|provenance|eligib(?:le|ility))/i;
 const oneOf = (value: unknown, values: readonly unknown[]) => values.includes(value);
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const normalizeModel = (value: string) => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US');
@@ -130,24 +139,41 @@ export function deriveMatchFacts(value: ResolvedVariant) {
   });
 }
 
-export function evaluateCandidate(value: ResolvedVariant, buyer: BuyerIntent, gate: OperatorGate | Record<string, unknown>, asOfDate: string) {
+export function evaluateCandidate(value: ResolvedVariant, buyer: BuyerIntent, asOfDate: string): CandidateEvaluation {
   const reasons: string[] = [];
   const facts = deriveMatchFacts(value);
+
+  if (!isDateOnly(asOfDate) || !isDateOnly(buyer.startsOn) || !isDateOnly(buyer.expiresOn) || buyer.expiresOn < buyer.startsOn) {
+    reasons.push('BUYER_INTENT_INVALID_RANGE');
+  }
   if (value.variantId !== buyer.variantId) reasons.push('VARIANT_MISMATCH');
-  if (value.minimumPriceCents > buyer.maxPriceCents) reasons.push('PRICE_FLOOR_ABOVE_MAXIMUM');
+  if (!Number.isInteger(buyer.maxPriceCents) || buyer.maxPriceCents < 100) reasons.push('BUYER_MAX_PRICE_INVALID');
+  else if (value.minimumPriceCents > buyer.maxPriceCents) reasons.push('PRICE_FLOOR_ABOVE_MAXIMUM');
   if (!value.profileDisclosureConsent) reasons.push('PROFILE_DISCLOSURE_NOT_GRANTED');
-  if (buyer.expiresOn < asOfDate) reasons.push('BUYER_INTENT_EXPIRED');
-  const buyerStart = buyer.startsOn > asOfDate ? buyer.startsOn : asOfDate;
-  if (!(value.availableFromDate <= buyer.expiresOn && buyerStart <= value.availableUntilDate)) reasons.push('NO_AVAILABILITY_OVERLAP');
+
+  if (!reasons.includes('BUYER_INTENT_INVALID_RANGE')) {
+    if (buyer.expiresOn < asOfDate) reasons.push('BUYER_INTENT_EXPIRED');
+    const buyerStart = buyer.startsOn > asOfDate ? buyer.startsOn : asOfDate;
+    if (!(value.availableFromDate <= buyer.expiresOn && buyerStart <= value.availableUntilDate)) reasons.push('NO_AVAILABILITY_OVERLAP');
+  }
+
   if (buyer.minBatteryPercent !== undefined) {
-    if (facts.batteryHealthPercent === null) reasons.push('BATTERY_UNKNOWN');
+    if (!Number.isInteger(buyer.minBatteryPercent) || buyer.minBatteryPercent < 1 || buyer.minBatteryPercent > 100) reasons.push('BUYER_BATTERY_MINIMUM_INVALID');
+    else if (facts.batteryHealthPercent === null) reasons.push('BATTERY_UNKNOWN');
     else if (facts.batteryHealthPercent < buyer.minBatteryPercent) reasons.push('BATTERY_BELOW_MINIMUM');
   }
   if (buyer.requireIntactDisplay && facts.displayState !== 'INTACT') reasons.push('DISPLAY_NOT_INTACT');
   if (buyer.requireBiometrics && !facts.biometricsWorking) reasons.push('BIOMETRICS_NOT_WORKING');
   if (value.networkLockStatus === 'LOCKED') reasons.push('NETWORK_LOCKED');
   if (value.networkLockStatus === 'UNKNOWN') reasons.push('NETWORK_LOCK_UNKNOWN');
-  const trustedGate = gate.possessionStatus === 'VERIFIED' && gate.marketState === 'MARKET_ELIGIBLE' && gate.provenance === 'TRUSTED_SERVER';
-  if (!trustedGate) reasons.push('OPERATOR_GATE_NOT_MET');
-  return Object.freeze({ eligible: reasons.length === 0, reasons: Object.freeze(reasons) });
+
+  // The mobile/client contract deliberately never returns market eligibility.
+  // It can only determine deterministic matchability. Final eligibility must be
+  // decided by a server-side authority after possession/security checks.
+  return Object.freeze({
+    matchable: reasons.length === 0,
+    eligible: false,
+    eligibility: 'REQUIRES_SERVER_DECISION' as const,
+    reasons: Object.freeze(reasons),
+  });
 }
