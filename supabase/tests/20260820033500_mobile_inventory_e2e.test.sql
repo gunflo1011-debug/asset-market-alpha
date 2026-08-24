@@ -13,7 +13,7 @@ select lives_ok(
     'LIGHT_WEAR',
     true,
     true,
-    91,
+    91::smallint,
     false,
     false
   )$$,
