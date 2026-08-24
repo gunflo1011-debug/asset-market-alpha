@@ -1,9 +1,11 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('..', import.meta.url).pathname;
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md', '.yml', '.yaml', '.env', '.example']);
 const ignored = new Set(['node_modules', 'dist', 'dist-ci', '.expo']);
+const self = fileURLToPath(import.meta.url);
 
 const forbiddenPatterns = [
   { label: 'Supabase service-role variable', pattern: /SUPABASE_SERVICE_ROLE(?:_KEY)?/i },
@@ -21,6 +23,7 @@ async function walk(dir) {
       matches.push(...await walk(path));
       continue;
     }
+    if (path === self) continue;
     const ext = extname(entry);
     if (!allowedExtensions.has(ext) && !entry.startsWith('.env')) continue;
     const text = await readFile(path, 'utf8');
