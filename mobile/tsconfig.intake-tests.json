@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "rootDir": "src/domain",
+    "outDir": ".intake-test-dist",
+    "skipLibCheck": true
+  },
+  "include": ["src/domain/smartphoneIntake.ts"]
+}
