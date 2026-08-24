@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 
 const root = new URL('..', import.meta.url).pathname;
+const scannerPath = new URL(import.meta.url).pathname;
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md', '.yml', '.yaml', '.env', '.example']);
 const ignored = new Set(['node_modules', 'dist', 'dist-ci', '.expo']);
 
@@ -21,13 +22,12 @@ async function walk(dir) {
       matches.push(...await walk(path));
       continue;
     }
+    if (path === scannerPath) continue;
     const ext = extname(entry);
     if (!allowedExtensions.has(ext) && !entry.startsWith('.env')) continue;
     const text = await readFile(path, 'utf8');
     for (const rule of forbiddenPatterns) {
-      if (rule.pattern.test(text)) {
-        matches.push(`${relative(root, path)}: ${rule.label}`);
-      }
+      if (rule.pattern.test(text)) matches.push(`${relative(root, path)}: ${rule.label}`);
     }
   }
   return matches;
@@ -40,5 +40,4 @@ if (matches.length) {
   console.error('Never ship Supabase service-role/secret credentials in an Expo client.');
   process.exit(1);
 }
-
 console.log('Client-secret safety check passed.');
