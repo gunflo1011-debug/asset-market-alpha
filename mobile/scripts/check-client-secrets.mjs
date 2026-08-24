@@ -1,7 +1,9 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('..', import.meta.url).pathname;
+const selfPath = fileURLToPath(import.meta.url);
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md', '.yml', '.yaml', '.env', '.example']);
 const ignored = new Set(['node_modules', 'dist', 'dist-ci', '.expo']);
 
@@ -21,6 +23,9 @@ async function walk(dir) {
       matches.push(...await walk(path));
       continue;
     }
+    // The scanner necessarily contains the forbidden signatures it detects.
+    // Skip only this file so every other client-side source/config stays covered.
+    if (path === selfPath) continue;
     const ext = extname(entry);
     if (!allowedExtensions.has(ext) && !entry.startsWith('.env')) continue;
     const text = await readFile(path, 'utf8');
