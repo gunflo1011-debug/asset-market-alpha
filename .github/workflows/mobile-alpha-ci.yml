@@ -35,6 +35,8 @@ jobs:
         run: npm run check:expo-deps
       - name: Typecheck strict TypeScript
         run: npm run typecheck
+      - name: Test concierge intake contract
+        run: npm run test:concierge-intake
       - name: Validate closed-alpha mobile configuration
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
