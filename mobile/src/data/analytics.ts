@@ -6,13 +6,21 @@ export type AlphaEventName =
   | 'SIGN_UP_REQUESTED'
   | 'PASSWORD_RECOVERY_SUCCEEDED'
   | 'INVENTORY_VIEWED'
-  | 'DEVICE_ADDED';
+  | 'DEVICE_ADDED'
+  | 'ITEM_CAPTURE_STARTED'
+  | 'ITEM_CAPTURE_COMPLETED'
+  | 'VALUE_VIEWED'
+  | 'TOTAL_VALUE_VIEWED'
+  | 'SELL_FLOW_STARTED'
+  | 'SELL_FLOW_COMPLETED';
 
 /**
- * Best-effort, privacy-minimal closed-alpha telemetry.
+ * Best-effort, privacy-minimal product telemetry.
  *
- * Deliberately sends no email, free-text metadata, device fingerprint or
- * advertising identifier. Product flows must never fail because telemetry did.
+ * Event names describe only core-loop progression. Deliberately sends no email,
+ * free text, value/price, location, condition, catalog identity, device
+ * fingerprint or advertising identifier. Optional item ids are owner-bound by
+ * the server RPC. Product flows must never fail because telemetry did.
  */
 export async function trackAlphaEvent(
   eventName: AlphaEventName,
