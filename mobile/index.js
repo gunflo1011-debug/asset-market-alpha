@@ -1,14 +1,17 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { registerRootComponent } from 'expo';
 import App from './App';
 import { ConciergeSmartphoneIntakeCard } from './src/ConciergeSmartphoneIntakeCard';
 import { getSession, onAuthStateChange } from './src/data/auth';
+import { loadConciergeDraft } from './src/data/conciergeDraft';
 import { hasSupabaseConfig } from './src/lib/supabase';
 
 function ThingsRoot() {
   const [authenticated, setAuthenticated] = useState(false);
   const [showConcierge, setShowConcierge] = useState(false);
+  const [hasConciergeDraft, setHasConciergeDraft] = useState(false);
 
   useEffect(() => {
     if (!hasSupabaseConfig) return undefined;
@@ -33,17 +36,25 @@ function ThingsRoot() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authenticated) {
+      setHasConciergeDraft(false);
+      return;
+    }
+    void loadConciergeDraft(AsyncStorage).then((draft) => setHasConciergeDraft(Boolean(draft)));
+  }, [authenticated, showConcierge]);
+
   return (
     <View style={styles.root}>
       <App />
       {authenticated ? (
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Prepare a phone for a local buyer"
+          accessibilityLabel={hasConciergeDraft ? 'Continue saved phone sale draft' : 'Prepare a phone for a local buyer'}
           style={styles.floatingButton}
           onPress={() => setShowConcierge(true)}
         >
-          <Text style={styles.floatingButtonText}>Sell a phone</Text>
+          <Text style={styles.floatingButtonText}>{hasConciergeDraft ? 'Continue draft' : 'Sell a phone'}</Text>
         </TouchableOpacity>
       ) : null}
       <Modal
@@ -55,14 +66,14 @@ function ThingsRoot() {
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleWrap}>
               <Text style={styles.modalEyebrow}>LOCAL CONCIERGE</Text>
-              <Text style={styles.modalTitle}>Prepare your phone</Text>
+              <Text style={styles.modalTitle}>{hasConciergeDraft ? 'Continue your phone draft' : 'Prepare your phone'}</Text>
             </View>
             <TouchableOpacity accessibilityRole="button" onPress={() => setShowConcierge(false)}>
               <Text style={styles.closeText}>Done</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-            <ConciergeSmartphoneIntakeCard />
+            <ConciergeSmartphoneIntakeCard onDraftStateChange={setHasConciergeDraft} />
           </ScrollView>
         </SafeAreaView>
       </Modal>
