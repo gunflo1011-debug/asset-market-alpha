@@ -1,8 +1,9 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { extname, join, relative, dirname } from 'node:path';
+import { extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = dirname(fileURLToPath(import.meta.url));
+const currentFile = fileURLToPath(import.meta.url);
+const root = fileURLToPath(new URL('..', import.meta.url));
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md', '.yml', '.yaml', '.env', '.example']);
 const ignored = new Set(['node_modules', 'dist', 'dist-ci', '.expo']);
 
@@ -22,6 +23,7 @@ async function walk(dir) {
       matches.push(...await walk(path));
       continue;
     }
+    if (path === currentFile) continue;
     const ext = extname(entry);
     if (!allowedExtensions.has(ext) && !entry.startsWith('.env')) continue;
     const text = await readFile(path, 'utf8');
