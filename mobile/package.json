@@ -12,6 +12,7 @@
     "test:inventory-value": "node scripts/check-inventory-value.mjs",
     "test:value-to-sell": "node scripts/check-value-to-sell.mjs",
     "test:sale-start-surface": "node scripts/check-sale-start-surface.mjs",
+    "test:sale-start-app-integration": "node scripts/check-sale-start-app-integration.mjs",
     "test:sold-state": "node scripts/check-sold-state.mjs",
     "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
     "test:owned-inventory-lifecycle": "node scripts/check-owned-inventory-lifecycle.mjs",
