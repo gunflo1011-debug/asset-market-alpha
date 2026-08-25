@@ -1,91 +1,109 @@
-# CEO Worker 3 — Device-ready Android acceptance packet
+# CEO Worker 3 — Owner-ready Android acceptance packet
 
-Status: **BLOCKED ON CURRENT APK ARTIFACT + LIVE SECOND ACCOUNT EVIDENCE**
+Status: **BLOCKED ON DETERMINISTIC APK INPUT + LIVE TWO-USER EVIDENCE**
 
-This packet is the owner-test contract for the current Things alpha. It must not be marked PASS until the APK is built from the current tested commit and the two-account hosted isolation proof is available.
+Packet target commit: `9626f6960e18d4072e0c12ac42bd427290f691e9` (current evidenced `main` when this packet was refreshed).
 
-## Artifact gate
+This is the owner-test contract for the current Things alpha. Do not mark it PASS until an APK is built from the intended current tested commit and the live two-account matrix passes through normal app/Auth clients. Static RLS evidence is not live two-user evidence.
 
-Before installation, record all four values:
+## Pre-build gate — do this before spending a build attempt
 
-- Git commit SHA
-- GitHub Actions run ID
-- artifact name (`things-alpha-android-standalone` in the current workflow)
-- APK filename and non-zero size
+1. `mobile/package-lock.json` must exist in the repository at the intended build commit.
+2. From `mobile/`, `npm ci --no-audit --no-fund` must be satisfiable from `package.json` + the committed lockfile.
+3. Run `npm run check:client-secrets` and `npm run typecheck`.
+4. Run `node scripts/check-two-user-rls-acceptance.mjs`; expected output: `Two-user Auth/RLS acceptance static contract passed.`
+5. Do not treat these static checks as proof of device behavior.
 
-Reject the artifact if its run is not successful, the commit is not the intended current product commit, or the APK integrity/existence check did not run successfully.
+At the current target commit the lockfile is not yet evidenced as committed, so the packet remains BLOCKED before APK acceptance. The approved dependency-input path is to generate/review the lockfile first; do not substitute a hand-written or partial lockfile.
 
-## Install
+## APK artifact gate
 
-1. Download the APK only from the successful GitHub Actions run for the recorded commit.
-2. On the Android test device, allow installation from the browser/files app only for this install if Android requests it.
-3. Install the APK.
-4. Launch Things from a fresh install. Do not reuse an older installed build when recording acceptance evidence.
+Before installation, record all values below without credentials or tokens:
+
+- intended/tested Git commit SHA
+- successful Android workflow run ID
+- artifact name (`things-alpha-android-standalone` in the current workflow contract)
+- APK filename
+- APK non-zero byte size
+
+Reject the artifact if the workflow did not succeed, its SHA differs from the intended tested commit, the APK does not exist/is zero bytes, or the artifact came from an older run.
+
+## Install path
+
+1. Download the APK only from the successful Android workflow run recorded above.
+2. Transfer/open the APK on the Android test device.
+3. If Android requests permission to install unknown apps, enable it only for the browser/files source needed for this install.
+4. Install the APK and launch Things from a fresh install. Do not record acceptance evidence against a previously installed older build.
 
 ## Single-account core smoke
 
-Use a disposable normal Auth account. Do not use service-role/admin credentials.
+Use a disposable normal Auth account; never service-role/admin credentials.
 
-1. **Fresh launch:** app opens without a fake-inventory fallback. Expected: real backend/auth screen appears.
-2. **Register:** create the disposable account through the app. Expected: normal Supabase Auth behavior; if email confirmation is required, complete it normally.
-3. **Login:** sign in. Expected: `My devices` private inventory screen loads.
-4. **Capture/add:** select a catalog device and tap `Add privately`. Expected: success message says the device was saved privately and no public listing was created.
-5. **Inventory:** expected: the new device appears after refresh/load and remains private.
-6. **Value:** expected: total known inventory value remains unavailable until verified value evidence exists; unknown values must never be displayed/count as €0. Item sale surface must likewise avoid an invented asking price.
-7. **Sell-start:** tap the item's sale action. Expected: only a private decision surface opens; no listing is created automatically.
-8. **Relaunch/persistence:** fully close and reopen the app. Expected: session restores when valid and the private item is re-read from hosted storage.
-9. **Logout/login:** sign out, then sign back in. Expected: the same owner's private inventory reappears.
+| Step | Action | PASS expectation |
+|---|---|---|
+| S1 | Fresh launch | Real backend/auth UI appears; no fake private inventory fallback. |
+| S2 | Register/sign in | Normal Supabase Auth succeeds. If email confirmation is required, complete it normally. |
+| S3 | Load inventory | `My devices` loads through the authenticated path. |
+| S4 | Capture/add | Select a catalog device and `Add privately`; success is shown and no public listing is created. |
+| S5 | Inventory | Added device appears after refresh/load and remains private. |
+| S6 | Value | Unknown/unverified monetary value stays unknown/unavailable; it is never converted to €0 or an invented asking price. |
+| S7 | Sell-start | Explicit owner tap opens only the private decision surface; no listing is auto-created. |
+| S8 | Relaunch | Valid session restores and the private device is re-read from hosted storage. |
+| S9 | Logout/login | Signed-out state exposes no private inventory; after normal re-login the same owner's device returns. |
 
-## Two-account isolation acceptance
+## Exact two-account Auth/RLS matrix
 
-Requires two disposable accounts created through normal Auth.
+This section consumes Worker 2's repository contract at `CEO_WORKER2_TWO_USER_ACCEPTANCE.md` (commits `3311a2d3` and `9626f696`). Use two disposable accounts created through normal Auth only.
 
-1. Account A creates Item A and verifies it persists after relaunch/re-login.
-2. Sign out A; sign in Account B.
-3. Expected: B cannot see Item A or any condition data belonging to A.
-4. B creates Item B and verifies it persists.
-5. Sign out B; sign back in A.
-6. Expected: A sees Item A and cannot see Item B or B's condition data.
-7. Anonymous/not-signed-in state must never expose private owner inventory.
+| ID | Action | PASS | Immediate failure |
+|---|---|---|---|
+| A1 | Fresh app, sign up/sign in as A | Normal client auth succeeds | Admin/service-role required or auth fails |
+| A2 | Add one disposable device as A | Device appears after refresh and remains private | Write fails/device not visible to A |
+| A3 | Relaunch while A session should persist | Session restores; A device remains visible | Session lost/device disappears |
+| A4 | Sign out A | Private inventory no longer accessible | Private inventory accessible signed out |
+| B1 | Sign up/sign in as B | Normal client auth succeeds | Admin/service-role required or auth fails |
+| B2 | Read B inventory before adding | A device/conditions absent | **STOP / P0 privacy failure:** any A-owned data visible |
+| B3 | Add one disposable device as B | B device appears; A remains absent | Wrong-owner visibility/write failure |
+| B4 | Relaunch as B | B session/data persist; A remains absent | Cross-owner visibility/persistence failure |
+| A5 | Sign out B, sign back in A | A device visible; B device absent | **STOP / P0 privacy failure:** any B-owned data visible |
+| ANON | Sign out; normal unauthenticated state | No private item/condition data exposed | **STOP / P0 privacy failure:** any private row exposed |
 
-Any cross-account visibility is an immediate **STOP / P0 privacy failure**. Do not continue broader testing until fixed.
+Do not weaken RLS for cleanup. The current client has no safe owner-delete path; disposable rows may remain in disposable accounts rather than using privileged SQL/admin cleanup.
 
 ## Error / offline / retry sanity
 
-1. With the app open, temporarily disable network access and trigger a refresh. Expected: an error is surfaced; fake inventory is not substituted.
-2. Re-enable network and retry Refresh. Expected: hosted inventory can load again without duplicating an item.
-3. Attempt an invalid login. Expected: user-friendly auth error; no private data appears.
-4. Repeated taps while a save is busy should not be treated as evidence of multiple successful captures; verify inventory for accidental duplicates.
+1. While authenticated, disable network and trigger Refresh. PASS: visible error/retry state; no fake inventory substitution.
+2. Re-enable network and Refresh. PASS: hosted inventory recovers without accidental duplicate creation.
+3. Attempt invalid login. PASS: user-facing auth error and no private data exposure.
+4. Repeated taps while a save is busy are not evidence of repeated successful captures; inspect inventory for accidental duplicates.
 
-## Known limitations / expected alpha behavior
+## Known alpha limitations
 
-- Verified monetary value evidence is not yet connected, so truthful `unknown/unavailable` value states are expected.
-- Sell-start is intentionally a private decision step; it does not publish a marketplace listing.
-- Physical-device success must not be claimed from static tests or CI alone.
-- Multi-user isolation must not be claimed from schema/RLS inspection alone; the two-account recipe above must pass against hosted Supabase.
-- The current Android workflow requires `mobile/package-lock.json` for `npm ci`; if that lockfile is absent on the tested commit, the APK build is blocked before product acceptance.
+- Verified monetary value evidence is not yet connected; truthful unknown/unavailable value states are expected.
+- Sell-start is intentionally a private decision step and does not publish a marketplace listing.
+- Physical-device success cannot be inferred from static tests or CI alone.
+- Multi-user isolation cannot be inferred from schema/RLS inspection alone; the complete A/B matrix must pass against hosted Supabase through normal clients.
+- APK acceptance is blocked until deterministic dependency input (`mobile/package-lock.json`) is committed and the intended build succeeds.
 
-## Bug report fields
+## Evidence to retain
 
-For every failure record:
+For the acceptance run retain only:
 
 - tested commit SHA
-- GitHub Actions run ID + artifact name
-- Android device model
-- Android version
+- workflow run ID + artifact name + APK filename/size
+- Android device model and Android version
 - fresh install vs upgrade
-- account label only (`A` or `B`; never email/token/password)
-- exact test step
-- expected result
-- actual result
-- reproducible yes/no and reproduction steps
-- screenshot/screen recording if it contains no credentials/tokens
-- network state (online/offline/recovered)
+- account label only (`A`/`B`, never email/user ID)
+- PASS/BLOCKED/FAIL for S1–S9, A1–A5, B1–B4 and ANON
+- UTC test time
+- exact failing step, expected result, actual result and reproducibility
+- redacted screenshot/screen recording only if it contains no credentials/tokens
+- network state where relevant
 
-Never paste passwords, access/refresh tokens, service-role keys, private Supabase secrets, or full auth logs into a bug report.
+Never retain passwords, access/refresh tokens, service-role keys, private Supabase secrets, account emails, user UUIDs, item UUIDs or full auth logs.
 
 ## Acceptance decision
 
-**PASS** only when: current APK artifact is successful and integrity-checked; fresh install succeeds; registration/login/logout succeeds; Capture → Inventory → truthful Value → explicit Sell-start succeeds; persistence/relaunch succeeds; A→B and B→A isolation succeeds; anon sees no private inventory; offline/retry sanity has no privacy/data-corruption failure.
+**PASS** only when the current intended APK is successful and integrity-checked; fresh install succeeds; normal registration/login/logout succeeds; Capture → Inventory → truthful Value → explicit Sell-start succeeds; persistence/relaunch succeeds; A→B and B→A isolation succeeds; signed-out state exposes no private inventory; and offline/retry sanity shows no privacy/data-corruption failure.
 
-Otherwise report **BLOCKED** or **FAIL** with the exact failing gate rather than masking it.
+Use **BLOCKED** when a prerequisite such as deterministic lockfile/APK/two normal accounts is missing. Use **FAIL** when an executed acceptance step violates its expected behavior. Any cross-account or anonymous private-data visibility is an immediate **STOP / P0 privacy failure**.
