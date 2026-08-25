@@ -11,10 +11,13 @@ export type CatalogVariant = {
   } | null;
 };
 
+export type InventoryMarketState = 'PRIVATE' | 'OFFERS_ENABLED' | 'MARKET_ELIGIBLE' | 'ACTIVATING' | 'RESERVED' | 'SOLD' | 'UNKNOWN';
+
 export type PrivateInventoryItem = {
   id: string;
   color: string | null;
   created_at: string;
+  market_state: InventoryMarketState;
   product_variants: {
     id: string;
     storage_gb: number | null;
@@ -66,7 +69,7 @@ export async function loadCatalog(): Promise<CatalogVariant[]> {
 }
 
 export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
-  const { data, error } = await client()
+  const inventoryRequest = client()
     .from('items')
     .select(`
       id,
@@ -91,10 +94,26 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
     `)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  const [inventoryResult, marketStateResult] = await Promise.all([
+    inventoryRequest,
+    client().rpc('load_my_inventory_market_states'),
+  ]);
 
+  if (inventoryResult.error) throw inventoryResult.error;
+
+  const marketStates = new Map<string, InventoryMarketState>();
+  if (!marketStateResult.error) {
+    for (const row of (marketStateResult.data ?? []) as Array<{ item_id: string; market_state: InventoryMarketState }>) {
+      marketStates.set(row.item_id, row.market_state);
+    }
+  }
+
+  const items = (inventoryResult.data ?? []) as unknown as Array<Omit<PrivateInventoryItem, 'market_state'>>;
   void trackAlphaEvent('INVENTORY_VIEWED');
-  return (data ?? []) as unknown as PrivateInventoryItem[];
+  return items.map((item) => ({
+    ...item,
+    market_state: marketStates.get(item.id) ?? 'UNKNOWN',
+  }));
 }
 
 export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<string> {
