@@ -69,6 +69,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Refresh Android SDK command-line tools
+        uses: android-actions/setup-android@v3
       - name: Ensure package lock
         shell: powershell
         run: |
@@ -87,13 +89,21 @@ jobs:
         run: npm run typecheck
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
+      - name: Stop stale Gradle daemons
+        shell: powershell
+        run: |
+          if (Test-Path 'android/gradlew.bat') {
+            .\android\gradlew.bat --stop
+          }
       - name: Clean native Android build state
         shell: powershell
         run: |
           $paths = @(
             'android/.cxx',
             'android/app/.cxx',
+            'android/build',
             'android/app/build',
+            'android/.gradle',
             'node_modules/expo-modules-core/android/.cxx',
             'node_modules/expo-modules-core/android/build'
           )
@@ -118,25 +128,31 @@ jobs:
           Set-Content -Path $wrapper -Value $content -Encoding ascii
       - name: Clean Gradle build
         shell: powershell
-        run: .\gradlew.bat clean --no-daemon --max-workers=1
+        run: .\gradlew.bat clean --no-daemon --max-workers=1 -Dorg.gradle.vfs.watch=false
         working-directory: mobile/android
       - name: Build release APK
         shell: powershell
         run: |
-          .\gradlew.bat assembleRelease --no-daemon --max-workers=1
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 -Dorg.gradle.vfs.watch=false
           if ($LASTEXITCODE -eq 0) { exit 0 }
 
-          Write-Output 'First native build failed. Clearing generated CMake/Ninja state once and retrying.'
+          Write-Output 'First native build failed. Stopping Gradle and clearing generated CMake/Ninja state once before retrying.'
+          .\gradlew.bat --stop
           $retryPaths = @(
+            '.cxx',
             'app/.cxx',
+            'build',
             'app/build',
             '../node_modules/expo-modules-core/android/.cxx',
             '../node_modules/expo-modules-core/android/build'
           )
           foreach ($path in $retryPaths) {
-            if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force }
+            if (Test-Path $path) {
+              Write-Output "Retry cleanup: $path"
+              Remove-Item -Path $path -Recurse -Force
+            }
           }
-          .\gradlew.bat assembleRelease --no-daemon --max-workers=1
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 -Dorg.gradle.vfs.watch=false --rerun-tasks
           exit $LASTEXITCODE
         working-directory: mobile/android
       - name: Verify release APK
