@@ -65,6 +65,10 @@ jobs:
         run: npm run test:activation-action-bridge
       - name: Validate activation summary regression
         run: npm run test:activation-summary
+      - name: Validate activation app transitions regression
+        run: npm run test:activation-app-transitions
+      - name: Validate activation debug surface regression
+        run: npm run test:activation-debug-surface
       - name: Validate closed-alpha mobile configuration
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
