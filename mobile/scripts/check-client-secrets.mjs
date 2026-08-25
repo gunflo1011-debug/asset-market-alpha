@@ -1,7 +1,8 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { extname, join, relative, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = dirname(fileURLToPath(import.meta.url));
 const allowedExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.json', '.md', '.yml', '.yaml', '.env', '.example']);
 const ignored = new Set(['node_modules', 'dist', 'dist-ci', '.expo']);
 
