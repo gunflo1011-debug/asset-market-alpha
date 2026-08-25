@@ -87,16 +87,20 @@ jobs:
         run: npm run typecheck
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
-      - name: Clean Expo native CMake cache
+      - name: Clean native Android build state
         shell: powershell
         run: |
-          $cxxDirs = @(
+          $paths = @(
+            'android/.cxx',
+            'android/app/.cxx',
+            'android/app/build',
             'node_modules/expo-modules-core/android/.cxx',
             'node_modules/expo-modules-core/android/build'
           )
-          foreach ($dir in $cxxDirs) {
-            if (Test-Path $dir) {
-              Remove-Item -Path $dir -Recurse -Force
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              Write-Output "Removing stale native build state: $path"
+              Remove-Item -Path $path -Recurse -Force
             }
           }
       - name: Harden Gradle wrapper download
@@ -112,14 +116,28 @@ jobs:
             $content = $content.TrimEnd() + "`r`nnetworkTimeout=120000`r`n"
           }
           Set-Content -Path $wrapper -Value $content -Encoding ascii
-          Get-Content $wrapper
       - name: Clean Gradle build
         shell: powershell
-        run: .\gradlew.bat clean --no-daemon
+        run: .\gradlew.bat clean --no-daemon --max-workers=1
         working-directory: mobile/android
       - name: Build release APK
         shell: powershell
-        run: .\gradlew.bat assembleRelease --no-daemon
+        run: |
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+
+          Write-Output 'First native build failed. Clearing generated CMake/Ninja state once and retrying.'
+          $retryPaths = @(
+            'app/.cxx',
+            'app/build',
+            '../node_modules/expo-modules-core/android/.cxx',
+            '../node_modules/expo-modules-core/android/build'
+          )
+          foreach ($path in $retryPaths) {
+            if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force }
+          }
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1
+          exit $LASTEXITCODE
         working-directory: mobile/android
       - name: Verify release APK
         shell: powershell
