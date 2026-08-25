@@ -18,7 +18,7 @@ permissions:
 jobs:
   generate-lockfile:
     if: ${{ inputs.task == 'generate-lockfile' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         working-directory: mobile
@@ -32,7 +32,10 @@ jobs:
       - name: Generate package lock
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Verify package lock
-        run: test -s package-lock.json
+        shell: powershell
+        run: |
+          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated' }
+          if ((Get-Item package-lock.json).Length -eq 0) { throw 'package-lock.json is empty' }
       - name: Upload package lock
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +46,7 @@ jobs:
 
   build-apk:
     if: ${{ inputs.task == 'build-apk' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
         working-directory: mobile
@@ -75,10 +78,15 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        shell: powershell
+        run: .\gradlew.bat assembleRelease
         working-directory: mobile/android
       - name: Verify release APK
-        run: test -s android/app/build/outputs/apk/release/app-release.apk
+        shell: powershell
+        run: |
+          $apk = 'android/app/build/outputs/apk/release/app-release.apk'
+          if (-not (Test-Path $apk)) { throw 'Release APK was not created' }
+          if ((Get-Item $apk).Length -eq 0) { throw 'Release APK is empty' }
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
