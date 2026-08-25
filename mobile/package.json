@@ -14,6 +14,7 @@
     "test:sale-start-surface": "node scripts/check-sale-start-surface.mjs",
     "test:sold-state": "node scripts/check-sold-state.mjs",
     "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
+    "test:owned-inventory-lifecycle": "node scripts/check-owned-inventory-lifecycle.mjs",
     "test:activation-events": "node scripts/check-activation-events.mjs",
     "test:activation-funnel": "node scripts/check-activation-funnel.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
