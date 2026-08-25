@@ -24,6 +24,7 @@
     "test:activation-action-bridge": "node scripts/check-activation-action-bridge.mjs",
     "test:activation-summary": "node scripts/check-activation-summary.mjs",
     "test:activation-app-transitions": "node scripts/check-activation-app-transitions.mjs",
+    "test:activation-debug-surface": "node scripts/check-activation-debug-surface.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
     "check:expo-deps": "npx expo install --check",
