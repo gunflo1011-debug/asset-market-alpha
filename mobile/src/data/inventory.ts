@@ -5,13 +5,10 @@ export type CatalogVariant = {
   id: string;
   storage_gb: number | null;
   region: string;
-  products: {
-    brand: string;
-    family: string;
-  } | null;
+  products: { brand: string; family: string } | null;
 };
 
-export type InventoryMarketState = 'PRIVATE' | 'OFFERS_ENABLED' | 'MARKET_ELIGIBLE' | 'ACTIVATING' | 'RESERVED' | 'SOLD' | 'UNKNOWN';
+export type InventoryMarketState = 'PRIVATE' | 'OFFERS_ENABLED' | 'MARKET_ELIGIBLE' | 'ACTIVATING' | 'RESERVED' | 'SOLD';
 
 export type PrivateInventoryItem = {
   id: string;
@@ -22,10 +19,7 @@ export type PrivateInventoryItem = {
     id: string;
     storage_gb: number | null;
     region: string;
-    products: {
-      brand: string;
-      family: string;
-    } | null;
+    products: { brand: string; family: string } | null;
   } | null;
   condition_snapshots: Array<{
     display_state: 'INTACT' | 'DAMAGED';
@@ -52,47 +46,22 @@ export type AddPrivateDeviceInput = {
 };
 
 function client() {
-  if (!supabase) {
-    throw new Error('Supabase is not configured for this build.');
-  }
+  if (!supabase) throw new Error('Supabase is not configured for this build.');
   return supabase;
 }
 
 export async function loadCatalog(): Promise<CatalogVariant[]> {
-  const { data, error } = await client()
-    .from('product_variants')
-    .select('id, storage_gb, region, products(brand, family)')
-    .order('storage_gb', { ascending: true });
-
+  const { data, error } = await client().from('product_variants').select('id, storage_gb, region, products(brand, family)').order('storage_gb', { ascending: true });
   if (error) throw error;
   return (data ?? []) as unknown as CatalogVariant[];
 }
 
 export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
-  const inventoryRequest = client()
-    .from('items')
-    .select(`
-      id,
-      color,
-      created_at,
-      product_variants(
-        id,
-        storage_gb,
-        region,
-        products(brand, family)
-      ),
-      condition_snapshots(
-        display_state,
-        housing_state,
-        cameras_working,
-        biometrics_working,
-        battery_health,
-        network_locked,
-        other_defect,
-        captured_at
-      )
-    `)
-    .order('created_at', { ascending: false });
+  const inventoryRequest = client().from('items').select(`
+      id, color, created_at,
+      product_variants(id, storage_gb, region, products(brand, family)),
+      condition_snapshots(display_state, housing_state, cameras_working, biometrics_working, battery_health, network_locked, other_defect, captured_at)
+    `).order('created_at', { ascending: false });
 
   const [inventoryResult, marketStateResult] = await Promise.all([
     inventoryRequest,
@@ -100,20 +69,25 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
   ]);
 
   if (inventoryResult.error) throw inventoryResult.error;
+  if (marketStateResult.error) {
+    throw new Error('Inventory ownership state is unavailable. Things will not show devices as currently owned until ownership can be verified.');
+  }
 
   const marketStates = new Map<string, InventoryMarketState>();
-  if (!marketStateResult.error) {
-    for (const row of (marketStateResult.data ?? []) as Array<{ item_id: string; market_state: InventoryMarketState }>) {
-      marketStates.set(row.item_id, row.market_state);
-    }
+  for (const row of (marketStateResult.data ?? []) as Array<{ item_id: string; market_state: InventoryMarketState }>) {
+    marketStates.set(row.item_id, row.market_state);
   }
 
   const items = (inventoryResult.data ?? []) as unknown as Array<Omit<PrivateInventoryItem, 'market_state'>>;
+  const ownedItems = items.flatMap((item) => {
+    const marketState = marketStates.get(item.id);
+    if (!marketState) return [];
+    if (marketState === 'SOLD') return [];
+    return [{ ...item, market_state: marketState }];
+  });
+
   void trackAlphaEvent('INVENTORY_VIEWED');
-  return items.map((item) => ({
-    ...item,
-    market_state: marketStates.get(item.id) ?? 'UNKNOWN',
-  }));
+  return ownedItems;
 }
 
 export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<string> {
@@ -128,10 +102,8 @@ export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<st
     p_network_locked: input.networkLocked ?? false,
     p_other_defect: input.otherDefect ?? false,
   });
-
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Inventory command returned no item id.');
-
   void trackAlphaEvent('DEVICE_ADDED', data);
   return data;
 }
