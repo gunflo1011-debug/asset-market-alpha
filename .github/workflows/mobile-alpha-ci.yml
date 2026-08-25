@@ -45,8 +45,14 @@ jobs:
         run: npm run test:sale-start-surface
       - name: Validate sold-state regression
         run: npm run test:sold-state
+      - name: Validate sold-item trust surface regression
+        run: npm run test:sold-item-surface
+      - name: Validate owned inventory lifecycle regression
+        run: npm run test:owned-inventory-lifecycle
       - name: Validate activation-event regression
         run: npm run test:activation-events
+      - name: Validate activation-funnel regression
+        run: npm run test:activation-funnel
       - name: Validate closed-alpha mobile configuration
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
