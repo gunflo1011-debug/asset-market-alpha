@@ -15,6 +15,7 @@
     "test:sold-state": "node scripts/check-sold-state.mjs",
     "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
     "test:activation-events": "node scripts/check-activation-events.mjs",
+    "test:activation-funnel": "node scripts/check-activation-funnel.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
     "check:expo-deps": "npx expo install --check",
