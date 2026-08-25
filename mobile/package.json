@@ -26,10 +26,12 @@
     "test:activation-app-transitions": "node scripts/check-activation-app-transitions.mjs",
     "test:activation-debug-surface": "node scripts/check-activation-debug-surface.mjs",
     "test:activation-real-app-wiring": "node scripts/check-activation-real-app-wiring.mjs",
+    "test:two-user-rls-static": "node scripts/check-two-user-rls-acceptance.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
     "check:expo-deps": "npx expo install --check",
-    "smoke:hosted-alpha": "node scripts/hosted-alpha-smoke.mjs"
+    "smoke:hosted-alpha": "node scripts/hosted-alpha-smoke.mjs",
+    "smoke:two-user-rls": "node scripts/two-user-runtime-smoke.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
