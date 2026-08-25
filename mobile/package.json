@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:capture-flow": "node scripts/check-capture-flow.mjs",
     "test:inventory-value": "node scripts/check-inventory-value.mjs",
+    "test:value-to-sell": "node scripts/check-value-to-sell.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
     "check:expo-deps": "npx expo install --check",
