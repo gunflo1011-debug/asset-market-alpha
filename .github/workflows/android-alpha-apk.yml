@@ -54,6 +54,10 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_dTP4W0G3LHUhIN88wOk2PQ_w_GBXku3
     steps:
+      - name: Enable Windows long paths
+        shell: powershell
+        working-directory: .
+        run: git config --global core.longPaths true
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Node
@@ -83,6 +87,18 @@ jobs:
         run: npm run typecheck
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
+      - name: Clean Expo native CMake cache
+        shell: powershell
+        run: |
+          $cxxDirs = @(
+            'node_modules/expo-modules-core/android/.cxx',
+            'node_modules/expo-modules-core/android/build'
+          )
+          foreach ($dir in $cxxDirs) {
+            if (Test-Path $dir) {
+              Remove-Item -Path $dir -Recurse -Force
+            }
+          }
       - name: Harden Gradle wrapper download
         shell: powershell
         run: |
@@ -99,7 +115,7 @@ jobs:
           Get-Content $wrapper
       - name: Build release APK
         shell: powershell
-        run: .\gradlew.bat assembleRelease
+        run: .\gradlew.bat assembleRelease --no-daemon
         working-directory: mobile/android
       - name: Verify release APK
         shell: powershell
