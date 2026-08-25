@@ -21,7 +21,6 @@ const client = () => createClient(url, key, { auth: { persistSession: false, aut
 const a = client();
 const b = client();
 const anon = client();
-const ids = new Set();
 const pass = (label) => console.log(`✓ ${label}`);
 
 async function signIn(supabase, email, password, label) {
@@ -37,9 +36,15 @@ async function readOwnInventory(supabase, expectedOwner, label) {
   if ((data ?? []).some((item) => item.owner_id !== expectedOwner)) {
     throw new Error(`${label} privacy failure: cross-owner item visible.`);
   }
-  for (const item of data ?? []) ids.add(item.id);
   pass(`${label} inventory contains only own rows (${data?.length ?? 0} visible)`);
   return data ?? [];
+}
+
+function requireEvidenceRows(rows, label) {
+  if (rows.length === 0) {
+    throw new Error(`${label} has no inventory row. Create one disposable item through the normal app flow before running this smoke; empty inventories cannot prove A/B isolation.`);
+  }
+  pass(`${label} has at least one owned row for non-vacuous isolation evidence`);
 }
 
 async function assertNoKnownForeignIds(rows, foreignIds, label) {
@@ -50,11 +55,13 @@ async function assertNoKnownForeignIds(rows, foreignIds, label) {
 async function main() {
   const userA = await signIn(a, process.env.ALPHA_TEST_A_EMAIL, process.env.ALPHA_TEST_A_PASSWORD, 'Account A');
   const rowsA = await readOwnInventory(a, userA.id, 'Account A');
+  requireEvidenceRows(rowsA, 'Account A');
   const aIds = new Set(rowsA.map((row) => row.id));
 
   const userB = await signIn(b, process.env.ALPHA_TEST_B_EMAIL, process.env.ALPHA_TEST_B_PASSWORD, 'Account B');
   if (userA.id === userB.id) throw new Error('Two-user smoke requires two distinct normal accounts.');
   const rowsB = await readOwnInventory(b, userB.id, 'Account B');
+  requireEvidenceRows(rowsB, 'Account B');
   const bIds = new Set(rowsB.map((row) => row.id));
   await assertNoKnownForeignIds(rowsB, aIds, 'Account B');
   await assertNoKnownForeignIds(rowsA, bIds, 'Account A');
