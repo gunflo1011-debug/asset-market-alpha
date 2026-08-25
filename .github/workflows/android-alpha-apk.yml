@@ -113,6 +113,10 @@ jobs:
           }
           Set-Content -Path $wrapper -Value $content -Encoding ascii
           Get-Content $wrapper
+      - name: Clean Gradle build
+        shell: powershell
+        run: .\gradlew.bat clean --no-daemon
+        working-directory: mobile/android
       - name: Build release APK
         shell: powershell
         run: .\gradlew.bat assembleRelease --no-daemon
