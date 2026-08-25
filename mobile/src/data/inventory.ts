@@ -11,6 +11,17 @@ export type CatalogVariant = {
   } | null;
 };
 
+export type ConditionSnapshot = {
+  display_state: 'INTACT' | 'DAMAGED';
+  housing_state: 'CLEAN' | 'LIGHT_WEAR' | 'HEAVY_WEAR' | 'DAMAGED';
+  cameras_working: boolean;
+  biometrics_working: boolean;
+  battery_health: number | null;
+  network_locked: boolean | null;
+  other_defect: boolean;
+  captured_at: string;
+};
+
 export type PrivateInventoryItem = {
   id: string;
   color: string | null;
@@ -24,16 +35,7 @@ export type PrivateInventoryItem = {
       family: string;
     } | null;
   } | null;
-  condition_snapshots: Array<{
-    display_state: 'INTACT' | 'DAMAGED';
-    housing_state: 'CLEAN' | 'LIGHT_WEAR' | 'HEAVY_WEAR' | 'DAMAGED';
-    cameras_working: boolean;
-    biometrics_working: boolean;
-    battery_health: number | null;
-    network_locked: boolean | null;
-    other_defect: boolean;
-    captured_at: string;
-  }>;
+  condition_snapshots: ConditionSnapshot[];
 };
 
 export type AddPrivateDeviceInput = {
@@ -53,6 +55,15 @@ function client() {
     throw new Error('Supabase is not configured for this build.');
   }
   return supabase;
+}
+
+export function latestConditionFirst(items: PrivateInventoryItem[]): PrivateInventoryItem[] {
+  return items.map((item) => ({
+    ...item,
+    condition_snapshots: [...item.condition_snapshots].sort((a, b) =>
+      b.captured_at.localeCompare(a.captured_at),
+    ),
+  }));
 }
 
 export async function loadCatalog(): Promise<CatalogVariant[]> {
@@ -94,7 +105,7 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
   if (error) throw error;
 
   void trackAlphaEvent('INVENTORY_VIEWED');
-  return (data ?? []) as unknown as PrivateInventoryItem[];
+  return latestConditionFirst((data ?? []) as unknown as PrivateInventoryItem[]);
 }
 
 export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<string> {
