@@ -7,6 +7,9 @@
     "userInterfaceStyle": "automatic",
     "android": {
       "package": "com.gunflo1011.thingsalpha"
+    },
+    "splash": {
+      "backgroundColor": "#FFFFFF"
     }
   }
 }
