@@ -1,5 +1,9 @@
 export type CaptureSelection = string | null;
 
+export type CaptureTelemetryEvent =
+  | 'ITEM_CAPTURE_STARTED'
+  | 'ITEM_CAPTURE_COMPLETED';
+
 export function reconcileCaptureSelection(
   current: CaptureSelection,
   availableVariantIds: readonly string[],
@@ -16,8 +20,21 @@ export function captureStarted(previous: CaptureSelection, next: CaptureSelectio
   return previous === null && next !== null;
 }
 
+export function captureStartEvent(
+  previous: CaptureSelection,
+  next: CaptureSelection,
+): CaptureTelemetryEvent | null {
+  return captureStarted(previous, next) ? 'ITEM_CAPTURE_STARTED' : null;
+}
+
 export function captureCompleted(saveSucceeded: boolean): boolean {
   return saveSucceeded;
+}
+
+export function captureCompletionEvent(
+  saveSucceeded: boolean,
+): CaptureTelemetryEvent | null {
+  return captureCompleted(saveSucceeded) ? 'ITEM_CAPTURE_COMPLETED' : null;
 }
 
 export function selectionAfterSuccessfulCapture(): CaptureSelection {
