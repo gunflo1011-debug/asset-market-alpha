@@ -5,7 +5,9 @@ const {
   reconcileCaptureSelection,
   canSubmitCapture,
   captureStarted,
+  captureStartEvent,
   captureCompleted,
+  captureCompletionEvent,
   selectionAfterSuccessfulCapture,
   postCaptureRefreshPlan,
 } = require('../.intake-test-dist/captureFlow.js');
@@ -32,11 +34,24 @@ test('capture start is emitted only on first explicit selection', () => {
   assert.equal(captureStarted(null, 'iphone-15'), true);
   assert.equal(captureStarted('iphone-15', 'pixel-9'), false);
   assert.equal(captureStarted(null, null), false);
+  assert.equal(captureStartEvent(null, 'iphone-15'), 'ITEM_CAPTURE_STARTED');
+  assert.equal(captureStartEvent('iphone-15', 'pixel-9'), null);
 });
 
 test('capture completion is tied only to successful persistence', () => {
   assert.equal(captureCompleted(true), true);
   assert.equal(captureCompleted(false), false);
+  assert.equal(captureCompletionEvent(true), 'ITEM_CAPTURE_COMPLETED');
+  assert.equal(captureCompletionEvent(false), null);
+});
+
+test('telemetry contract exposes event names only and no item payload', () => {
+  const events = [
+    captureStartEvent(null, 'iphone-15'),
+    captureCompletionEvent(true),
+  ];
+  assert.deepEqual(events, ['ITEM_CAPTURE_STARTED', 'ITEM_CAPTURE_COMPLETED']);
+  assert.equal(events.some((event) => typeof event === 'object'), false);
 });
 
 test('successful capture resets selection for intentional next capture', () => {
