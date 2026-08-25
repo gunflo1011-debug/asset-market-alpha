@@ -60,13 +60,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+      - name: Ensure package lock
+        shell: powershell
+        run: |
+          if (-not (Test-Path package-lock.json)) {
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          }
+          if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated' }
+          if ((Get-Item package-lock.json).Length -eq 0) { throw 'package-lock.json is empty' }
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Reject client-side secrets
