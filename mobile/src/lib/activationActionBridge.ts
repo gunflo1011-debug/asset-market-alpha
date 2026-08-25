@@ -20,7 +20,8 @@ export function recordActivationTransition(name: ActivationEventName): Activatio
   if (targetIndex < 0) return snapshot;
 
   for (let index = 0; index < targetIndex; index += 1) {
-    if (snapshot.counts[ORDER[index]] < 1) return snapshot;
+    const prerequisite = ORDER[index];
+    if (!prerequisite || snapshot.counts[prerequisite] < 1) return snapshot;
   }
 
   if (snapshot.counts[name] > 0) return snapshot;
