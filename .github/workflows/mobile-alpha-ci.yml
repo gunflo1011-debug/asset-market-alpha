@@ -53,6 +53,8 @@ jobs:
         run: npm run test:activation-events
       - name: Validate activation-funnel regression
         run: npm run test:activation-funnel
+      - name: Validate local activation collector regression
+        run: npm run test:local-activation-collector
       - name: Validate closed-alpha mobile configuration
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
