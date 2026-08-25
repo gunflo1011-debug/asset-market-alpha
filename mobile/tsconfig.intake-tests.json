@@ -9,5 +9,5 @@
     "outDir": ".intake-test-dist",
     "skipLibCheck": true
   },
-  "include": ["src/domain/smartphoneIntake.ts"]
+  "include": ["src/domain/smartphoneIntake.ts", "src/domain/captureFlow.ts"]
 }
