@@ -35,6 +35,12 @@ jobs:
         run: npm run check:expo-deps
       - name: Typecheck strict TypeScript
         run: npm run typecheck
+      - name: Validate capture flow regression
+        run: npm run test:capture-flow
+      - name: Validate inventory value regression
+        run: npm run test:inventory-value
+      - name: Validate value-to-sell regression
+        run: npm run test:value-to-sell
       - name: Validate closed-alpha mobile configuration
         env:
           EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
