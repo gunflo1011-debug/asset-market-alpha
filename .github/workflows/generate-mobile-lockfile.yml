@@ -1,0 +1,36 @@
+name: generate-mobile-lockfile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate package-lock.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verify lockfile exists
+        run: test -f package-lock.json
+
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-package-lock
+          path: mobile/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
