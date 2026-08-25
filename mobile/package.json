@@ -17,6 +17,7 @@
     "test:owned-inventory-lifecycle": "node scripts/check-owned-inventory-lifecycle.mjs",
     "test:activation-events": "node scripts/check-activation-events.mjs",
     "test:activation-funnel": "node scripts/check-activation-funnel.mjs",
+    "test:local-activation-collector": "node scripts/check-local-activation-collector.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
     "check:expo-deps": "npx expo install --check",
