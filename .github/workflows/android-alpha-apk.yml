@@ -83,6 +83,20 @@ jobs:
         run: npm run typecheck
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
+      - name: Harden Gradle wrapper download
+        shell: powershell
+        run: |
+          $wrapper = 'android/gradle/wrapper/gradle-wrapper.properties'
+          if (-not (Test-Path $wrapper)) { throw 'gradle-wrapper.properties not found after Expo prebuild' }
+          $content = Get-Content $wrapper -Raw
+          $content = $content -replace 'gradle-([0-9.]+)-all\.zip', 'gradle-$1-bin.zip'
+          if ($content -match '(?m)^networkTimeout=') {
+            $content = $content -replace '(?m)^networkTimeout=.*$', 'networkTimeout=120000'
+          } else {
+            $content = $content.TrimEnd() + "`r`nnetworkTimeout=120000`r`n"
+          }
+          Set-Content -Path $wrapper -Value $content -Encoding ascii
+          Get-Content $wrapper
       - name: Build release APK
         shell: powershell
         run: .\gradlew.bat assembleRelease
