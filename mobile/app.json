@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Things",
+    "slug": "things-alpha",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.gunflo1011.thingsalpha"
+    }
+  }
+}
