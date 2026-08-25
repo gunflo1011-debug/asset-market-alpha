@@ -2,20 +2,22 @@ begin;
 select plan(7);
 
 -- Exercise the same authenticated RPC used by the Expo client against the real local schema.
+-- Cast every argument explicitly so pgTAP's dynamic SQL resolves the production
+-- signature exactly (notably battery_health is smallint, not integer).
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101', true);
 
 select lives_ok(
   $$select public.add_private_device(
     '00000000-0000-0000-0000-000000000302'::uuid,
-    'CI Blue',
-    'INTACT',
-    'LIGHT_WEAR',
-    true,
-    true,
-    91,
-    false,
-    false
+    'CI Blue'::text,
+    'INTACT'::text,
+    'LIGHT_WEAR'::text,
+    true::boolean,
+    true::boolean,
+    91::smallint,
+    false::boolean,
+    false::boolean
   )$$,
   'authenticated mobile inventory RPC completes end to end'
 );
