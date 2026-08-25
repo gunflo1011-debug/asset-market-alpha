@@ -13,6 +13,7 @@
     "test:value-to-sell": "node scripts/check-value-to-sell.mjs",
     "test:sale-start-surface": "node scripts/check-sale-start-surface.mjs",
     "test:sold-state": "node scripts/check-sold-state.mjs",
+    "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
     "test:activation-events": "node scripts/check-activation-events.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
