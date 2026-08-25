@@ -29,6 +29,6 @@ assert.deepEqual(
   'all snapshots remain available in descending capture order',
 );
 assert.equal(input[0].condition_snapshots[0].housing_state, 'HEAVY_WEAR', 'normalization must not mutate query results');
-assert.deepEqual(latestConditionFirst([{ id: 'item-2', condition_snapshots: [] }])[0].condition_snapshots, []);
+assert.equal(latestConditionFirst([{ id: 'item-2', condition_snapshots: [] }])[0].condition_snapshots.length, 0);
 
 console.log('inventory-state regression: 4 assertions passed');
