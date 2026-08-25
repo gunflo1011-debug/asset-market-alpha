@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Verify owner market-state migration contract
+        run: node scripts/check-owner-market-state-migration.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: latest
