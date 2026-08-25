@@ -51,8 +51,8 @@ jobs:
       run:
         working-directory: mobile
     env:
-      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_dTP4W0G3LHUhIN88wOk2PQ_w_GBXku3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
