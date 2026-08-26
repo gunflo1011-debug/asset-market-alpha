@@ -55,6 +55,8 @@ jobs:
         run: npm run test:sold-item-surface
       - name: Validate owned inventory lifecycle regression
         run: npm run test:owned-inventory-lifecycle
+      - name: Validate release-critical ownership and auth redirects
+        run: npm run test:release-critical-contracts
       - name: Validate activation-event regression
         run: npm run test:activation-events
       - name: Validate activation-funnel regression
