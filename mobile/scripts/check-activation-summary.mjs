@@ -16,6 +16,12 @@ for (const expected of [
   assert.ok(source.includes(expected), `missing activation summary contract: ${expected}`);
 }
 
+// Privacy checks apply to executable code, not comments that document which
+// sensitive fields are deliberately excluded from this process-local summary.
+const executableSource = source
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|\s)\/\/.*$/gm, '$1');
+
 for (const forbidden of [
   'fetch(',
   'AsyncStorage',
@@ -28,7 +34,7 @@ for (const forbidden of [
   'location',
   'deviceId',
 ]) {
-  assert.ok(!source.includes(forbidden), `activation summary must remain privacy-minimal/process-local: ${forbidden}`);
+  assert.ok(!executableSource.includes(forbidden), `activation summary must remain privacy-minimal/process-local: ${forbidden}`);
 }
 
 const order = [
