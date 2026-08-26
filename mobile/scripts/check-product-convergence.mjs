@@ -21,12 +21,21 @@ for (const marker of requiredAppMarkers) {
 
 const requiredOwnershipMarkers = [
   "client().rpc('load_my_inventory_market_states')",
-  "if (marketState === 'SOLD') return [];",
   'Inventory ownership state is unavailable. Things will not show devices as currently owned until ownership can be verified.',
 ];
 
 for (const marker of requiredOwnershipMarkers) {
   if (!inventory.includes(marker)) throw new Error(`Missing fail-closed ownership marker: ${marker}`);
+}
+
+// Keep this guard semantic instead of depending on one formatting style. Both accepted
+// shapes require the authoritative market-state lookup to exclude missing ownership
+// evidence and SOLD items from the returned inventory.
+const explicitFailClosedFilter = /const\s+marketState\s*=\s*marketStates\.get\(item\.id\)\s*;\s*if\s*\(\s*!marketState\s*\)\s*return\s*\[\]\s*;\s*if\s*\(\s*marketState\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
+const compactFailClosedFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)\s*;\s*return\s*!state\s*\|\|\s*state\s*===\s*['"]SOLD['"]\s*\?\s*\[\]\s*:/s;
+
+if (!explicitFailClosedFilter.test(inventory) && !compactFailClosedFilter.test(inventory)) {
+  throw new Error('Inventory must fail closed when ownership state is missing and must exclude SOLD items.');
 }
 
 if (app.includes('buildSaleStartSurface(item.id, 0)')) {
