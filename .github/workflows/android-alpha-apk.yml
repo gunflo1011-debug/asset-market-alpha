@@ -1,6 +1,12 @@
 name: android-alpha-apk
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/android-alpha-apk.yml'
+      - '.github/apk-build-request'
   workflow_dispatch:
     inputs:
       task:
@@ -17,7 +23,7 @@ permissions:
 
 jobs:
   generate-lockfile:
-    if: ${{ inputs.task == 'generate-lockfile' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'generate-lockfile' }}
     runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
@@ -45,7 +51,7 @@ jobs:
           retention-days: 1
 
   build-apk:
-    if: ${{ inputs.task == 'build-apk' }}
+    if: ${{ github.event_name == 'push' || inputs.task == 'build-apk' }}
     runs-on: [self-hosted, Windows, X64]
     defaults:
       run:
@@ -125,7 +131,7 @@ jobs:
           $wrapper = 'android/gradle/wrapper/gradle-wrapper.properties'
           if (-not (Test-Path $wrapper)) { throw 'gradle-wrapper.properties not found after Expo prebuild' }
           $content = Get-Content $wrapper -Raw
-          $content = $content -replace 'gradle-([0-9.]+)-all\\.zip', 'gradle-$1-bin.zip'
+          $content = $content -replace 'gradle-([0-9.]+)-all\.zip', 'gradle-$1-bin.zip'
           if ($content -match '(?m)^networkTimeout=') {
             $content = $content -replace '(?m)^networkTimeout=.*$', 'networkTimeout=120000'
           } else {
