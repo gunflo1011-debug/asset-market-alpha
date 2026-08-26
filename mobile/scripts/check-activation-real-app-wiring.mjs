@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 const app = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 const transitions = fs.readFileSync(new URL('../src/lib/activationAppTransitions.ts', import.meta.url), 'utf8');
+const executableTransitions = transitions
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|\s)\/\/.*$/gm, '$1');
 
 for (const name of ['recordCaptureSuccess', 'recordInventoryVisible', 'recordValueVisible', 'recordSellInitiated']) {
   assert.match(transitions, new RegExp(`export function ${name}\\(\\): void`), `${name} must remain payload-free`);
@@ -16,7 +19,7 @@ assert.match(app, /buildSaleStartSurface[\s\S]*recordValueVisible\(/, 'value vis
 assert.match(app, /onPress=\{\(\) => \{[\s\S]*recordSellInitiated\(\)[\s\S]*setSaleIntentItemId/, 'sell initiation must require the explicit owner tap');
 
 for (const forbidden of ['user.id', 'item.id)', 'estimatedValueCents', 'deviceId', 'location', 'timestamp']) {
-  assert.ok(!transitions.includes(forbidden), `activation transition API must not accept or expose ${forbidden}`);
+  assert.ok(!executableTransitions.includes(forbidden), `activation transition API must not accept or expose ${forbidden}`);
 }
 
 console.log('activation real-app wiring contract passed');
