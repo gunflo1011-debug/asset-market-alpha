@@ -53,9 +53,6 @@ jobs:
   build-apk:
     if: ${{ github.event_name == 'push' || inputs.task == 'build-apk' }}
     runs-on: [self-hosted, Windows, X64]
-    defaults:
-      run:
-        working-directory: mobile
     env:
       NODE_ENV: production
       EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
@@ -63,10 +60,18 @@ jobs:
     steps:
       - name: Enable Windows long paths
         shell: powershell
-        working-directory: .
         run: git config --global core.longPaths true
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Stage mobile source at short path
+        shell: powershell
+        run: |
+          $shortRoot = 'C:\things-apk'
+          if (Test-Path $shortRoot) { Remove-Item $shortRoot -Recurse -Force }
+          New-Item -ItemType Directory -Path $shortRoot | Out-Null
+          Copy-Item -Path 'mobile\*' -Destination $shortRoot -Recurse -Force
+          "MOBILE_BUILD_ROOT=$shortRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Output "Staged mobile build at $shortRoot"
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -82,7 +87,7 @@ jobs:
           $sdk = $env:ANDROID_SDK_ROOT
           if (-not $sdk) { $sdk = $env:ANDROID_HOME }
           if (-not $sdk) {
-            $candidate = Join-Path $env:USERPROFILE '.android\sdk'
+            $candidate = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
             if (Test-Path $candidate) { $sdk = $candidate }
           }
           if (-not $sdk -or -not (Test-Path $sdk)) { throw 'Android SDK not found on self-hosted runner' }
@@ -91,84 +96,64 @@ jobs:
           Write-Output "Using installed Android SDK: $sdk"
       - name: Ensure package lock
         shell: powershell
+        working-directory: C:\things-apk
         run: |
-          if (-not (Test-Path package-lock.json)) {
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          }
+          if (-not (Test-Path package-lock.json)) { npm install --package-lock-only --ignore-scripts --no-audit --no-fund }
           if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated' }
           if ((Get-Item package-lock.json).Length -eq 0) { throw 'package-lock.json is empty' }
       - name: Install dependencies
+        working-directory: C:\things-apk
         run: npm ci --include=dev --no-audit --no-fund
       - name: Reject client-side secrets
+        working-directory: C:\things-apk
         run: npm run check:client-secrets
       - name: Validate hosted alpha configuration
+        working-directory: C:\things-apk
         run: npm run check:alpha-config
       - name: Typecheck
+        working-directory: C:\things-apk
         run: npm run typecheck
       - name: Generate native Android project
+        working-directory: C:\things-apk
         env:
           CI: '1'
         run: npx expo prebuild --platform android --clean
-      - name: Normalize Expo native source timestamps
-        shell: powershell
-        run: |
-          $root = 'node_modules/expo-modules-core/android'
-          if (-not (Test-Path $root)) { throw 'expo-modules-core Android sources not found' }
-          $stableTime = (Get-Date).AddMinutes(-5)
-          Get-ChildItem $root -Recurse -File |
-            Where-Object { $_.FullName -notmatch '\\.cxx\\|\\build\\' } |
-            ForEach-Object { $_.LastWriteTime = $stableTime }
-          Write-Output "Normalized expo-modules-core Android source timestamps to $stableTime"
       - name: Clean native Android build state
         shell: powershell
+        working-directory: C:\things-apk
         run: |
           .\android\gradlew.bat --stop | Out-Null
-          $paths = @(
-            'android/.cxx',
-            'android/app/.cxx',
-            'android/build',
-            'android/app/build',
-            'android/.gradle',
-            'node_modules/expo-modules-core/android/.cxx',
-            'node_modules/expo-modules-core/android/build'
-          )
-          foreach ($path in $paths) {
-            if (Test-Path $path) {
-              Write-Output "Removing stale native build state: $path"
-              Remove-Item -Path $path -Recurse -Force
-            }
-          }
+          $paths = @('android/.cxx','android/app/.cxx','android/build','android/app/build','android/.gradle','node_modules/expo-modules-core/android/.cxx','node_modules/expo-modules-core/android/build')
+          foreach ($path in $paths) { if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force } }
       - name: Harden Gradle wrapper download
         shell: powershell
+        working-directory: C:\things-apk
         run: |
           $wrapper = 'android/gradle/wrapper/gradle-wrapper.properties'
           if (-not (Test-Path $wrapper)) { throw 'gradle-wrapper.properties not found after Expo prebuild' }
           $content = Get-Content $wrapper -Raw
           $content = $content -replace 'gradle-([0-9.]+)-all\.zip', 'gradle-$1-bin.zip'
-          if ($content -match '(?m)^networkTimeout=') {
-            $content = $content -replace '(?m)^networkTimeout=.*$', 'networkTimeout=120000'
-          } else {
-            $content = $content.TrimEnd() + "`r`nnetworkTimeout=120000`r`n"
-          }
+          if ($content -match '(?m)^networkTimeout=') { $content = $content -replace '(?m)^networkTimeout=.*$', 'networkTimeout=120000' } else { $content = $content.TrimEnd() + "`r`nnetworkTimeout=120000`r`n" }
           Set-Content -Path $wrapper -Value $content -Encoding ascii
       - name: Clean Gradle build
         shell: powershell
+        working-directory: C:\things-apk\android
         run: .\gradlew.bat clean --no-daemon --max-workers=1 --no-watch-fs
-        working-directory: mobile/android
       - name: Build release APK
         shell: powershell
+        working-directory: C:\things-apk\android
         run: .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --no-watch-fs
-        working-directory: mobile/android
       - name: Verify release APK
         shell: powershell
         run: |
-          $apk = 'android/app/build/outputs/apk/release/app-release.apk'
+          $apk = 'C:\things-apk\android\app\build\outputs\apk\release\app-release.apk'
           if (-not (Test-Path $apk)) { throw 'Release APK was not created' }
           if ((Get-Item $apk).Length -eq 0) { throw 'Release APK is empty' }
+          Copy-Item $apk "$env:GITHUB_WORKSPACE\things-alpha.apk" -Force
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
           name: things-alpha-android-standalone
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: things-alpha.apk
           if-no-files-found: error
           retention-days: 7
