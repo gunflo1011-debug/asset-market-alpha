@@ -57,6 +57,7 @@ jobs:
       run:
         working-directory: mobile
     env:
+      NODE_ENV: production
       EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_dTP4W0G3LHUhIN88wOk2PQ_w_GBXku3
     steps:
@@ -104,6 +105,14 @@ jobs:
         run: npm run check:alpha-config
       - name: Typecheck
         run: npm run typecheck
+      - name: Normalize Expo native source timestamps
+        shell: powershell
+        run: |
+          $root = 'node_modules/expo-modules-core/android'
+          if (-not (Test-Path $root)) { throw 'expo-modules-core Android sources not found' }
+          $stamp = (Get-Date).AddSeconds(-5)
+          Get-ChildItem -Path $root -Recurse -File | ForEach-Object { $_.LastWriteTime = $stamp }
+          Write-Output "Normalized expo-modules-core Android source timestamps to $stamp"
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive --clean
       - name: Clean native Android build state
@@ -161,6 +170,9 @@ jobs:
           foreach ($path in $retryPaths) {
             if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force }
           }
+          $stamp = (Get-Date).AddSeconds(-5)
+          Get-ChildItem -Path '../node_modules/expo-modules-core/android' -Recurse -File | ForEach-Object { $_.LastWriteTime = $stamp }
+          Start-Sleep -Seconds 2
           .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --rerun-tasks --no-watch-fs
           exit $LASTEXITCODE
         working-directory: mobile/android
