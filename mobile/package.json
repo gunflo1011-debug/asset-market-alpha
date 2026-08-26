@@ -18,6 +18,7 @@
     "test:sold-state": "node scripts/check-sold-state.mjs",
     "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
     "test:owned-inventory-lifecycle": "node scripts/check-owned-inventory-lifecycle.mjs",
+    "test:release-critical-contracts": "node scripts/check-release-critical-contracts.mjs",
     "test:activation-events": "node scripts/check-activation-events.mjs",
     "test:activation-funnel": "node scripts/check-activation-funnel.mjs",
     "test:local-activation-collector": "node scripts/check-local-activation-collector.mjs",
