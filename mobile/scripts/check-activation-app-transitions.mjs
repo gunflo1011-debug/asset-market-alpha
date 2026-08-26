@@ -8,8 +8,15 @@ for (const stage of ['CAPTURE_SUCCESS', 'INVENTORY_VISIBLE', 'VALUE_VISIBLE', 'S
 }
 
 assert.match(source, /exportLocalActivationSummary\(\)/, 'debug export must use the coarse local summary');
+
+// Privacy checks apply to executable code, not comments that document which
+// sensitive fields are deliberately excluded from these process-local hooks.
+const executableSource = source
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|\s)\/\/.*$/gm, '$1');
+
 for (const forbidden of ['fetch(', 'supabase', 'AsyncStorage', 'userId', 'itemId', 'price', 'timestamp', 'location', 'deviceId']) {
-  assert.equal(source.includes(forbidden), false, `activation app transitions must not contain ${forbidden}`);
+  assert.equal(executableSource.includes(forbidden), false, `activation app transitions must not contain ${forbidden}`);
 }
 
 console.log('activation app-transition contract ok');
