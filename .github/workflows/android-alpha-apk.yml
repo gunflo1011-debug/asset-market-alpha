@@ -98,7 +98,7 @@ jobs:
           if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated' }
           if ((Get-Item package-lock.json).Length -eq 0) { throw 'package-lock.json is empty' }
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --include=dev --no-audit --no-fund
       - name: Reject client-side secrets
         run: npm run check:client-secrets
       - name: Validate hosted alpha configuration
