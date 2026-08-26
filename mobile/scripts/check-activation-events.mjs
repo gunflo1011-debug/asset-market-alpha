@@ -14,11 +14,14 @@ for (const event of requiredEvents) {
   assert.ok(source.includes(`'${event}'`), `missing activation event ${event}`);
 }
 
+// Check executable contract surface rather than comments. Documentation may
+// legitimately describe the privacy fields that are intentionally excluded.
+const contractSource = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 for (const forbidden of [
   'userId', 'user_id', 'email', 'phone', 'itemId', 'item_id', 'deviceId',
   'device_id', 'location', 'latitude', 'longitude', 'freeText', 'timestamp',
 ]) {
-  assert.equal(source.includes(forbidden), false, `privacy-minimal contract must not expose ${forbidden}`);
+  assert.equal(contractSource.includes(forbidden), false, `privacy-minimal contract must not expose ${forbidden}`);
 }
 
 assert.ok(source.includes('schemaVersion: 1'), 'event contract must be explicitly versioned');
