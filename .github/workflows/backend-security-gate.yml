@@ -18,7 +18,7 @@ jobs:
         run: node scripts/check-owner-market-state-release-gate.mjs
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0
       - name: Start local Supabase
         run: supabase start
       - name: Rebuild database from migrations
