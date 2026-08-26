@@ -140,12 +140,12 @@ jobs:
           Set-Content -Path $wrapper -Value $content -Encoding ascii
       - name: Clean Gradle build
         shell: powershell
-        run: .\gradlew.bat clean --no-daemon --max-workers=1 -Dorg.gradle.vfs.watch=false
+        run: .\gradlew.bat clean --no-daemon --max-workers=1 --no-watch-fs
         working-directory: mobile/android
       - name: Build release APK
         shell: powershell
         run: |
-          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 -Dorg.gradle.vfs.watch=false
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --no-watch-fs
           if ($LASTEXITCODE -eq 0) { exit 0 }
 
           Write-Output 'First native build failed. Clearing generated CMake/Ninja state once and retrying.'
@@ -161,7 +161,7 @@ jobs:
           foreach ($path in $retryPaths) {
             if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force }
           }
-          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --rerun-tasks -Dorg.gradle.vfs.watch=false
+          .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --rerun-tasks --no-watch-fs
           exit $LASTEXITCODE
         working-directory: mobile/android
       - name: Verify release APK
