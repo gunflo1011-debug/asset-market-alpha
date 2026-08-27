@@ -1,42 +1,49 @@
 import fs from 'node:fs';
 
-const app = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-const inventory = fs.readFileSync(new URL('../src/data/inventory.ts', import.meta.url), 'utf8');
+const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
+const app = read('App.tsx');
+const saleSurface = read('src/lib/saleStartSurface.ts');
+const inventory = [
+  read('src/data/inventory.ts'),
+  read('src/data/inventoryQueries.ts'),
+  read('src/data/inventoryCommands.ts'),
+].join('\n');
 
-const requiredAppMarkers = [
+const requiredAppSemantics = [
   '<Text style={styles.metric}>{items.length}</Text>',
-  'Total known inventory value: unavailable until verified value evidence exists.',
-  'Unknown values are never counted as €0.',
-  'const sale = buildSaleStartSurface(item.id, null);',
+  'buildSaleStartSurface(item.id,null)',
   '{sale.valueLabel}',
   '{sale.actionLabel}',
-  'setSaleIntentItemId(open ? null : item.id)',
-  'This private decision step does not create a listing.',
-  'Selling always starts with an explicit private owner decision.',
+  'setSaleIntentItemId(open?null:item.id)',
 ];
-
-for (const marker of requiredAppMarkers) {
-  if (!app.includes(marker)) throw new Error(`Missing authenticated product-convergence marker: ${marker}`);
+for (const marker of requiredAppSemantics) {
+  if (!app.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
+    throw new Error(`Missing authenticated product-convergence semantic: ${marker}`);
+  }
 }
 
-if (!inventory.includes("client().rpc('load_my_inventory_market_states')")) {
+if (!saleSurface.includes('estimatedValueCents: number | null')) {
+  throw new Error('Sale surface must preserve unknown value evidence as nullable.');
+}
+if (!saleSurface.includes('Nothing is listed or sold until you explicitly continue.')) {
+  throw new Error('Sale surface must preserve explicit owner intent before listing or selling.');
+}
+if (!saleSurface.includes('Estimated value not available yet')) {
+  throw new Error('Unknown inventory value must remain explicitly unavailable.');
+}
+
+if (!inventory.includes("rpc('load_my_inventory_market_states')")) {
   throw new Error('Missing authoritative market-state lookup for catalog-backed devices.');
 }
 
-// Generic Things are directly owner-scoped by items RLS and may legitimately have no
-// market-state row. Catalog-backed devices must remain fail-closed when the market-state
-// RPC is unavailable or returns no state, otherwise SOLD/missing ownership evidence could
-// silently reappear in the authenticated inventory.
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
 const discriminatedRpcFailClosed = /const\s+isCatalogDevice\s*=\s*item\.product_variants\s*!==\s*null\s*;[\s\S]{0,240}if\s*\(\s*isCatalogDevice\s*&&\s*marketStateResult\.error\s*\)\s*return\s*\[\]\s*;/s;
 if (!fullFailClosedOnRpcError.test(inventory) && !discriminatedRpcFailClosed.test(inventory)) {
   throw new Error('Market-state RPC failure must fail closed for catalog-backed devices.');
 }
 
-const legacyExplicitFilter = /const\s+(?:marketState|state)\s*=\s*marketStates\.get\(item\.id\)\s*;\s*if\s*\(\s*!(?:marketState|state)\s*\)\s*return\s*\[\]\s*;[\s\S]{0,160}if\s*\(\s*(?:marketState|state)\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
-const legacyCompactFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)\s*;\s*return\s*!state\s*\|\|\s*state\s*===\s*['"]SOLD['"]\s*\?\s*\[\]\s*:/s;
 const discriminatedDeviceFilter = /const\s+isCatalogDevice\s*=\s*item\.product_variants\s*!==\s*null\s*;[\s\S]{0,360}const\s+state\s*=\s*marketStates\.get\(item\.id\)[^;]*;[\s\S]{0,160}if\s*\(\s*isCatalogDevice\s*&&\s*!state\s*\)\s*return\s*\[\]\s*;[\s\S]{0,160}if\s*\(\s*state\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
-if (!legacyExplicitFilter.test(inventory) && !legacyCompactFilter.test(inventory) && !discriminatedDeviceFilter.test(inventory)) {
+if (!discriminatedDeviceFilter.test(inventory)) {
   throw new Error('Inventory must exclude SOLD devices and catalog-backed devices without authoritative market state.');
 }
 
@@ -44,11 +51,8 @@ for (const marker of ['add_private_thing', 'update_private_thing', 'delete_priva
   if (!inventory.includes(marker)) throw new Error(`Missing generic Thing lifecycle command: ${marker}`);
 }
 
-if (app.includes('buildSaleStartSurface(item.id, 0)')) {
+if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(app)) {
   throw new Error('Unknown value must never be converted to a zero-price estimate.');
-}
-if (/automatic(?:ally)?\s+(?:list|sale|sell)/i.test(app) && !app.includes('no automatic sale')) {
-  throw new Error('Authenticated path must preserve explicit owner sale intent.');
 }
 
 console.log('authenticated ownership/value/sell convergence regression passed');
