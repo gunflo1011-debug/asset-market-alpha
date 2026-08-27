@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const source = fs.readFileSync(path.resolve('src/data/inventory.ts'), 'utf8');
+const read = (relative) => fs.readFileSync(path.resolve(relative), 'utf8');
+const source = [
+  read('src/data/inventory.ts'),
+  read('src/data/inventoryQueries.ts'),
+  read('src/data/inventoryCommands.ts'),
+].join('\n');
 
 assert.match(source, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'catalog-backed inventory must load authoritative market state');
 
-// Generic Things (variant/product is null) are owned directly by the items-row RLS boundary
-// and therefore do not need a market-state row. Catalog-backed devices do need authoritative
-// market state so SOLD/missing ownership evidence can never silently reappear.
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
 const discriminatedRpcFailClosed = /const\s+isCatalogDevice\s*=\s*item\.product_variants\s*!==\s*null\s*;[\s\S]{0,240}if\s*\(\s*isCatalogDevice\s*&&\s*marketStateResult\.error\s*\)\s*return\s*\[\]\s*;/s;
 assert.ok(
@@ -16,8 +18,6 @@ assert.ok(
   'market-state RPC failure must fail closed for catalog-backed devices; at most owner-RLS generic Things may remain visible',
 );
 
-// Accept the legacy stricter shape (all items without market state excluded) or the new
-// discriminated shape (generic Things may have null state, catalog-backed devices may not).
 const legacyExplicitFilter = /const\s+(?:marketState|state)\s*=\s*marketStates\.get\(item\.id\)\s*;\s*if\s*\(\s*!(?:marketState|state)\s*\)\s*return\s*\[\]\s*;[\s\S]{0,160}if\s*\(\s*(?:marketState|state)\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
 const legacyCompactFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)\s*;\s*return\s*!state\s*\|\|\s*state\s*===\s*['"]SOLD['"]\s*\?\s*\[\]\s*:/s;
 const discriminatedDeviceFilter = /const\s+isCatalogDevice\s*=\s*item\.product_variants\s*!==\s*null\s*;[\s\S]{0,360}const\s+state\s*=\s*marketStates\.get\(item\.id\)[^;]*;[\s\S]{0,160}if\s*\(\s*isCatalogDevice\s*&&\s*!state\s*\)\s*return\s*\[\]\s*;[\s\S]{0,160}if\s*\(\s*state\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
