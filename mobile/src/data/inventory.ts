@@ -3,6 +3,7 @@ export {
   addPrivateThing,
   deletePrivateDevice,
   deletePrivateThing,
+  estimatePrivateItemValue,
   updatePrivateDevice,
   updatePrivateItemMetadata,
   updatePrivateThing,
@@ -17,4 +18,6 @@ export type {
   InventoryMarketState,
   PrivateInventoryItem,
   PrivateThingInput,
+  ValuationConditionGrade,
+  ValuationInput,
 } from '../features/inventory/types';
