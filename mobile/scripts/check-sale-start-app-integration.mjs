@@ -5,7 +5,12 @@ const app = read('App.tsx');
 const screen = read('src/features/inventory/InventoryScreen.tsx');
 const surface = read('src/lib/saleStartSurface.ts');
 
-for (const marker of ['buildSaleStartSurface(item.id, null)', '{sale.valueLabel}', '{sale.actionLabel}', '{sale.privacyNotice}']) {
+for (const marker of [
+  'buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null)',
+  '{sale.valueLabel}',
+  '{sale.actionLabel}',
+  '{sale.privacyNotice}',
+]) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing sale-start screen contract: ${marker}`);
   }
@@ -19,6 +24,9 @@ if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*recordSellInitiated\
 }
 if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must not be converted to a zero-price estimate.');
+}
+if (!screen.includes('item.value_evidence?.estimated_value_cents ?? null')) {
+  throw new Error('Verified inventory value evidence must feed the private-sale reference value while unknown remains null.');
 }
 if (!/estimatedValueCents:\s*number\s*\|\s*null/.test(surface)) {
   throw new Error('Sale-start surface must model unknown value explicitly as null.');
