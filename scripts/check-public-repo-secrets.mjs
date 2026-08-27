@@ -25,8 +25,10 @@ const secretPatterns = [
   ['Slack bot token', /xoxb-[A-Za-z0-9-]{20,}/g],
   ['AWS access key', /(?:AKIA|ASIA)[A-Z0-9]{16}/g],
   ['Private key block', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g],
-  ['Credential-bearing Postgres URL', /postgres(?:ql)?:\/\/[^\s:@/]+:[^\s@/]+@[^\s/]+/gi],
 ];
+
+const postgresCredentialPattern = /postgres(?:ql)?:\/\/([^\s:@/]+):([^\s@/]+)@([^\s/:]+)(?::\d+)?(?:\/[^\s]*)?/gi;
+const localHosts = new Set(['127.0.0.1', 'localhost', '::1']);
 
 const findings = [];
 for (const path of tracked) {
@@ -45,6 +47,15 @@ for (const path of tracked) {
   for (const [name, pattern] of secretPatterns) {
     pattern.lastIndex = 0;
     if (pattern.test(source)) findings.push(`${path}: possible ${name}`);
+  }
+
+  postgresCredentialPattern.lastIndex = 0;
+  for (const match of source.matchAll(postgresCredentialPattern)) {
+    const host = match[3]?.toLowerCase();
+    if (host && !localHosts.has(host)) {
+      findings.push(`${path}: possible credential-bearing remote Postgres URL`);
+      break;
+    }
   }
 }
 
