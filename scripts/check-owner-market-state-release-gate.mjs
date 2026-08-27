@@ -6,14 +6,18 @@ const ownerCrudMigrationPath = 'supabase/migrations/20260826211500_owner_invento
 const genericCrudMigrationPath = 'supabase/migrations/20260827093500_generic_private_thing_crud.sql';
 const itemMetadataMigrationPath = 'supabase/migrations/20260827191500_owner_item_metadata.sql';
 const runbookPath = 'supabase/OWNER_MARKET_STATE_DEPLOY.md';
-const inventoryPath = 'mobile/src/data/inventory.ts';
+const inventoryPaths = [
+  'mobile/src/data/inventory.ts',
+  'mobile/src/data/inventoryQueries.ts',
+  'mobile/src/data/inventoryCommands.ts',
+];
 
 const marketStateMigration = fs.readFileSync(marketStateMigrationPath, 'utf8');
 const ownerCrudMigration = fs.readFileSync(ownerCrudMigrationPath, 'utf8');
 const genericCrudMigration = fs.readFileSync(genericCrudMigrationPath, 'utf8');
 const itemMetadataMigration = fs.readFileSync(itemMetadataMigrationPath, 'utf8');
 const runbook = fs.readFileSync(runbookPath, 'utf8');
-const inventory = fs.readFileSync(inventoryPath, 'utf8');
+const inventory = inventoryPaths.map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 
 const migrationFiles = fs.readdirSync('supabase/migrations').filter((name) => name.endsWith('.sql')).sort();
 const marketStateName = '20260825104500_owner_inventory_market_state.sql';
@@ -48,7 +52,6 @@ assert.match(marketStateMigration, /where i\.owner_id = auth\.uid\(\)/i);
 assert.match(marketStateMigration, /revoke all on function public\.load_my_inventory_market_states\(\) from public, anon/i);
 assert.match(marketStateMigration, /grant execute on function public\.load_my_inventory_market_states\(\) to authenticated/i);
 
-// Device CRUD remains owner-scoped and fail-closed.
 assert.match(ownerCrudMigration, /create or replace function public\.update_private_device/i);
 assert.match(ownerCrudMigration, /create or replace function public\.delete_private_device/i);
 assert.match(ownerCrudMigration, /security definer/gi);
@@ -61,10 +64,6 @@ assert.match(ownerCrudMigration, /grant execute on function public\.update_priva
 assert.match(ownerCrudMigration, /revoke all on function public\.delete_private_device\(uuid\) from public, anon;/i);
 assert.match(ownerCrudMigration, /grant execute on function public\.delete_private_device\(uuid\) to authenticated;/i);
 
-// Generic Things may omit a catalog variant, but every SECURITY DEFINER command must
-// derive the owner from auth.uid(), keep a fixed search_path, and never accept a caller-
-// supplied owner id. Update/delete additionally require the row to belong to the caller
-// and to be a generic Thing (variant_id is null).
 for (const functionName of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) {
   assert.match(genericCrudMigration, new RegExp(`create or replace function public\\.${functionName}`, 'i'));
 }
@@ -85,9 +84,6 @@ for (const signature of [
   assert.match(genericCrudMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
 
-// Item display metadata may be edited for both generic Things and catalog devices, but
-// never by supplying or changing owner_id. The RPC must derive auth.uid(), validate the
-// row belongs to that user, and expose execution only to authenticated users.
 assert.match(itemMetadataMigration, /create or replace function public\.update_private_item_metadata/i);
 assert.match(itemMetadataMigration, /security definer/i);
 assert.match(itemMetadataMigration, /set search_path = public, auth, pg_temp/i);
