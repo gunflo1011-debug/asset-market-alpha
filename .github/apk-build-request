@@ -1,2 +1,2 @@
-2026-08-27T04:31:00+02:00
-Reason: current-main APK release candidate after green backend-security and actions-smoke gates.
+2026-08-27T14:57:00+02:00
+Reason: W3 release gate passed on runtime SHA 573ed147c465bd609f818c8168a660d6ffe0dfbd (actions-smoke #189, mobile-alpha-ci #232, backend-security-gate #305 all PASS). Build current installable APK for device CRUD/A-B-RLS acceptance; no runtime files changed by this request.
