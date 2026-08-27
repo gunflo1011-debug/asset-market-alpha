@@ -1,2 +1,2 @@
-2026-08-27T14:57:00+02:00
-Reason: W3 release gate passed on runtime SHA 573ed147c465bd609f818c8168a660d6ffe0dfbd (actions-smoke #189, mobile-alpha-ci #232, backend-security-gate #305 all PASS). Build current installable APK for device CRUD/A-B-RLS acceptance; no runtime files changed by this request.
+2026-08-27T22:58:00+02:00
+Reason: Create milestone APK for current main after inventory architecture cleanup, CRUD/detail/add-flow UX, verified value evidence, and private-sale handoff. Current backend-security-gate #358 and actions-smoke #242 are PASS on main. Build installable APK for device acceptance covering login/confirmation, multi-item CRUD persistence, item details, value display, private sale start, and account A/B isolation.
