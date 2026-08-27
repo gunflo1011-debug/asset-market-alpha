@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ActivityIndicator, Alert, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { beginPasswordRecoveryFromUrl, getSession, onAuthStateChange, requestAccountEmailChange, requestPasswordReset, signIn, signOut, signUp, updateAccountPassword, updateRecoveredPassword } from './src/data/auth';
-import { addPrivateDevice, addPrivateThing, CatalogVariant, deletePrivateThing, loadCatalog, loadPrivateInventory, PrivateInventoryItem, updatePrivateThing } from './src/data/inventory';
+import { addPrivateDevice, addPrivateThing, CatalogVariant, deletePrivateDevice, deletePrivateThing, loadCatalog, loadPrivateInventory, PrivateInventoryItem, updatePrivateItemMetadata } from './src/data/inventory';
 import { recordCaptureSuccess, recordInventoryVisible, recordSellInitiated, recordValueVisible } from './src/lib/activationAppTransitions';
 import { buildSaleStartSurface } from './src/lib/saleStartSurface';
 import { hasSupabaseConfig } from './src/lib/supabase';
@@ -191,33 +191,42 @@ export default function App() {
   }
 
   function startEditing(item: PrivateInventoryItem) {
-    if (item.product_variants) return;
     setEditingItemId(item.id);
-    setThingName(item.custom_name ?? ''); setThingCategory(item.category ?? DEFAULT_CATEGORY); setThingLocation(item.location_label ?? ''); setThingNotes(item.notes ?? '');
+    setThingName(item.custom_name?.trim() || itemTitle(item));
+    setThingCategory(item.category ?? (item.product_variants ? 'Device' : DEFAULT_CATEGORY));
+    setThingLocation(item.location_label ?? '');
+    setThingNotes(item.notes ?? '');
   }
 
   async function saveThing() {
     if (!thingName.trim()) { setMessage('Give your Thing a name.'); return; }
+    const wasEditing = editingItemId !== null;
     try {
       setActionBusy(true); setMessage(null);
       const input = { name: thingName, category: thingCategory, location: thingLocation, notes: thingNotes };
-      if (editingItemId) await updatePrivateThing(editingItemId, input);
+      if (editingItemId) await updatePrivateItemMetadata(editingItemId, input);
       else { await addPrivateThing(input); recordCaptureSuccess(); }
-      resetThingForm(); await refreshInventory(); setMessage(editingItemId ? 'Thing updated.' : 'Thing added to your inventory.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save this Thing.'); }
+      resetThingForm(); await refreshInventory(); setMessage(wasEditing ? 'Item updated.' : 'Thing added to your inventory.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save this item.'); }
     finally { setActionBusy(false); }
   }
 
   function confirmDelete(item: PrivateInventoryItem) {
-    Alert.alert('Delete Thing?', `Remove “${itemTitle(item)}” from your inventory?`, [
+    Alert.alert('Delete item?', `Remove “${itemTitle(item)}” from your inventory?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => void removeThing(item) },
     ]);
   }
 
   async function removeThing(item: PrivateInventoryItem) {
-    try { setActionBusy(true); setMessage(null); await deletePrivateThing(item.id); if (editingItemId === item.id) resetThingForm(); await refreshInventory(); setMessage('Thing deleted.'); }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not delete this Thing.'); }
+    try {
+      setActionBusy(true); setMessage(null);
+      if (item.product_variants) await deletePrivateDevice(item.id);
+      else await deletePrivateThing(item.id);
+      if (editingItemId === item.id) resetThingForm();
+      await refreshInventory();
+      setMessage('Item deleted.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not delete this item.'); }
     finally { setActionBusy(false); }
   }
 
@@ -243,7 +252,7 @@ export default function App() {
 
     <View style={styles.summaryCard}><Text style={styles.metric}>{items.length}</Text><Text style={styles.metricLabel}>{items.length===1?'Thing':'Things'} saved</Text></View>
 
-    <View style={styles.card}><Text style={styles.sectionTitle}>{editingItemId?'Edit Thing':'Add a Thing'}</Text><Text style={styles.helper}>Start with the basics. You can update them anytime.</Text><TextInput value={thingName} onChangeText={setThingName} placeholder="Name · e.g. Road bike" maxLength={120} style={styles.input}/><TextInput value={thingCategory} onChangeText={setThingCategory} placeholder="Category · e.g. Sports" maxLength={80} style={styles.input}/><TextInput value={thingLocation} onChangeText={setThingLocation} placeholder="Location (optional)" maxLength={120} style={styles.input}/><TextInput value={thingNotes} onChangeText={setThingNotes} placeholder="Notes (optional)" maxLength={2000} multiline style={[styles.input,styles.notesInput]}/><TouchableOpacity style={[styles.primaryButton,(!thingName.trim()||actionBusy)&&styles.disabled]} disabled={!thingName.trim()||actionBusy} onPress={()=>void saveThing()}><Text style={styles.primaryButtonText}>{actionBusy?'Saving…':editingItemId?'Save changes':'Add to inventory'}</Text></TouchableOpacity>{editingItemId?<TouchableOpacity style={styles.secondaryButton} onPress={resetThingForm}><Text style={styles.secondaryButtonText}>Cancel editing</Text></TouchableOpacity>:null}</View>
+    <View style={styles.card}><Text style={styles.sectionTitle}>{editingItemId?'Edit item':'Add a Thing'}</Text><Text style={styles.helper}>Start with the basics. You can update them anytime.</Text><TextInput value={thingName} onChangeText={setThingName} placeholder="Name · e.g. Road bike" maxLength={120} style={styles.input}/><TextInput value={thingCategory} onChangeText={setThingCategory} placeholder="Category · e.g. Sports" maxLength={80} style={styles.input}/><TextInput value={thingLocation} onChangeText={setThingLocation} placeholder="Location (optional)" maxLength={120} style={styles.input}/><TextInput value={thingNotes} onChangeText={setThingNotes} placeholder="Notes (optional)" maxLength={2000} multiline style={[styles.input,styles.notesInput]}/><TouchableOpacity style={[styles.primaryButton,(!thingName.trim()||actionBusy)&&styles.disabled]} disabled={!thingName.trim()||actionBusy} onPress={()=>void saveThing()}><Text style={styles.primaryButtonText}>{actionBusy?'Saving…':editingItemId?'Save changes':'Add to inventory'}</Text></TouchableOpacity>{editingItemId?<TouchableOpacity style={styles.secondaryButton} onPress={resetThingForm}><Text style={styles.secondaryButtonText}>Cancel editing</Text></TouchableOpacity>:null}</View>
 
     {message?<Text style={styles.notice}>{message}</Text>:null}
 
@@ -252,7 +261,7 @@ export default function App() {
     {inventoryError?<View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.helper}>{inventoryError}</Text><TouchableOpacity style={styles.secondaryButton} onPress={()=>void refreshInventory()}><Text style={styles.secondaryButtonText}>Try again</Text></TouchableOpacity></View>:null}
     {!inventoryLoading&&!inventoryError&&items.length===0?<View style={styles.stateCard}><Text style={styles.emptyIcon}>＋</Text><Text style={styles.sectionTitle}>Your inventory is empty</Text><Text style={styles.helper}>Add your first Thing above. It will appear here after saving.</Text></View>:null}
 
-    {items.map((item)=>{const snapshot=item.condition_snapshots[0];const generic=!item.product_variants;const sale=buildSaleStartSurface(item.id,null);const open=saleIntentItemId===item.id;return <View key={item.id} style={styles.itemCard}><View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.itemTitle}>{itemTitle(item)}</Text><Text style={styles.muted}>{generic?(item.category||'Thing'):variantTitle(item.product_variants as CatalogVariant)}</Text></View><View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View></View>{item.location_label?<Text style={styles.meta}>⌖ {item.location_label}</Text>:null}{item.notes?<Text style={styles.notes}>{item.notes}</Text>:null}{snapshot?<Text style={styles.meta}>Condition: {snapshot.housing_state.replace(/_/g,' ').toLowerCase()}</Text>:null}{generic?<View style={styles.actionRow}><TouchableOpacity style={styles.smallButton} onPress={()=>startEditing(item)}><Text style={styles.smallButtonText}>Edit</Text></TouchableOpacity><TouchableOpacity style={styles.smallDangerButton} onPress={()=>confirmDelete(item)}><Text style={styles.smallDangerText}>Delete</Text></TouchableOpacity></View>:<><Text style={styles.valueLabel}>{sale.valueLabel}</Text><TouchableOpacity style={styles.secondaryButton} onPress={()=>{recordSellInitiated();setSaleIntentItemId(open?null:item.id);}}><Text style={styles.secondaryButtonText}>{sale.actionLabel}</Text></TouchableOpacity>{open?<View style={styles.saleDecision}><Text style={styles.helper}>{sale.privacyNotice}</Text></View>:null}</>}</View>;})}
+    {items.map((item)=>{const snapshot=item.condition_snapshots[0];const generic=!item.product_variants;const sale=buildSaleStartSurface(item.id,null);const open=saleIntentItemId===item.id;return <View key={item.id} style={styles.itemCard}><View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.itemTitle}>{itemTitle(item)}</Text><Text style={styles.muted}>{generic?(item.category||'Thing'):variantTitle(item.product_variants as CatalogVariant)}</Text></View><View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View></View>{item.location_label?<Text style={styles.meta}>⌖ {item.location_label}</Text>:null}{item.notes?<Text style={styles.notes}>{item.notes}</Text>:null}{snapshot?<Text style={styles.meta}>Condition: {snapshot.housing_state.replace(/_/g,' ').toLowerCase()}</Text>:null}<View style={styles.actionRow}><TouchableOpacity style={styles.smallButton} disabled={actionBusy} onPress={()=>startEditing(item)}><Text style={styles.smallButtonText}>Edit</Text></TouchableOpacity><TouchableOpacity style={styles.smallDangerButton} disabled={actionBusy} onPress={()=>confirmDelete(item)}><Text style={styles.smallDangerText}>Delete</Text></TouchableOpacity></View>{!generic?<><Text style={styles.valueLabel}>{sale.valueLabel}</Text><TouchableOpacity style={styles.secondaryButton} onPress={()=>{recordSellInitiated();setSaleIntentItemId(open?null:item.id);}}><Text style={styles.secondaryButtonText}>{sale.actionLabel}</Text></TouchableOpacity>{open?<View style={styles.saleDecision}><Text style={styles.helper}>{sale.privacyNotice}</Text></View>:null}</>:null}</View>;})}
 
     <View style={styles.card}><View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.sectionTitle}>Add from device catalog</Text><Text style={styles.helper}>Optional shortcut for supported phones.</Text></View>{catalogLoading?<ActivityIndicator/>:null}</View>{catalogError?<Text style={styles.helper}>{catalogError}</Text>:null}{catalog.slice(0,4).map((variant)=>{const selected=variant.id===selectedVariantId;return <TouchableOpacity key={variant.id} style={[styles.variantButton,selected&&styles.variantButtonSelected]} onPress={()=>setSelectedVariantId(variant.id)}><Text style={styles.variantText}>{variantTitle(variant)}</Text></TouchableOpacity>;})}{catalog.length>0?<TouchableOpacity style={[styles.secondaryButton,(!selectedVariant||actionBusy)&&styles.disabled]} disabled={!selectedVariant||actionBusy} onPress={()=>void createPrivateDevice()}><Text style={styles.secondaryButtonText}>Add selected device</Text></TouchableOpacity>:null}{catalogError?<TouchableOpacity onPress={()=>void refreshCatalog()}><Text style={styles.linkCentered}>Retry device suggestions</Text></TouchableOpacity>:null}</View>
   </ScrollView></SafeAreaView>;
