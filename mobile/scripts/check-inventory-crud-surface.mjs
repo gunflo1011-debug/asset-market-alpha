@@ -36,16 +36,17 @@ if (/generic\s*\?[^:]*Edit|generic\s*&&[^<]*Edit/.test(itemSurface)) {
   throw new Error('Edit must not be restricted to generic Things only.');
 }
 
-const requiredDataSemantics = [
-  "client().rpc('update_private_item_metadata'",
-  "client().rpc('delete_private_thing'",
-  "client().rpc('delete_private_device'",
-  "if(isCatalogDevice && marketStateResult.error) return []",
-  "if(isCatalogDevice && !state) return []",
-  "if(state==='SOLD') return []",
+const dataContracts = [
+  [/rpc\(['"]update_private_item_metadata['"]/, 'owner metadata update RPC'],
+  [/rpc\(['"]delete_private_thing['"]/, 'generic Thing delete RPC'],
+  [/rpc\(['"]delete_private_device['"]/, 'catalog device delete RPC'],
+  [/if\s*\(\s*isCatalogDevice\s*&&\s*marketStateResult\.error\s*\)\s*return\s*\[\]/s, 'catalog device RPC failure must fail closed'],
+  [/if\s*\(\s*isCatalogDevice\s*&&\s*!state\s*\)\s*return\s*\[\]/s, 'catalog device missing state must fail closed'],
+  [/if\s*\(\s*state\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]/s, 'SOLD inventory must stay excluded'],
 ];
-for (const marker of requiredDataSemantics) {
-  if (!inventory.includes(marker)) throw new Error(`Missing inventory data contract: ${marker}`);
+
+for (const [pattern, description] of dataContracts) {
+  if (!pattern.test(inventory)) throw new Error(`Missing inventory data contract: ${description}`);
 }
 
 console.log('inventory CRUD surface regression passed');
