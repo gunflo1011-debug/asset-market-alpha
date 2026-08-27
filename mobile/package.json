@@ -10,6 +10,7 @@
     "pretypecheck": "node scripts/normalize-font-weights.mjs",
     "typecheck": "tsc --noEmit",
     "test:capture-flow": "node scripts/check-capture-flow.mjs",
+    "test:inventory-crud-surface": "node scripts/check-inventory-crud-surface.mjs",
     "test:inventory-value": "node scripts/check-inventory-value.mjs",
     "test:inventory-value-surface": "node scripts/check-inventory-value-surface.mjs",
     "test:value-to-sell": "node scripts/check-value-to-sell.mjs",
