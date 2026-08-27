@@ -13,6 +13,13 @@ export type InventoryMarketState =
   | 'RESERVED'
   | 'SOLD';
 
+export type InventoryValueEvidence = {
+  estimated_value_cents: number;
+  currency: 'EUR';
+  source_type: string;
+  observed_at: string;
+};
+
 export type ConditionInput = {
   color?: string;
   displayState?: 'INTACT' | 'DAMAGED';
@@ -33,6 +40,7 @@ export type PrivateInventoryItem = {
   color: string | null;
   created_at: string;
   market_state: InventoryMarketState | null;
+  value_evidence: InventoryValueEvidence | null;
   product_variants: {
     id: string;
     storage_gb: number | null;
