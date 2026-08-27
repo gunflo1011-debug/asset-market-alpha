@@ -7,6 +7,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "pretypecheck": "node scripts/normalize-font-weights.mjs",
     "typecheck": "tsc --noEmit",
     "test:capture-flow": "node scripts/check-capture-flow.mjs",
     "test:inventory-value": "node scripts/check-inventory-value.mjs",
