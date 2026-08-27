@@ -19,23 +19,29 @@ for (const marker of requiredAppMarkers) {
   if (!app.includes(marker)) throw new Error(`Missing authenticated product-convergence marker: ${marker}`);
 }
 
-const requiredOwnershipMarkers = [
-  "client().rpc('load_my_inventory_market_states')",
-  'Inventory ownership state is unavailable. Things will not show devices as currently owned until ownership can be verified.',
-];
-
-for (const marker of requiredOwnershipMarkers) {
-  if (!inventory.includes(marker)) throw new Error(`Missing fail-closed ownership marker: ${marker}`);
+if (!inventory.includes("client().rpc('load_my_inventory_market_states')")) {
+  throw new Error('Missing authoritative market-state lookup for catalog-backed devices.');
 }
 
-// Keep this guard semantic instead of depending on one formatting style. Both accepted
-// shapes require the authoritative market-state lookup to exclude missing ownership
-// evidence and SOLD items from the returned inventory.
-const explicitFailClosedFilter = /const\s+marketState\s*=\s*marketStates\.get\(item\.id\)\s*;\s*if\s*\(\s*!marketState\s*\)\s*return\s*\[\]\s*;\s*if\s*\(\s*marketState\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
-const compactFailClosedFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)\s*;\s*return\s*!state\s*\|\|\s*state\s*===\s*['"]SOLD['"]\s*\?\s*\[\]\s*:/s;
+// Generic Things are directly owner-scoped by items RLS and may legitimately have no
+// market-state row. Catalog-backed devices must remain fail-closed when the market-state
+// RPC is unavailable or returns no state, otherwise SOLD/missing ownership evidence could
+// silently reappear in the authenticated inventory.
+const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
+const genericOnlyFallbackOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)[\s\S]{0,500}(?:product_variants|variant_id)[\s\S]{0,500}(?:filter|flatMap|return)/s;
+if (!fullFailClosedOnRpcError.test(inventory) && !genericOnlyFallbackOnRpcError.test(inventory)) {
+  throw new Error('Market-state RPC failure must fail closed for catalog-backed devices.');
+}
 
-if (!explicitFailClosedFilter.test(inventory) && !compactFailClosedFilter.test(inventory)) {
-  throw new Error('Inventory must fail closed when ownership state is missing and must exclude SOLD items.');
+const legacyExplicitFilter = /const\s+(?:marketState|state)\s*=\s*marketStates\.get\(item\.id\)\s*;\s*if\s*\(\s*!(?:marketState|state)\s*\)\s*return\s*\[\]\s*;[\s\S]{0,160}if\s*\(\s*(?:marketState|state)\s*===\s*['"]SOLD['"]\s*\)\s*return\s*\[\]\s*;/s;
+const legacyCompactFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)\s*;\s*return\s*!state\s*\|\|\s*state\s*===\s*['"]SOLD['"]\s*\?\s*\[\]\s*:/s;
+const discriminatedDeviceFilter = /const\s+state\s*=\s*marketStates\.get\(item\.id\)[\s\S]{0,240}(?:item\.product_variants|item\.variant_id)[\s\S]{0,120}!state[\s\S]{0,120}return\s*\[\][\s\S]{0,220}state\s*===\s*['"]SOLD['"]/s;
+if (!legacyExplicitFilter.test(inventory) && !legacyCompactFilter.test(inventory) && !discriminatedDeviceFilter.test(inventory)) {
+  throw new Error('Inventory must exclude SOLD devices and catalog-backed devices without authoritative market state.');
+}
+
+for (const marker of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) {
+  if (!inventory.includes(marker)) throw new Error(`Missing generic Thing lifecycle command: ${marker}`);
 }
 
 if (app.includes('buildSaleStartSurface(item.id, 0)')) {
