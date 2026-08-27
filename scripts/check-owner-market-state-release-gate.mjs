@@ -5,6 +5,7 @@ const marketStateMigrationPath = 'supabase/migrations/20260825104500_owner_inven
 const ownerCrudMigrationPath = 'supabase/migrations/20260826211500_owner_inventory_crud.sql';
 const genericCrudMigrationPath = 'supabase/migrations/20260827093500_generic_private_thing_crud.sql';
 const itemMetadataMigrationPath = 'supabase/migrations/20260827191500_owner_item_metadata.sql';
+const valueEvidenceMigrationPath = 'supabase/migrations/20260827203000_owner_inventory_value_evidence.sql';
 const runbookPath = 'supabase/OWNER_MARKET_STATE_DEPLOY.md';
 const inventoryPaths = [
   'mobile/src/data/inventory.ts',
@@ -16,6 +17,7 @@ const marketStateMigration = fs.readFileSync(marketStateMigrationPath, 'utf8');
 const ownerCrudMigration = fs.readFileSync(ownerCrudMigrationPath, 'utf8');
 const genericCrudMigration = fs.readFileSync(genericCrudMigrationPath, 'utf8');
 const itemMetadataMigration = fs.readFileSync(itemMetadataMigrationPath, 'utf8');
+const valueEvidenceMigration = fs.readFileSync(valueEvidenceMigrationPath, 'utf8');
 const runbook = fs.readFileSync(runbookPath, 'utf8');
 const inventory = inventoryPaths.map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 
@@ -24,18 +26,20 @@ const marketStateName = '20260825104500_owner_inventory_market_state.sql';
 const ownerCrudName = '20260826211500_owner_inventory_crud.sql';
 const genericCrudName = '20260827093500_generic_private_thing_crud.sql';
 const itemMetadataName = '20260827191500_owner_item_metadata.sql';
+const valueEvidenceName = '20260827203000_owner_inventory_value_evidence.sql';
 
 assert.equal(
   migrationFiles.at(-1),
-  itemMetadataName,
-  'release gate knows only reviewed migrations through owner item metadata; re-review any newer migration before release',
+  valueEvidenceName,
+  'release gate knows only reviewed migrations through owner inventory value evidence; re-review any newer migration before release',
 );
 assert.ok(
   migrationFiles.indexOf(marketStateName) >= 0 &&
     migrationFiles.indexOf(marketStateName) < migrationFiles.indexOf(ownerCrudName) &&
     migrationFiles.indexOf(ownerCrudName) < migrationFiles.indexOf(genericCrudName) &&
-    migrationFiles.indexOf(genericCrudName) < migrationFiles.indexOf(itemMetadataName),
-  'reviewed migration order must remain market state -> device CRUD -> generic Thing CRUD -> owner item metadata',
+    migrationFiles.indexOf(genericCrudName) < migrationFiles.indexOf(itemMetadataName) &&
+    migrationFiles.indexOf(itemMetadataName) < migrationFiles.indexOf(valueEvidenceName),
+  'reviewed migration order must remain market state -> device CRUD -> generic Thing CRUD -> owner item metadata -> owner value evidence',
 );
 
 assert.match(runbook, /Approval authorizes \*\*one hosted schema mutation only\*\*/i);
@@ -94,7 +98,25 @@ assert.doesNotMatch(itemMetadataMigration, /p_owner|set\s+owner_id/i, 'item meta
 assert.match(itemMetadataMigration, /revoke all on function public\.update_private_item_metadata\(uuid,text,text,text,text\) from public, anon;/i);
 assert.match(itemMetadataMigration, /grant execute on function public\.update_private_item_metadata\(uuid,text,text,text,text\) to authenticated;/i);
 
+// Value evidence is trusted backend data: mobile clients may read only their own
+// latest observation and must never receive direct table write privileges.
+assert.match(valueEvidenceMigration, /create table if not exists private\.item_value_evidence/i);
+assert.match(valueEvidenceMigration, /estimated_value_cents bigint not null check \(estimated_value_cents >= 0\)/i);
+assert.match(valueEvidenceMigration, /currency text not null default 'EUR' check \(currency = 'EUR'\)/i);
+assert.match(valueEvidenceMigration, /revoke all on table private\.item_value_evidence from public, anon, authenticated;/i);
+assert.match(valueEvidenceMigration, /create or replace function public\.load_my_inventory_values\(\)/i);
+assert.match(valueEvidenceMigration, /security definer/i);
+assert.match(valueEvidenceMigration, /set search_path = public, private, auth, pg_temp/i);
+assert.match(valueEvidenceMigration, /if auth\.uid\(\) is null[\s\S]*raise exception 'AUTH_REQUIRED'/i);
+assert.match(valueEvidenceMigration, /join public\.items i on i\.id = e\.item_id[\s\S]*where i\.owner_id = auth\.uid\(\)/i);
+assert.match(valueEvidenceMigration, /distinct on \(e\.item_id\)/i);
+assert.match(valueEvidenceMigration, /order by e\.item_id, e\.observed_at desc, e\.created_at desc/i);
+assert.match(valueEvidenceMigration, /revoke all on function public\.load_my_inventory_values\(\) from public, anon;/i);
+assert.match(valueEvidenceMigration, /grant execute on function public\.load_my_inventory_values\(\) to authenticated;/i);
+assert.doesNotMatch(valueEvidenceMigration, /grant\s+(insert|update|delete|all)[\s\S]*item_value_evidence[\s\S]*authenticated/i, 'mobile clients must not be granted write access to trusted value evidence');
+
 assert.match(inventory, /load_my_inventory_market_states/i, 'mobile inventory must consume the authoritative RPC for catalog-backed devices');
+assert.match(inventory, /load_my_inventory_values/i, 'mobile inventory must consume owner-scoped verified value evidence');
 assert.match(inventory, /SOLD/i, 'mobile inventory must explicitly handle SOLD state');
 assert.match(inventory, /update_private_device/i, 'mobile inventory must use the owner-safe device update RPC');
 assert.match(inventory, /delete_private_device/i, 'mobile inventory must use the owner-safe device delete RPC');
@@ -103,4 +125,4 @@ assert.match(inventory, /update_private_thing/i, 'mobile inventory must use the 
 assert.match(inventory, /delete_private_thing/i, 'mobile inventory must use the owner-safe generic Thing delete RPC');
 assert.match(inventory, /update_private_item_metadata/i, 'mobile inventory must use the owner-safe metadata RPC for editing any owned item');
 
-console.log('owner market-state, device CRUD, generic Thing CRUD, and item metadata release gate: OK');
+console.log('owner market-state, CRUD, metadata, and verified value evidence release gate: OK');
