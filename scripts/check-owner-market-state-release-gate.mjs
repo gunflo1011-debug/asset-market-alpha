@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 const marketStateMigrationPath = 'supabase/migrations/20260825104500_owner_inventory_market_state.sql';
 const ownerCrudMigrationPath = 'supabase/migrations/20260826211500_owner_inventory_crud.sql';
 const genericCrudMigrationPath = 'supabase/migrations/20260827093500_generic_private_thing_crud.sql';
+const itemMetadataMigrationPath = 'supabase/migrations/20260827191500_owner_item_metadata.sql';
 const runbookPath = 'supabase/OWNER_MARKET_STATE_DEPLOY.md';
 const inventoryPath = 'mobile/src/data/inventory.ts';
 
 const marketStateMigration = fs.readFileSync(marketStateMigrationPath, 'utf8');
 const ownerCrudMigration = fs.readFileSync(ownerCrudMigrationPath, 'utf8');
 const genericCrudMigration = fs.readFileSync(genericCrudMigrationPath, 'utf8');
+const itemMetadataMigration = fs.readFileSync(itemMetadataMigrationPath, 'utf8');
 const runbook = fs.readFileSync(runbookPath, 'utf8');
 const inventory = fs.readFileSync(inventoryPath, 'utf8');
 
@@ -17,17 +19,19 @@ const migrationFiles = fs.readdirSync('supabase/migrations').filter((name) => na
 const marketStateName = '20260825104500_owner_inventory_market_state.sql';
 const ownerCrudName = '20260826211500_owner_inventory_crud.sql';
 const genericCrudName = '20260827093500_generic_private_thing_crud.sql';
+const itemMetadataName = '20260827191500_owner_item_metadata.sql';
 
 assert.equal(
   migrationFiles.at(-1),
-  genericCrudName,
-  'release gate knows only reviewed migrations through generic private Thing CRUD; re-review any newer migration before release',
+  itemMetadataName,
+  'release gate knows only reviewed migrations through owner item metadata; re-review any newer migration before release',
 );
 assert.ok(
   migrationFiles.indexOf(marketStateName) >= 0 &&
     migrationFiles.indexOf(marketStateName) < migrationFiles.indexOf(ownerCrudName) &&
-    migrationFiles.indexOf(ownerCrudName) < migrationFiles.indexOf(genericCrudName),
-  'reviewed migration order must remain market state -> device CRUD -> generic Thing CRUD',
+    migrationFiles.indexOf(ownerCrudName) < migrationFiles.indexOf(genericCrudName) &&
+    migrationFiles.indexOf(genericCrudName) < migrationFiles.indexOf(itemMetadataName),
+  'reviewed migration order must remain market state -> device CRUD -> generic Thing CRUD -> owner item metadata',
 );
 
 assert.match(runbook, /Approval authorizes \*\*one hosted schema mutation only\*\*/i);
@@ -81,6 +85,19 @@ for (const signature of [
   assert.match(genericCrudMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
 
+// Item display metadata may be edited for both generic Things and catalog devices, but
+// never by supplying or changing owner_id. The RPC must derive auth.uid(), validate the
+// row belongs to that user, and expose execution only to authenticated users.
+assert.match(itemMetadataMigration, /create or replace function public\.update_private_item_metadata/i);
+assert.match(itemMetadataMigration, /security definer/i);
+assert.match(itemMetadataMigration, /set search_path = public, auth, pg_temp/i);
+assert.match(itemMetadataMigration, /v_owner uuid := auth\.uid\(\)/i);
+assert.match(itemMetadataMigration, /where id=p_item_id and owner_id=v_owner/i);
+assert.match(itemMetadataMigration, /raise exception 'ITEM_NOT_OWNED'/i);
+assert.doesNotMatch(itemMetadataMigration, /p_owner|set\s+owner_id/i, 'item metadata RPC must not accept or mutate ownership');
+assert.match(itemMetadataMigration, /revoke all on function public\.update_private_item_metadata\(uuid,text,text,text,text\) from public, anon;/i);
+assert.match(itemMetadataMigration, /grant execute on function public\.update_private_item_metadata\(uuid,text,text,text,text\) to authenticated;/i);
+
 assert.match(inventory, /load_my_inventory_market_states/i, 'mobile inventory must consume the authoritative RPC for catalog-backed devices');
 assert.match(inventory, /SOLD/i, 'mobile inventory must explicitly handle SOLD state');
 assert.match(inventory, /update_private_device/i, 'mobile inventory must use the owner-safe device update RPC');
@@ -88,5 +105,6 @@ assert.match(inventory, /delete_private_device/i, 'mobile inventory must use the
 assert.match(inventory, /add_private_thing/i, 'mobile inventory must use the owner-safe generic Thing create RPC');
 assert.match(inventory, /update_private_thing/i, 'mobile inventory must use the owner-safe generic Thing update RPC');
 assert.match(inventory, /delete_private_thing/i, 'mobile inventory must use the owner-safe generic Thing delete RPC');
+assert.match(inventory, /update_private_item_metadata/i, 'mobile inventory must use the owner-safe metadata RPC for editing any owned item');
 
-console.log('owner market-state, device CRUD, and generic Thing CRUD release gate: OK');
+console.log('owner market-state, device CRUD, generic Thing CRUD, and item metadata release gate: OK');
