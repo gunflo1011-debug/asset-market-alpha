@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { itemTitle, savedDate, variantTitle } from './presentation';
@@ -38,6 +38,80 @@ type Props = {
 };
 
 export function InventoryScreen(props: Props) {
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const selectedItem = useMemo(
+    () => props.items.find((item) => item.id === selectedItemId) ?? null,
+    [props.items, selectedItemId],
+  );
+
+  if (selectedItem) {
+    const snapshot = selectedItem.condition_snapshots[0];
+    const generic = !selectedItem.product_variants;
+    const sale = buildSaleStartSurface(selectedItem.id, null);
+    const saleOpen = props.saleIntentItemId === selectedItem.id;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.detailContainer}>
+          <View style={styles.detailHeader}>
+            <TouchableOpacity style={styles.backButton} onPress={() => setSelectedItemId(null)}>
+              <Text style={styles.backButtonText}>‹ Inventory</Text>
+            </TouchableOpacity>
+            <View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View>
+          </View>
+
+          <View style={styles.detailHero}>
+            <View style={styles.itemLabelRow}>
+              <View style={styles.typePill}><Text style={styles.typePillText}>{generic ? (selectedItem.category || 'Thing') : 'Device'}</Text></View>
+              <Text style={styles.savedDate}>{savedDate(selectedItem.created_at)}</Text>
+            </View>
+            <Text style={styles.detailTitle}>{itemTitle(selectedItem)}</Text>
+            {!generic ? <Text style={styles.detailSubtitle}>{variantTitle(selectedItem.product_variants as CatalogVariant)}</Text> : null}
+          </View>
+
+          <View style={styles.detailCard}>
+            <Text style={styles.detailSectionLabel}>DETAILS</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Category</Text>
+              <Text style={styles.detailValue}>{selectedItem.category || (generic ? 'Other' : 'Device')}</Text>
+            </View>
+            <View style={styles.detailDivider} />
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Location</Text>
+              <Text style={styles.detailValue}>{selectedItem.location_label || 'Not set'}</Text>
+            </View>
+            {snapshot ? <><View style={styles.detailDivider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Condition</Text><Text style={styles.detailValue}>{snapshot.housing_state.replace(/_/g, ' ').toLowerCase()}</Text></View></> : null}
+          </View>
+
+          <View style={styles.detailCard}>
+            <Text style={styles.detailSectionLabel}>NOTES</Text>
+            <Text style={selectedItem.notes ? styles.detailNotes : styles.detailEmpty}>{selectedItem.notes || 'No notes added yet.'}</Text>
+          </View>
+
+          {!generic ? (
+            <View style={styles.detailCard}>
+              <Text style={styles.detailSectionLabel}>VALUE & SELLING</Text>
+              <Text style={styles.valueLabel}>{sale.valueLabel}</Text>
+              <Text style={styles.helper}>Things only shows a value when verified evidence exists.</Text>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.secondaryButtonText}>{sale.actionLabel}</Text></TouchableOpacity>
+              {saleOpen ? <View style={styles.saleDecision}><Text style={styles.helper}>{sale.privacyNotice}</Text></View> : null}
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            disabled={props.actionBusy}
+            onPress={() => { props.onStartEditing(selectedItem); setSelectedItemId(null); }}
+          >
+            <Text style={styles.primaryButtonText}>Edit item</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dangerButton} disabled={props.actionBusy} onPress={() => props.onDelete(selectedItem)}>
+            <Text style={styles.dangerButtonText}>Delete item</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
@@ -113,9 +187,12 @@ export function InventoryScreen(props: Props) {
               </View>
 
               {item.location_label ? <Text style={styles.meta}>⌖ {item.location_label}</Text> : null}
-              {item.notes ? <View style={styles.notesPanel}><Text style={styles.notes}>{item.notes}</Text></View> : null}
               {snapshot ? <Text style={styles.meta}>Condition · {snapshot.housing_state.replace(/_/g, ' ').toLowerCase()}</Text> : null}
+              {item.notes ? <Text style={styles.notesPreview} numberOfLines={2}>{item.notes}</Text> : null}
 
+              <TouchableOpacity style={styles.viewButton} onPress={() => setSelectedItemId(item.id)}>
+                <Text style={styles.viewButtonText}>View details</Text><Text style={styles.viewButtonArrow}>›</Text>
+              </TouchableOpacity>
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.smallButton} disabled={props.actionBusy} onPress={() => props.onStartEditing(item)}><Text style={styles.smallButtonText}>Edit</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.smallDangerButton} disabled={props.actionBusy} onPress={() => props.onDelete(item)}><Text style={styles.smallDangerText}>Delete</Text></TouchableOpacity>
@@ -153,6 +230,7 @@ export function InventoryScreen(props: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F4F6F8' },
   container: { padding: 20, paddingTop: 24, paddingBottom: 52, gap: 18 },
+  detailContainer: { padding: 20, paddingTop: 18, paddingBottom: 52, gap: 16 },
   eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: '#667085', marginBottom: 4 },
   pageTitle: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.7, color: '#101828' },
   subtitle: { fontSize: 15, lineHeight: 22, color: '#667085', marginTop: 3 },
@@ -173,6 +251,8 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   secondaryButton: { borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D0D5DD', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { color: '#344054', fontWeight: '700', fontSize: 15 },
+  dangerButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#FECDCA', backgroundColor: '#FFF8F7' },
+  dangerButtonText: { color: '#B42318', fontSize: 15, fontWeight: '700' },
   headerButton: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E4E7EC' },
   headerButtonText: { fontSize: 14, fontWeight: '700', color: '#344054' },
   disabled: { opacity: 0.45 },
@@ -196,8 +276,7 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: 19, lineHeight: 24, fontWeight: '700', color: '#101828' },
   muted: { fontSize: 13, lineHeight: 18, color: '#667085', marginTop: 2 },
   meta: { fontSize: 13, color: '#667085' },
-  notesPanel: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12 },
-  notes: { fontSize: 14, lineHeight: 20, color: '#344054' },
+  notesPreview: { fontSize: 13, lineHeight: 19, color: '#667085' },
   privatePill: { borderRadius: 999, backgroundColor: '#ECFDF3', paddingHorizontal: 10, paddingVertical: 6 },
   privatePillText: { fontSize: 12, fontWeight: '700', color: '#027A48' },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 1 },
@@ -205,6 +284,9 @@ const styles = StyleSheet.create({
   smallButtonText: { fontSize: 14, fontWeight: '700', color: '#344054' },
   smallDangerButton: { flex: 1, borderWidth: 1, borderColor: '#FECDCA', backgroundColor: '#FFF8F7', borderRadius: 12, paddingVertical: 11, alignItems: 'center' },
   smallDangerText: { fontSize: 14, fontWeight: '700', color: '#B42318' },
+  viewButton: { minHeight: 48, borderRadius: 14, backgroundColor: '#F2F4F7', paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  viewButtonText: { fontSize: 14, fontWeight: '700', color: '#101828' },
+  viewButtonArrow: { fontSize: 22, color: '#667085' },
   sellPanel: { gap: 10, paddingTop: 3 },
   valueLabel: { fontSize: 14, fontWeight: '700', color: '#344054' },
   saleDecision: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12 },
@@ -212,4 +294,18 @@ const styles = StyleSheet.create({
   variantButtonSelected: { borderWidth: 2, borderColor: '#101828', backgroundColor: '#F8FAFC' },
   variantText: { fontSize: 14, color: '#344054', flex: 1 },
   variantSelectedText: { fontSize: 11, fontWeight: '700', color: '#344054' },
+  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  backButton: { paddingVertical: 10, paddingRight: 14 },
+  backButtonText: { fontSize: 16, fontWeight: '700', color: '#344054' },
+  detailHero: { backgroundColor: '#101828', borderRadius: 24, padding: 22, gap: 8 },
+  detailTitle: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+  detailSubtitle: { fontSize: 14, lineHeight: 20, color: '#D0D5DD' },
+  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 12, borderWidth: 1, borderColor: '#E7EAF0' },
+  detailSectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1, color: '#667085' },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20 },
+  detailKey: { fontSize: 14, color: '#667085' },
+  detailValue: { flex: 1, fontSize: 14, fontWeight: '700', color: '#101828', textAlign: 'right', textTransform: 'capitalize' },
+  detailDivider: { height: 1, backgroundColor: '#EAECF0' },
+  detailNotes: { fontSize: 15, lineHeight: 22, color: '#344054' },
+  detailEmpty: { fontSize: 14, lineHeight: 20, color: '#98A2B3' },
 });
