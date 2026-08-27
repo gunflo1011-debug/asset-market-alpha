@@ -1,33 +1,25 @@
 import fs from 'node:fs';
 
-const app = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-const surface = fs.readFileSync(new URL('../src/lib/saleStartSurface.ts', import.meta.url), 'utf8');
+const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
+const app = read('App.tsx');
+const screen = read('src/features/inventory/InventoryScreen.tsx');
+const surface = read('src/lib/saleStartSurface.ts');
 
-const appContracts = [
-  ["import { buildSaleStartSurface } from './src/lib/saleStartSurface';", 'app must import the sale-start surface'],
-  ['{sale.valueLabel}', 'app must render sale value evidence'],
-  ['{sale.actionLabel}', 'app must render the explicit sale action'],
-  ['{sale.privacyNotice}', 'app must render the privacy notice'],
-];
-
-for (const [marker, description] of appContracts) {
-  if (!app.includes(marker)) throw new Error(`Missing sale-start integration contract: ${description}`);
+for (const marker of ['buildSaleStartSurface(item.id, null)', '{sale.valueLabel}', '{sale.actionLabel}', '{sale.privacyNotice}']) {
+  if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
+    throw new Error(`Missing sale-start screen contract: ${marker}`);
+  }
 }
 
-const semanticContracts = [
-  [/buildSaleStartSurface\(item\.id\s*,\s*null\)/, 'sale start must preserve unknown value as null'],
-  [/saleIntentItemId\s*===\s*item\.id/, 'sale decision must be scoped to the selected item'],
-  [/setSaleIntentItemId\(open\s*\?\s*null\s*:\s*item\.id\)/, 'sale action must explicitly toggle the selected item'],
-];
-
-for (const [pattern, description] of semanticContracts) {
-  if (!pattern.test(app)) throw new Error(`Missing sale-start semantic contract: ${description}`);
+if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(item\.id\)\}/.test(screen)) {
+  throw new Error('Sale start must require the explicit item action in the inventory screen.');
 }
-
-if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(app)) {
+if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*recordSellInitiated\(\)[\s\S]*setSaleIntentItemId/s.test(app)) {
+  throw new Error('Sale initiation must be recorded only through explicit app orchestration.');
+}
+if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must not be converted to a zero-price estimate.');
 }
-
 if (!/estimatedValueCents:\s*number\s*\|\s*null/.test(surface)) {
   throw new Error('Sale-start surface must model unknown value explicitly as null.');
 }
