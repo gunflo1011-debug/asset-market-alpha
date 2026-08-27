@@ -1,7 +1,12 @@
 import fs from 'node:fs';
 
-const app = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
-const inventory = fs.readFileSync(new URL('../src/data/inventory.ts', import.meta.url), 'utf8');
+const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
+const app = read('App.tsx');
+const inventory = [
+  read('src/data/inventory.ts'),
+  read('src/data/inventoryQueries.ts'),
+  read('src/data/inventoryCommands.ts'),
+].join('\n');
 
 const requiredAppSemantics = [
   'function startEditing(item: PrivateInventoryItem)',
@@ -24,7 +29,6 @@ for (const marker of requiredAppSemantics) {
   if (!app.includes(marker)) throw new Error(`Missing inventory CRUD surface contract: ${marker}`);
 }
 
-// Edit/Delete actions must live on the shared item card, not only inside the generic-Thing branch.
 const itemMapStart = app.indexOf('{items.map((item)=>');
 const catalogStart = app.indexOf('<View style={styles.card}><View style={styles.rowBetween}><View style={styles.flex}><Text style={styles.sectionTitle}>Add from device catalog');
 if (itemMapStart < 0 || catalogStart < 0 || catalogStart <= itemMapStart) throw new Error('Could not locate inventory item surface.');
