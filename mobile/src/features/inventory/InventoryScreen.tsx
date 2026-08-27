@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { summarizeInventoryValue } from '../../lib/inventoryValue';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { itemTitle, savedDate, variantTitle } from './presentation';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
@@ -39,6 +40,24 @@ type Props = {
 
 type CaptureMode = 'manual' | 'catalog';
 
+function formatEuroCents(cents: number): string {
+  return (cents / 100).toLocaleString('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+function valueEvidenceLabel(item: PrivateInventoryItem): string {
+  if (!item.value_evidence) return 'Awaiting verified value evidence';
+  const observed = new Date(item.value_evidence.observed_at);
+  const observedLabel = Number.isNaN(observed.getTime())
+    ? 'verified evidence'
+    : `verified ${observed.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  return `${item.value_evidence.source_type} · ${observedLabel}`;
+}
+
 export function InventoryScreen(props: Props) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -47,6 +66,19 @@ export function InventoryScreen(props: Props) {
     () => props.items.find((item) => item.id === selectedItemId) ?? null,
     [props.items, selectedItemId],
   );
+  const inventoryValue = useMemo(
+    () => summarizeInventoryValue(props.items.map((item) => ({
+      itemId: item.id,
+      estimatedValueCents: item.value_evidence?.estimated_value_cents ?? null,
+    }))),
+    [props.items],
+  );
+  const portfolioValueLabel = inventoryValue.valuedItemCount > 0 ? formatEuroCents(inventoryValue.knownValueCents) : '—';
+  const portfolioCoverageLabel = inventoryValue.totalItemCount === 0
+    ? 'No value evidence yet'
+    : inventoryValue.unvaluedItemCount === 0
+      ? `Verified across all ${inventoryValue.totalItemCount} items`
+      : `${inventoryValue.valuedItemCount}/${inventoryValue.totalItemCount} items valued`;
 
   useEffect(() => {
     if (props.editingItemId) {
@@ -59,7 +91,7 @@ export function InventoryScreen(props: Props) {
   if (selectedItem) {
     const snapshot = selectedItem.condition_snapshots[0];
     const generic = !selectedItem.product_variants;
-    const sale = buildSaleStartSurface(selectedItem.id, null);
+    const sale = buildSaleStartSurface(selectedItem.id, selectedItem.value_evidence?.estimated_value_cents ?? null);
     const saleOpen = props.saleIntentItemId === selectedItem.id;
     return (
       <SafeAreaView style={styles.safe}>
@@ -81,7 +113,7 @@ export function InventoryScreen(props: Props) {
           <View style={styles.valueHero}>
             <Text style={styles.detailSectionLabel}>ESTIMATED VALUE</Text>
             <Text style={styles.valueHeroText}>{sale.valueLabel.replace('Estimated value ', '')}</Text>
-            <Text style={styles.helper}>We only show a value once there is verified evidence. Unknown never means €0.</Text>
+            <Text style={styles.helper}>{valueEvidenceLabel(selectedItem)}. Unknown values are never counted as €0.</Text>
           </View>
 
           <View style={styles.detailCard}>
@@ -97,7 +129,7 @@ export function InventoryScreen(props: Props) {
           <View style={styles.sellHero}>
             <Text style={styles.sellHeroEyebrow}>PRIVATE SALE</Text>
             <Text style={styles.sellHeroTitle}>Ready to let it go?</Text>
-            <Text style={styles.sellHeroCopy}>Start privately. Nothing becomes public and nothing is sold without your confirmation.</Text>
+            <Text style={styles.sellHeroCopy}>{selectedItem.value_evidence ? `Use the verified ${formatEuroCents(selectedItem.value_evidence.estimated_value_cents)} reference as context, then decide whether to continue.` : 'Start privately even while value evidence is still pending.'}</Text>
             <TouchableOpacity style={styles.sellButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.sellButtonText}>{sale.actionLabel}</Text></TouchableOpacity>
             {saleOpen ? <View style={styles.saleDecisionDark}><Text style={styles.saleDecisionText}>{sale.privacyNotice}</Text></View> : null}
           </View>
@@ -131,9 +163,9 @@ export function InventoryScreen(props: Props) {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryColumn}>
-            <Text style={styles.summaryLabel}>PORTFOLIO VALUE</Text>
-            <Text style={styles.valueSummary}>—</Text>
-            <Text style={styles.metricLabel}>Awaiting verified values</Text>
+            <Text style={styles.summaryLabel}>{inventoryValue.unvaluedItemCount === 0 && inventoryValue.totalItemCount > 0 ? 'PORTFOLIO VALUE' : 'KNOWN VALUE'}</Text>
+            <Text style={styles.valueSummary}>{portfolioValueLabel}</Text>
+            <Text style={styles.metricLabel}>{portfolioCoverageLabel}</Text>
           </View>
         </View>
 
@@ -192,7 +224,7 @@ export function InventoryScreen(props: Props) {
         {props.items.map((item) => {
           const snapshot = item.condition_snapshots[0];
           const generic = !item.product_variants;
-          const sale = buildSaleStartSurface(item.id, null);
+          const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
           const open = props.saleIntentItemId === item.id;
           return (
             <View key={item.id} style={styles.itemCard}>
@@ -210,7 +242,7 @@ export function InventoryScreen(props: Props) {
               </TouchableOpacity>
 
               <View style={styles.itemValueRow}>
-                <View><Text style={styles.itemValueEyebrow}>ESTIMATED VALUE</Text><Text style={styles.valueLabel}>{sale.valueLabel.replace('Estimated value ', '')}</Text></View>
+                <View style={styles.flex}><Text style={styles.itemValueEyebrow}>ESTIMATED VALUE</Text><Text style={styles.valueLabel}>{sale.valueLabel.replace('Estimated value ', '')}</Text><Text style={styles.valueEvidenceMeta}>{valueEvidenceLabel(item)}</Text></View>
                 <View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View>
               </View>
 
@@ -288,6 +320,7 @@ const styles = StyleSheet.create({
   itemValueRow: { backgroundColor: '#F8FAFC', borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   itemValueEyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 0.9, color: '#98A2B3', marginBottom: 3 },
   valueLabel: { fontSize: 14, fontWeight: '700', color: '#344054' },
+  valueEvidenceMeta: { fontSize: 11, lineHeight: 16, color: '#98A2B3', marginTop: 3 },
   privatePill: { borderRadius: 999, backgroundColor: '#ECFDF3', paddingHorizontal: 10, paddingVertical: 6 },
   privatePillText: { fontSize: 12, fontWeight: '700', color: '#027A48' },
   sellInlineButton: { minHeight: 50, borderRadius: 14, backgroundColor: '#101828', paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
