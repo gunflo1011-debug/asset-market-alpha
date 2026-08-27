@@ -3,10 +3,19 @@ name: actions-smoke
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "GitHub Actions is enabled for asset-market-alpha"
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Reject committed secrets
+        run: node scripts/check-public-repo-secrets.mjs
+      - name: Confirm Actions
+        run: echo "GitHub Actions is enabled for asset-market-alpha"
