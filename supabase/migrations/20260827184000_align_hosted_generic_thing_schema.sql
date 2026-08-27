@@ -3,26 +3,46 @@ alter table public.items
   add column if not exists custom_name text,
   add column if not exists category text,
   add column if not exists location_label text,
-  add column if not exists notes text;
+  add column if not exists notes text,
+  add column if not exists updated_at timestamptz not null default now();
 
--- Preserve existing generic Things created through the earlier display_name/category_id model.
-update public.items i
-set custom_name = coalesce(i.custom_name, i.display_name),
-    category = coalesce(i.category, c.label)
-from public.thing_categories c
-where i.category_id = c.id
-  and i.variant_id is null;
+-- Preserve hosted legacy generic Things only when that older schema is actually present.
+-- A clean rebuild starts from the canonical schema and therefore has no thing_categories,
+-- display_name, or category_id objects to migrate.
+do $$
+begin
+  if to_regclass('public.thing_categories') is not null
+     and exists (select 1 from information_schema.columns where table_schema='public' and table_name='items' and column_name='display_name')
+     and exists (select 1 from information_schema.columns where table_schema='public' and table_name='items' and column_name='category_id')
+  then
+    execute $sql$
+      update public.items i
+      set custom_name = coalesce(i.custom_name, i.display_name),
+          category = coalesce(i.category, c.label)
+      from public.thing_categories c
+      where i.category_id = c.id
+        and i.variant_id is null
+    $sql$;
+  end if;
+end $$;
 
--- Legacy device commands still populate display_name/category_id. New generic Things use custom_* fields.
-alter table public.items alter column display_name drop not null;
-alter table public.items alter column category_id drop not null;
+-- Relax legacy hosted columns when they exist. Clean databases intentionally do not have them.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='items' and column_name='display_name') then
+    execute 'alter table public.items alter column display_name drop not null';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='items' and column_name='category_id') then
+    execute 'alter table public.items alter column category_id drop not null';
+  end if;
+end $$;
 
+-- After the optional legacy copy, the canonical identity contract is variant OR custom_name.
 alter table public.items drop constraint if exists items_identity_check;
 alter table public.items add constraint items_identity_check
   check (
     variant_id is not null
     or nullif(btrim(custom_name), '') is not null
-    or nullif(btrim(display_name), '') is not null
   );
 
 alter table public.items drop constraint if exists items_custom_name_length_check;
