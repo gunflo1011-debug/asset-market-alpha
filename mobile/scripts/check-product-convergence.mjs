@@ -12,10 +12,11 @@ const inventory = [
 
 const requiredScreenSemantics = [
   '<Text style={styles.metric}>{props.items.length}</Text>',
-  'buildSaleStartSurface(item.id, null)',
+  'item.value_evidence?.estimated_value_cents ?? null',
   '{sale.valueLabel}',
   '{sale.actionLabel}',
   'props.saleIntentItemId === item.id',
+  'summarizeInventoryValue',
 ];
 for (const marker of requiredScreenSemantics) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
@@ -38,6 +39,9 @@ if (!saleSurface.includes('Estimated value not available yet')) {
 
 if (!inventory.includes("rpc('load_my_inventory_market_states')")) {
   throw new Error('Missing authoritative market-state lookup for catalog-backed devices.');
+}
+if (!inventory.includes("rpc('load_my_inventory_value_evidence')")) {
+  throw new Error('Missing authenticated verified value-evidence lookup for inventory.');
 }
 
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
