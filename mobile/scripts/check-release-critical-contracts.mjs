@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const read = (relative) => fs.readFileSync(path.resolve(relative), 'utf8');
-const inventory = read('src/data/inventory.ts');
+const inventory = [
+  read('src/data/inventory.ts'),
+  read('src/data/inventoryQueries.ts'),
+  read('src/data/inventoryCommands.ts'),
+].join('\n');
 const auth = read('src/data/auth.ts');
 const app = read('App.tsx');
 
-// Ownership must remain authoritative and fail closed for catalog-backed devices.
-// Generic Things are owner-RLS scoped and intentionally have no market-state row.
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
   inventory,
@@ -22,9 +24,8 @@ assert.match(
 );
 assert.match(inventory, /rpc\(['"]add_private_device['"][\s\S]*p_variant_id\s*:\s*input\.variantId/, 'add-private must use the authenticated backend RPC');
 assert.match(inventory, /if\s*\(\s*typeof\s+data\s*!==\s*['"]string['"]\s*\)\s*throw\s+new\s+Error\(['"]Inventory command returned no item id\.['"]\)/, 'add-private must require a real item id');
-assert.match(app, /await\s+addPrivateDevice\(\{\s*variantId\s*:\s*selectedVariantId\s*\}\);[\s\S]*await\s+refreshData\(\);[\s\S]*Device saved privately/, 'UI must reload authoritative inventory after add-private succeeds');
+assert.match(app, /await\s+addPrivateDevice\(\{\s*variantId\s*:\s*selectedVariantId\s*\}\);[\s\S]*await\s+refreshInventory\(\);[\s\S]*Device added to your private inventory\./, 'UI must reload authoritative inventory after add-private succeeds');
 
-// Email confirmation and password recovery must stay on the app deep-link scheme.
 assert.match(auth, /const\s+EMAIL_CONFIRM_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/confirmed['"];/, 'signup confirmation must redirect to the Things app');
 assert.match(auth, /const\s+PASSWORD_RESET_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/reset-password['"];/, 'password reset must redirect to the Things app');
 assert.match(auth, /auth\.signUp\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'signup must pass the confirmation deep link to Supabase');
