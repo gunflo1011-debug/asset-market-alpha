@@ -16,7 +16,16 @@ export async function loadPrivateInventory():Promise<PrivateInventoryItem[]>{
  const marketStates=new Map<string,InventoryMarketState>();
  if(!marketStateResult.error){ for(const row of (marketStateResult.data??[]) as Array<{item_id:string;market_state:InventoryMarketState}>) marketStates.set(row.item_id,row.market_state); }
  const items=(inventoryResult.data??[]) as unknown as Array<Omit<PrivateInventoryItem,'market_state'>>;
- const owned=items.flatMap(item=>{ const state=marketStates.get(item.id)??null; if(state==='SOLD') return []; return [{...item,market_state:state}]; });
+ const owned=items.flatMap(item=>{
+  const isCatalogDevice=item.product_variants!==null;
+  // Generic Things are protected directly by owner-scoped items RLS and do not have a market-state row.
+  // Catalog-backed devices require authoritative market-state evidence; RPC failure or a missing row must fail closed.
+  if(isCatalogDevice && marketStateResult.error) return [];
+  const state=marketStates.get(item.id)??null;
+  if(isCatalogDevice && !state) return [];
+  if(state==='SOLD') return [];
+  return [{...item,market_state:state}];
+ });
  void trackAlphaEvent('INVENTORY_VIEWED'); return owned;
 }
 function conditionArgs(input:ConditionInput){return {p_color:input.color??null,p_display_state:input.displayState??'INTACT',p_housing_state:input.housingState??'CLEAN',p_cameras_working:input.camerasWorking??true,p_biometrics_working:input.biometricsWorking??true,p_battery_health:input.batteryHealth??null,p_network_locked:input.networkLocked??false,p_other_defect:input.otherDefect??false};}
