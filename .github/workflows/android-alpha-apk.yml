@@ -24,7 +24,7 @@ permissions:
 jobs:
   generate-lockfile:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'generate-lockfile' }}
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: mobile
@@ -52,7 +52,7 @@ jobs:
 
   build-apk:
     if: ${{ github.event_name == 'push' || inputs.task == 'build-apk' }}
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-latest
     env:
       NODE_ENV: production
       EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
@@ -66,7 +66,7 @@ jobs:
       - name: Stage mobile source at short path
         shell: powershell
         run: |
-          $shortRoot = 'C:\things-apk'
+          $shortRoot = Join-Path $env:RUNNER_TEMP 'things-apk'
           if (Test-Path $shortRoot) { Remove-Item $shortRoot -Recurse -Force }
           New-Item -ItemType Directory -Path $shortRoot | Out-Null
           Copy-Item -Path 'mobile\*' -Destination $shortRoot -Recurse -Force
@@ -81,53 +81,49 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Reuse installed Android SDK
+      - name: Verify hosted Android SDK
         shell: powershell
         run: |
           $sdk = $env:ANDROID_SDK_ROOT
           if (-not $sdk) { $sdk = $env:ANDROID_HOME }
-          if (-not $sdk) {
-            $candidate = Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk'
-            if (Test-Path $candidate) { $sdk = $candidate }
-          }
-          if (-not $sdk -or -not (Test-Path $sdk)) { throw 'Android SDK not found on self-hosted runner' }
+          if (-not $sdk -or -not (Test-Path $sdk)) { throw 'Android SDK not found on GitHub-hosted Windows runner' }
           "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Output "Using installed Android SDK: $sdk"
+          Write-Output "Using hosted Android SDK: $sdk"
       - name: Ensure package lock
         shell: powershell
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: |
           if (-not (Test-Path package-lock.json)) { npm install --package-lock-only --ignore-scripts --no-audit --no-fund }
           if (-not (Test-Path package-lock.json)) { throw 'package-lock.json was not generated' }
           if ((Get-Item package-lock.json).Length -eq 0) { throw 'package-lock.json is empty' }
       - name: Install dependencies
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm ci --include=dev --no-audit --no-fund
       - name: Reject client-side secrets
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm run check:client-secrets
       - name: Validate hosted alpha configuration
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm run check:alpha-config
       - name: Typecheck
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm run typecheck
       - name: Generate native Android project
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         env:
           CI: '1'
         run: npx expo prebuild --platform android --clean
       - name: Clean native Android build state
         shell: powershell
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: |
           .\android\gradlew.bat --stop | Out-Null
           $paths = @('android/.cxx','android/app/.cxx','android/build','android/app/build','android/.gradle','node_modules/expo-modules-core/android/.cxx','node_modules/expo-modules-core/android/build')
           foreach ($path in $paths) { if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force } }
       - name: Harden Gradle wrapper download
         shell: powershell
-        working-directory: C:\things-apk
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: |
           $wrapper = 'android/gradle/wrapper/gradle-wrapper.properties'
           if (-not (Test-Path $wrapper)) { throw 'gradle-wrapper.properties not found after Expo prebuild' }
@@ -137,16 +133,16 @@ jobs:
           Set-Content -Path $wrapper -Value $content -Encoding ascii
       - name: Clean Gradle build
         shell: powershell
-        working-directory: C:\things-apk\android
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}\android
         run: .\gradlew.bat clean --no-daemon --max-workers=1 --no-watch-fs
       - name: Build release APK
         shell: powershell
-        working-directory: C:\things-apk\android
+        working-directory: ${{ env.MOBILE_BUILD_ROOT }}\android
         run: .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --no-watch-fs
       - name: Verify release APK
         shell: powershell
         run: |
-          $apk = 'C:\things-apk\android\app\build\outputs\apk\release\app-release.apk'
+          $apk = Join-Path $env:MOBILE_BUILD_ROOT 'android\app\build\outputs\apk\release\app-release.apk'
           if (-not (Test-Path $apk)) { throw 'Release APK was not created' }
           if ((Get-Item $apk).Length -eq 0) { throw 'Release APK is empty' }
           Copy-Item $apk "$env:GITHUB_WORKSPACE\things-alpha.apk" -Force
