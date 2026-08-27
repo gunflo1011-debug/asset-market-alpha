@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
 const app = read('App.tsx');
+const screen = read('src/features/inventory/InventoryScreen.tsx');
 const saleSurface = read('src/lib/saleStartSurface.ts');
 const inventory = [
   read('src/data/inventory.ts'),
@@ -9,17 +10,20 @@ const inventory = [
   read('src/data/inventoryCommands.ts'),
 ].join('\n');
 
-const requiredAppSemantics = [
-  '<Text style={styles.metric}>{items.length}</Text>',
-  'buildSaleStartSurface(item.id,null)',
+const requiredScreenSemantics = [
+  '<Text style={styles.metric}>{props.items.length}</Text>',
+  'buildSaleStartSurface(item.id, null)',
   '{sale.valueLabel}',
   '{sale.actionLabel}',
-  'setSaleIntentItemId(open?null:item.id)',
+  'props.saleIntentItemId === item.id',
 ];
-for (const marker of requiredAppSemantics) {
-  if (!app.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
+for (const marker of requiredScreenSemantics) {
+  if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing authenticated product-convergence semantic: ${marker}`);
   }
+}
+if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*setSaleIntentItemId/s.test(app)) {
+  throw new Error('App shell must own the selected sale-intent state transition.');
 }
 
 if (!saleSurface.includes('estimatedValueCents: number | null')) {
@@ -51,7 +55,7 @@ for (const marker of ['add_private_thing', 'update_private_thing', 'delete_priva
   if (!inventory.includes(marker)) throw new Error(`Missing generic Thing lifecycle command: ${marker}`);
 }
 
-if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(app)) {
+if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must never be converted to a zero-price estimate.');
 }
 
