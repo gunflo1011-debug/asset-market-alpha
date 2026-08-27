@@ -37,6 +37,8 @@ jobs:
         run: npm run typecheck
       - name: Validate capture flow regression
         run: npm run test:capture-flow
+      - name: Validate inventory CRUD surface regression
+        run: npm run test:inventory-crud-surface
       - name: Validate inventory value regression
         run: npm run test:inventory-value
       - name: Validate inventory value surface regression
