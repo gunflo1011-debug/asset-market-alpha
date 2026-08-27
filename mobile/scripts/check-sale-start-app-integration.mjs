@@ -1,19 +1,17 @@
 import fs from 'node:fs';
 
 const app = fs.readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+const surface = fs.readFileSync(new URL('../src/lib/saleStartSurface.ts', import.meta.url), 'utf8');
 
-const required = [
-  "import { buildSaleStartSurface } from './src/lib/saleStartSurface';",
-  '{sale.valueLabel}',
-  '{sale.actionLabel}',
-  '{sale.privacyNotice}',
-  'Things will not invent an asking price',
-  'This private decision step does not create a listing.',
-  'Selling always starts with an explicit private owner decision.',
+const appContracts = [
+  ["import { buildSaleStartSurface } from './src/lib/saleStartSurface';", 'app must import the sale-start surface'],
+  ['{sale.valueLabel}', 'app must render sale value evidence'],
+  ['{sale.actionLabel}', 'app must render the explicit sale action'],
+  ['{sale.privacyNotice}', 'app must render the privacy notice'],
 ];
 
-for (const marker of required) {
-  if (!app.includes(marker)) throw new Error(`Missing sale-start integration marker: ${marker}`);
+for (const [marker, description] of appContracts) {
+  if (!app.includes(marker)) throw new Error(`Missing sale-start integration contract: ${description}`);
 }
 
 const semanticContracts = [
@@ -28,6 +26,16 @@ for (const [pattern, description] of semanticContracts) {
 
 if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(app)) {
   throw new Error('Unknown value must not be converted to a zero-price estimate.');
+}
+
+if (!/estimatedValueCents:\s*number\s*\|\s*null/.test(surface)) {
+  throw new Error('Sale-start surface must model unknown value explicitly as null.');
+}
+if (!surface.includes('Nothing is listed or sold until you explicitly continue.')) {
+  throw new Error('Sale-start surface must preserve explicit owner consent before listing or selling.');
+}
+if (!surface.includes('Estimated value not available yet')) {
+  throw new Error('Sale-start surface must not invent a value when evidence is unknown.');
 }
 
 console.log('sale-start app integration regression passed');
