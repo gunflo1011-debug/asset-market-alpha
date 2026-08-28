@@ -7,7 +7,6 @@ const surface = read('src/lib/saleStartSurface.ts');
 
 for (const marker of [
   'buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null)',
-  '{sale.actionLabel}',
   '{sale.privacyNotice}',
 ]) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
@@ -17,6 +16,12 @@ for (const marker of [
 
 if (!screen.includes("sale.valueLabel.replace('Estimated value ', '')")) {
   throw new Error('Sale-start value must still be rendered even when the UI removes the repeated label prefix.');
+}
+if (!screen.includes('Set asking price')) {
+  throw new Error('Sale start must expose the asking-price step before publishing.');
+}
+if (!screen.includes('<SellListingPanel')) {
+  throw new Error('Explicit sale intent must reveal the real owner listing panel.');
 }
 if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(item\.id\)\}/.test(screen)) {
   throw new Error('Sale start must require the explicit item action in the inventory screen.');
