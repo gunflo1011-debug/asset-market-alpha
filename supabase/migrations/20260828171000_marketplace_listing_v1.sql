@@ -89,6 +89,7 @@ as $$
   order by l.updated_at desc;
 $$;
 
+-- seller_id is the private listing ownership key; this is the same ownership exclusion semantics as owner_id <> auth.uid().
 create or replace function public.load_marketplace_v1()
 returns table(
   item_id uuid,
@@ -131,7 +132,7 @@ as $$
     limit 1
   ) cs on true
   where l.status = 'PUBLISHED'
-    and l.seller_id <> auth.uid() -- and l.owner_id <> auth.uid() semantics
+    and l.seller_id <> auth.uid()
   order by l.published_at desc nulls last;
 $$;
 
