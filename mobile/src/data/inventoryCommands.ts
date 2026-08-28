@@ -1,7 +1,7 @@
 import { trackAlphaEvent } from './analytics';
 import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
-import type { AddPrivateDeviceInput, ConditionInput, PrivateThingInput, ValuationInput } from '../features/inventory/types';
+import type { AddPrivateDeviceInput, ConditionInput, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
 export async function addPrivateThing(input: PrivateThingInput): Promise<string> {
   const { data, error } = await requireSupabase().rpc('add_private_thing', thingArgs(input));
@@ -37,6 +37,22 @@ export async function estimatePrivateItemValue(itemId: string, input: ValuationI
   const cents = Number(data);
   if (!Number.isFinite(cents) || cents < 0) throw new Error('Value estimate returned an invalid amount.');
   return cents;
+}
+
+export async function saveMyMarketplaceListing(itemId: string, askingPriceCents: number, publish: boolean): Promise<MarketplaceListingStatus> {
+  const { data, error } = await requireSupabase().rpc('save_my_marketplace_listing', {
+    p_item_id: itemId,
+    p_asking_price_cents: askingPriceCents,
+    p_publish: publish,
+  });
+  if (error) throw error;
+  if (data !== 'DRAFT' && data !== 'PUBLISHED' && data !== 'WITHDRAWN') throw new Error('Listing command returned an invalid state.');
+  return data;
+}
+
+export async function withdrawMyMarketplaceListing(itemId: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('withdraw_my_marketplace_listing', { p_item_id: itemId });
+  if (error) throw error;
 }
 
 export async function deletePrivateThing(itemId: string): Promise<void> {

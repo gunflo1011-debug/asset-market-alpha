@@ -7,6 +7,7 @@ const genericCrudMigrationPath = 'supabase/migrations/20260827093500_generic_pri
 const itemMetadataMigrationPath = 'supabase/migrations/20260827191500_owner_item_metadata.sql';
 const valueEvidenceMigrationPath = 'supabase/migrations/20260827203000_owner_inventory_value_evidence.sql';
 const valueEstimateMigrationPath = 'supabase/migrations/20260827232500_owner_value_estimate_v1.sql';
+const marketplaceMigrationPath = 'supabase/migrations/20260828171000_marketplace_listing_v1.sql';
 const runbookPath = 'supabase/OWNER_MARKET_STATE_DEPLOY.md';
 const inventoryPaths = [
   'mobile/src/data/inventory.ts',
@@ -20,6 +21,7 @@ const genericCrudMigration = fs.readFileSync(genericCrudMigrationPath, 'utf8');
 const itemMetadataMigration = fs.readFileSync(itemMetadataMigrationPath, 'utf8');
 const valueEvidenceMigration = fs.readFileSync(valueEvidenceMigrationPath, 'utf8');
 const valueEstimateMigration = fs.readFileSync(valueEstimateMigrationPath, 'utf8');
+const marketplaceMigration = fs.readFileSync(marketplaceMigrationPath, 'utf8');
 const runbook = fs.readFileSync(runbookPath, 'utf8');
 const inventory = inventoryPaths.map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 
@@ -30,20 +32,18 @@ const genericCrudName = '20260827093500_generic_private_thing_crud.sql';
 const itemMetadataName = '20260827191500_owner_item_metadata.sql';
 const valueEvidenceName = '20260827203000_owner_inventory_value_evidence.sql';
 const valueEstimateName = '20260827232500_owner_value_estimate_v1.sql';
+const marketplaceName = '20260828171000_marketplace_listing_v1.sql';
 
-assert.equal(
-  migrationFiles.at(-1),
-  valueEstimateName,
-  'release gate knows only reviewed migrations through owner value estimate v1; re-review any newer migration before release',
-);
+assert.equal(migrationFiles.at(-1), marketplaceName, 'release gate knows only reviewed migrations through marketplace listing v1; re-review any newer migration before release');
 assert.ok(
   migrationFiles.indexOf(marketStateName) >= 0 &&
     migrationFiles.indexOf(marketStateName) < migrationFiles.indexOf(ownerCrudName) &&
     migrationFiles.indexOf(ownerCrudName) < migrationFiles.indexOf(genericCrudName) &&
     migrationFiles.indexOf(genericCrudName) < migrationFiles.indexOf(itemMetadataName) &&
     migrationFiles.indexOf(itemMetadataName) < migrationFiles.indexOf(valueEvidenceName) &&
-    migrationFiles.indexOf(valueEvidenceName) < migrationFiles.indexOf(valueEstimateName),
-  'reviewed migration order must remain market state -> device CRUD -> generic Thing CRUD -> owner item metadata -> owner value evidence -> owner value estimate v1',
+    migrationFiles.indexOf(valueEvidenceName) < migrationFiles.indexOf(valueEstimateName) &&
+    migrationFiles.indexOf(valueEstimateName) < migrationFiles.indexOf(marketplaceName),
+  'reviewed migration order must remain market state -> CRUD -> metadata -> value evidence -> value estimate -> marketplace listing v1',
 );
 
 assert.match(runbook, /Approval authorizes \*\*one hosted schema mutation only\*\*/i);
@@ -72,9 +72,7 @@ assert.match(ownerCrudMigration, /grant execute on function public\.update_priva
 assert.match(ownerCrudMigration, /revoke all on function public\.delete_private_device\(uuid\) from public, anon;/i);
 assert.match(ownerCrudMigration, /grant execute on function public\.delete_private_device\(uuid\) to authenticated;/i);
 
-for (const functionName of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) {
-  assert.match(genericCrudMigration, new RegExp(`create or replace function public\\.${functionName}`, 'i'));
-}
+for (const functionName of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) assert.match(genericCrudMigration, new RegExp(`create or replace function public\\.${functionName}`, 'i'));
 assert.match(genericCrudMigration, /alter table public\.items[\s\S]*alter column variant_id drop not null/i);
 assert.match(genericCrudMigration, /check \(variant_id is not null or nullif\(btrim\(custom_name\), ''\) is not null\)/i);
 assert.match(genericCrudMigration, /security definer set search_path=public,auth,pg_temp/gi);
@@ -83,11 +81,7 @@ assert.match(genericCrudMigration, /insert into public\.items\(owner_id,variant_
 assert.match(genericCrudMigration, /where id=p_item_id and owner_id=v_owner and variant_id is null/gi);
 assert.match(genericCrudMigration, /raise exception 'ITEM_NOT_OWNED'/gi);
 assert.doesNotMatch(genericCrudMigration, /p_owner|owner_id\s+uuid\s+default/i, 'generic Thing RPCs must not accept caller-supplied ownership');
-for (const signature of [
-  'add_private_thing\\(text,text,text,text\\)',
-  'update_private_thing\\(uuid,text,text,text,text\\)',
-  'delete_private_thing\\(uuid\\)',
-]) {
+for (const signature of ['add_private_thing\\(text,text,text,text\\)','update_private_thing\\(uuid,text,text,text,text\\)','delete_private_thing\\(uuid\\)']) {
   assert.match(genericCrudMigration, new RegExp(`revoke all on function public\\.${signature} from public,anon;`, 'i'));
   assert.match(genericCrudMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
@@ -117,7 +111,6 @@ assert.match(valueEvidenceMigration, /revoke all on function public\.load_my_inv
 assert.match(valueEvidenceMigration, /grant execute on function public\.load_my_inventory_values\(\) to authenticated;/i);
 assert.doesNotMatch(valueEvidenceMigration, /grant\s+(insert|update|delete|all)[\s\S]*item_value_evidence[\s\S]*authenticated/i, 'mobile clients must not be granted write access to trusted value evidence');
 
-// Owner-input value estimate v1 is deliberately transparent and owner-scoped.
 assert.match(valueEstimateMigration, /create table if not exists private\.item_valuation_profiles/i);
 assert.match(valueEstimateMigration, /revoke all on table private\.item_valuation_profiles from public, anon, authenticated;/i);
 assert.match(valueEstimateMigration, /create or replace function public\.estimate_my_item_value_v1/i);
@@ -135,9 +128,35 @@ assert.match(valueEstimateMigration, /revoke all on function public\.estimate_my
 assert.match(valueEstimateMigration, /grant execute on function public\.estimate_my_item_value_v1\(uuid,bigint,integer,text\) to authenticated;/i);
 assert.doesNotMatch(valueEstimateMigration, /p_owner|set\s+owner_id/i, 'value estimate RPC must not accept or mutate ownership');
 
+// Marketplace listing v1: private storage may contain seller_id, but the authenticated marketplace read contract must never return it.
+assert.match(marketplaceMigration, /create table if not exists private\.marketplace_listings/i);
+assert.match(marketplaceMigration, /seller_id uuid not null references auth\.users\(id\)/i);
+assert.match(marketplaceMigration, /status text not null default 'DRAFT' check \(status in \('DRAFT','PUBLISHED','WITHDRAWN'\)\)/i);
+assert.match(marketplaceMigration, /revoke all on table private\.marketplace_listings from public, anon, authenticated;/i);
+assert.match(marketplaceMigration, /create or replace function public\.save_my_marketplace_listing/i);
+assert.match(marketplaceMigration, /where i\.id = p_item_id and i\.owner_id = v_owner/i);
+assert.match(marketplaceMigration, /case when p_publish then 'PUBLISHED' else 'DRAFT' end/i);
+assert.match(marketplaceMigration, /create or replace function public\.withdraw_my_marketplace_listing/i);
+assert.match(marketplaceMigration, /where item_id = p_item_id and seller_id = auth\.uid\(\)/i);
+assert.match(marketplaceMigration, /create or replace function public\.load_marketplace_v1/i);
+assert.match(marketplaceMigration, /where l\.status = 'PUBLISHED'[\s\S]*and l\.seller_id <> auth\.uid\(\)/i);
+const marketplaceReadContract = marketplaceMigration.match(/create or replace function public\.load_marketplace_v1\(\)[\s\S]*?\$\$;/i)?.[0] ?? '';
+assert.ok(marketplaceReadContract, 'marketplace read RPC body must be present');
+const returnDeclaration = marketplaceReadContract.match(/returns table\(([\s\S]*?)\)\s*language sql/i)?.[1] ?? '';
+assert.ok(returnDeclaration, 'marketplace read RPC return declaration must be present');
+assert.doesNotMatch(returnDeclaration, /\b(?:seller_id|owner_id|location_label|notes)\b/i, 'marketplace read RPC must not return private location, notes, or owner identity');
+assert.match(returnDeclaration, /item_id uuid,[\s\S]*title text,[\s\S]*category text,[\s\S]*asking_price_cents bigint,[\s\S]*estimated_value_cents bigint,[\s\S]*condition_label text,[\s\S]*published_at timestamptz/i);
+for (const signature of ['save_my_marketplace_listing\\(uuid,bigint,boolean\\)','withdraw_my_marketplace_listing\\(uuid\\)','load_my_marketplace_listings\\(\\)','load_marketplace_v1\\(\\)']) {
+  assert.match(marketplaceMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon;`, 'i'));
+  assert.match(marketplaceMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
+}
+
 assert.match(inventory, /load_my_inventory_market_states/i, 'mobile inventory must consume the authoritative RPC for catalog-backed devices');
 assert.match(inventory, /load_my_inventory_values/i, 'mobile inventory must consume owner-scoped verified value evidence');
 assert.match(inventory, /estimate_my_item_value_v1/i, 'mobile inventory must use the owner-safe transparent value estimate RPC');
+assert.match(inventory, /save_my_marketplace_listing/i, 'mobile inventory must use the explicit owner listing command');
+assert.match(inventory, /withdraw_my_marketplace_listing/i, 'mobile inventory must expose owner-controlled unpublish');
+assert.match(inventory, /load_marketplace_v1/i, 'mobile inventory must consume the privacy-filtered marketplace RPC');
 assert.match(inventory, /SOLD/i, 'mobile inventory must explicitly handle SOLD state');
 assert.match(inventory, /update_private_device/i, 'mobile inventory must use the owner-safe device update RPC');
 assert.match(inventory, /delete_private_device/i, 'mobile inventory must use the owner-safe device delete RPC');
@@ -146,4 +165,4 @@ assert.match(inventory, /update_private_thing/i, 'mobile inventory must use the 
 assert.match(inventory, /delete_private_thing/i, 'mobile inventory must use the owner-safe generic Thing delete RPC');
 assert.match(inventory, /update_private_item_metadata/i, 'mobile inventory must use the owner-safe metadata RPC for editing any owned item');
 
-console.log('owner market-state, CRUD, metadata, verified value evidence, and value estimate v1 release gate: OK');
+console.log('owner market-state, CRUD, metadata, value estimate, and marketplace listing v1 release gate: OK');

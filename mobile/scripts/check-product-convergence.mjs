@@ -4,6 +4,7 @@ const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta
 const app = read('App.tsx');
 const screen = read('src/features/inventory/InventoryScreen.tsx');
 const saleSurface = read('src/lib/saleStartSurface.ts');
+const listingPanel = read('src/features/marketplace/SellListingPanel.tsx');
 const inventory = [
   read('src/data/inventory.ts'),
   read('src/data/inventoryQueries.ts'),
@@ -12,16 +13,27 @@ const inventory = [
 
 const requiredScreenSemantics = [
   '<Text style={styles.metric}>{props.items.length}</Text>',
-  'item.value_evidence?.estimated_value_cents ?? null',
+  'value_evidence?.estimated_value_cents ?? null',
   "sale.valueLabel.replace('Estimated value ', '')",
-  '{sale.actionLabel}',
-  'props.saleIntentItemId === item.id',
   'summarizeInventoryValue',
+  '<SellListingPanel',
 ];
 for (const marker of requiredScreenSemantics) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing authenticated product-convergence semantic: ${marker}`);
   }
+}
+if (!/const\s+saleOpen\s*=\s*props\.saleIntentItemId\s*===\s*selectedItem\.id/.test(screen)) {
+  throw new Error('Selected-item detail must derive selling visibility from explicit sale-intent state.');
+}
+if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(selectedItem\.id\)\}/.test(screen)) {
+  throw new Error('Selected-item detail must require an explicit owner action to toggle selling.');
+}
+if (!listingPanel.includes('Asking price (€)') || !listingPanel.includes('Publish on marketplace')) {
+  throw new Error('Authenticated sell convergence must include an asking-price step and explicit publish action.');
+}
+if (!listingPanel.includes('Nothing becomes visible to other users until you explicitly publish.')) {
+  throw new Error('Marketplace convergence must preserve explicit owner consent before visibility.');
 }
 if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*setSaleIntentItemId/s.test(app)) {
   throw new Error('App shell must own the selected sale-intent state transition.');
@@ -37,11 +49,15 @@ if (!saleSurface.includes('Estimated value not available yet')) {
   throw new Error('Unknown inventory value must remain explicitly unavailable.');
 }
 
-if (!inventory.includes("rpc('load_my_inventory_market_states')")) {
+const compactInventory = inventory.replace(/\s+/g, '');
+if (!compactInventory.includes("rpc('load_my_inventory_market_states')")) {
   throw new Error('Missing authoritative market-state lookup for catalog-backed devices.');
 }
-if (!inventory.includes("rpc('load_my_inventory_values')")) {
+if (!compactInventory.includes("rpc('load_my_inventory_values')")) {
   throw new Error('Missing authenticated owner-scoped value-evidence lookup for inventory.');
+}
+if (!compactInventory.includes("rpc('save_my_marketplace_listing'") || !compactInventory.includes("rpc('load_marketplace_v1')")) {
+  throw new Error('Marketplace convergence requires owner-controlled listing writes and the filtered marketplace read RPC.');
 }
 
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
@@ -59,7 +75,7 @@ for (const marker of ['add_private_thing', 'update_private_thing', 'delete_priva
   if (!inventory.includes(marker)) throw new Error(`Missing generic Thing lifecycle command: ${marker}`);
 }
 
-if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(screen)) {
+if (/buildSaleStartSurface\([^,]+,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must never be converted to a zero-price estimate.');
 }
 

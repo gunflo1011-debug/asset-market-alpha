@@ -1,6 +1,6 @@
 import { trackAlphaEvent } from './analytics';
 import { requireSupabase } from './supabaseClient';
-import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, PrivateInventoryItem } from '../features/inventory/types';
+import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, MarketplaceListing, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
 
 export async function loadCatalog(): Promise<CatalogVariant[]> {
   const { data, error } = await requireSupabase()
@@ -56,4 +56,29 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
 
   void trackAlphaEvent('INVENTORY_VIEWED');
   return owned;
+}
+
+export async function loadMyMarketplaceListings(): Promise<OwnerMarketplaceListing[]> {
+  const { data, error } = await requireSupabase().rpc('load_my_marketplace_listings');
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    item_id: String(row.item_id),
+    asking_price_cents: Number(row.asking_price_cents),
+    status: row.status as OwnerMarketplaceListing['status'],
+    published_at: row.published_at ? String(row.published_at) : null,
+  }));
+}
+
+export async function loadMarketplace(): Promise<MarketplaceListing[]> {
+  const { data, error } = await requireSupabase().rpc('load_marketplace_v1');
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    item_id: String(row.item_id),
+    title: String(row.title ?? 'Thing'),
+    category: String(row.category ?? 'Other'),
+    asking_price_cents: Number(row.asking_price_cents),
+    estimated_value_cents: row.estimated_value_cents == null ? null : Number(row.estimated_value_cents),
+    condition_label: row.condition_label == null ? null : String(row.condition_label),
+    published_at: row.published_at == null ? null : String(row.published_at),
+  }));
 }
