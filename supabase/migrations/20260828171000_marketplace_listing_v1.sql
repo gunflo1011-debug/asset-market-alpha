@@ -2,7 +2,7 @@
 -- Inventory remains private until the owner publishes a listing.
 create table if not exists private.marketplace_listings (
   item_id uuid primary key references public.items(id) on delete cascade,
-  owner_id uuid not null references auth.users(id) on delete cascade,
+  seller_id uuid not null references auth.users(id) on delete cascade,
   asking_price_cents bigint not null check (asking_price_cents between 1 and 1000000000),
   status text not null default 'DRAFT' check (status in ('DRAFT','PUBLISHED','WITHDRAWN')),
   published_at timestamptz,
@@ -41,7 +41,7 @@ begin
 
   v_status := case when p_publish then 'PUBLISHED' else 'DRAFT' end;
 
-  insert into private.marketplace_listings(item_id, owner_id, asking_price_cents, status, published_at, updated_at)
+  insert into private.marketplace_listings(item_id, seller_id, asking_price_cents, status, published_at, updated_at)
   values (p_item_id, v_owner, p_asking_price_cents, v_status, case when p_publish then now() else null end, now())
   on conflict (item_id) do update set
     asking_price_cents = excluded.asking_price_cents,
@@ -69,7 +69,7 @@ begin
   end if;
   update private.marketplace_listings
   set status = 'WITHDRAWN', published_at = null, updated_at = now()
-  where item_id = p_item_id and owner_id = auth.uid();
+  where item_id = p_item_id and seller_id = auth.uid();
   if not found then
     raise exception 'LISTING_NOT_OWNED';
   end if;
@@ -85,7 +85,7 @@ stable
 as $$
   select l.item_id, l.asking_price_cents, l.status, l.published_at
   from private.marketplace_listings l
-  where l.owner_id = auth.uid()
+  where l.seller_id = auth.uid()
   order by l.updated_at desc;
 $$;
 
@@ -131,7 +131,7 @@ as $$
     limit 1
   ) cs on true
   where l.status = 'PUBLISHED'
-    and l.owner_id <> auth.uid()
+    and l.seller_id <> auth.uid()
   order by l.published_at desc nulls last;
 $$;
 
@@ -145,4 +145,4 @@ grant execute on function public.load_my_marketplace_listings() to authenticated
 grant execute on function public.load_marketplace_v1() to authenticated;
 
 comment on function public.load_marketplace_v1() is
-  'Returns only explicitly published listing fields. Private metadata and owner identity are not returned.';
+  'Returns only explicitly published listing fields. Private metadata and seller identity are not returned.';
