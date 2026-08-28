@@ -7,7 +7,6 @@ const surface = read('src/lib/saleStartSurface.ts');
 
 for (const marker of [
   'buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null)',
-  '{sale.valueLabel}',
   '{sale.actionLabel}',
   '{sale.privacyNotice}',
 ]) {
@@ -16,6 +15,9 @@ for (const marker of [
   }
 }
 
+if (!screen.includes("sale.valueLabel.replace('Estimated value ', '')")) {
+  throw new Error('Sale-start value must still be rendered even when the UI removes the repeated label prefix.');
+}
 if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(item\.id\)\}/.test(screen)) {
   throw new Error('Sale start must require the explicit item action in the inventory screen.');
 }
@@ -26,7 +28,7 @@ if (/buildSaleStartSurface\(item\.id\s*,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must not be converted to a zero-price estimate.');
 }
 if (!screen.includes('item.value_evidence?.estimated_value_cents ?? null')) {
-  throw new Error('Verified inventory value evidence must feed the private-sale reference value while unknown remains null.');
+  throw new Error('Inventory value evidence must feed the private-sale reference value while unknown remains null.');
 }
 if (!/estimatedValueCents:\s*number\s*\|\s*null/.test(surface)) {
   throw new Error('Sale-start surface must model unknown value explicitly as null.');
