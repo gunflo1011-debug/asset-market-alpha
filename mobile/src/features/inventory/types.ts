@@ -28,6 +28,25 @@ export type ValuationInput = {
   conditionGrade: ValuationConditionGrade;
 };
 
+export type MarketplaceListingStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+
+export type OwnerMarketplaceListing = {
+  item_id: string;
+  asking_price_cents: number;
+  status: MarketplaceListingStatus;
+  published_at: string | null;
+};
+
+export type MarketplaceListing = {
+  item_id: string;
+  title: string;
+  category: string;
+  asking_price_cents: number;
+  estimated_value_cents: number | null;
+  condition_label: string | null;
+  published_at: string | null;
+};
+
 export type ConditionInput = {
   color?: string;
   displayState?: 'INTACT' | 'DAMAGED';
