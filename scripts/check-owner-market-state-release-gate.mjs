@@ -142,8 +142,10 @@ assert.match(marketplaceMigration, /create or replace function public\.load_mark
 assert.match(marketplaceMigration, /where l\.status = 'PUBLISHED'[\s\S]*and l\.seller_id <> auth\.uid\(\)/i);
 const marketplaceReadContract = marketplaceMigration.match(/create or replace function public\.load_marketplace_v1\(\)[\s\S]*?\$\$;/i)?.[0] ?? '';
 assert.ok(marketplaceReadContract, 'marketplace read RPC body must be present');
-assert.doesNotMatch(marketplaceReadContract, /location_label|\bnotes\b|\bseller_id\b\s+(?:uuid|text)|\bowner_id\b\s+(?:uuid|text)|returns table\([\s\S]*\b(?:seller_id|owner_id)\b/i, 'marketplace read RPC must not return private location, notes, or owner identity');
-assert.match(marketplaceReadContract, /returns table\([\s\S]*item_id uuid,[\s\S]*title text,[\s\S]*category text,[\s\S]*asking_price_cents bigint,[\s\S]*estimated_value_cents bigint,[\s\S]*condition_label text,[\s\S]*published_at timestamptz/i);
+const returnDeclaration = marketplaceReadContract.match(/returns table\(([\s\S]*?)\)\s*language sql/i)?.[1] ?? '';
+assert.ok(returnDeclaration, 'marketplace read RPC return declaration must be present');
+assert.doesNotMatch(returnDeclaration, /\b(?:seller_id|owner_id|location_label|notes)\b/i, 'marketplace read RPC must not return private location, notes, or owner identity');
+assert.match(returnDeclaration, /item_id uuid,[\s\S]*title text,[\s\S]*category text,[\s\S]*asking_price_cents bigint,[\s\S]*estimated_value_cents bigint,[\s\S]*condition_label text,[\s\S]*published_at timestamptz/i);
 for (const signature of ['save_my_marketplace_listing\\(uuid,bigint,boolean\\)','withdraw_my_marketplace_listing\\(uuid\\)','load_my_marketplace_listings\\(\\)','load_marketplace_v1\\(\\)']) {
   assert.match(marketplaceMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon;`, 'i'));
   assert.match(marketplaceMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
