@@ -34,11 +34,7 @@ const valueEvidenceName = '20260827203000_owner_inventory_value_evidence.sql';
 const valueEstimateName = '20260827232500_owner_value_estimate_v1.sql';
 const marketplaceName = '20260828171000_marketplace_listing_v1.sql';
 
-assert.equal(
-  migrationFiles.at(-1),
-  marketplaceName,
-  'release gate knows only reviewed migrations through marketplace listing v1; re-review any newer migration before release',
-);
+assert.equal(migrationFiles.at(-1), marketplaceName, 'release gate knows only reviewed migrations through marketplace listing v1; re-review any newer migration before release');
 assert.ok(
   migrationFiles.indexOf(marketStateName) >= 0 &&
     migrationFiles.indexOf(marketStateName) < migrationFiles.indexOf(ownerCrudName) &&
@@ -76,9 +72,7 @@ assert.match(ownerCrudMigration, /grant execute on function public\.update_priva
 assert.match(ownerCrudMigration, /revoke all on function public\.delete_private_device\(uuid\) from public, anon;/i);
 assert.match(ownerCrudMigration, /grant execute on function public\.delete_private_device\(uuid\) to authenticated;/i);
 
-for (const functionName of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) {
-  assert.match(genericCrudMigration, new RegExp(`create or replace function public\\.${functionName}`, 'i'));
-}
+for (const functionName of ['add_private_thing', 'update_private_thing', 'delete_private_thing']) assert.match(genericCrudMigration, new RegExp(`create or replace function public\\.${functionName}`, 'i'));
 assert.match(genericCrudMigration, /alter table public\.items[\s\S]*alter column variant_id drop not null/i);
 assert.match(genericCrudMigration, /check \(variant_id is not null or nullif\(btrim\(custom_name\), ''\) is not null\)/i);
 assert.match(genericCrudMigration, /security definer set search_path=public,auth,pg_temp/gi);
@@ -87,11 +81,7 @@ assert.match(genericCrudMigration, /insert into public\.items\(owner_id,variant_
 assert.match(genericCrudMigration, /where id=p_item_id and owner_id=v_owner and variant_id is null/gi);
 assert.match(genericCrudMigration, /raise exception 'ITEM_NOT_OWNED'/gi);
 assert.doesNotMatch(genericCrudMigration, /p_owner|owner_id\s+uuid\s+default/i, 'generic Thing RPCs must not accept caller-supplied ownership');
-for (const signature of [
-  'add_private_thing\\(text,text,text,text\\)',
-  'update_private_thing\\(uuid,text,text,text,text\\)',
-  'delete_private_thing\\(uuid\\)',
-]) {
+for (const signature of ['add_private_thing\\(text,text,text,text\\)','update_private_thing\\(uuid,text,text,text,text\\)','delete_private_thing\\(uuid\\)']) {
   assert.match(genericCrudMigration, new RegExp(`revoke all on function public\\.${signature} from public,anon;`, 'i'));
   assert.match(genericCrudMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
@@ -138,25 +128,23 @@ assert.match(valueEstimateMigration, /revoke all on function public\.estimate_my
 assert.match(valueEstimateMigration, /grant execute on function public\.estimate_my_item_value_v1\(uuid,bigint,integer,text\) to authenticated;/i);
 assert.doesNotMatch(valueEstimateMigration, /p_owner|set\s+owner_id/i, 'value estimate RPC must not accept or mutate ownership');
 
-// Marketplace listing v1 is explicit-publish only and exposes a deliberately narrow public surface to authenticated users.
+// Marketplace listing v1: private storage may contain seller_id, but the authenticated marketplace read contract must never return it.
 assert.match(marketplaceMigration, /create table if not exists private\.marketplace_listings/i);
+assert.match(marketplaceMigration, /seller_id uuid not null references auth\.users\(id\)/i);
 assert.match(marketplaceMigration, /status text not null default 'DRAFT' check \(status in \('DRAFT','PUBLISHED','WITHDRAWN'\)\)/i);
 assert.match(marketplaceMigration, /revoke all on table private\.marketplace_listings from public, anon, authenticated;/i);
 assert.match(marketplaceMigration, /create or replace function public\.save_my_marketplace_listing/i);
 assert.match(marketplaceMigration, /where i\.id = p_item_id and i\.owner_id = v_owner/i);
 assert.match(marketplaceMigration, /case when p_publish then 'PUBLISHED' else 'DRAFT' end/i);
 assert.match(marketplaceMigration, /create or replace function public\.withdraw_my_marketplace_listing/i);
-assert.match(marketplaceMigration, /owner_id = auth\.uid\(\)/i);
+assert.match(marketplaceMigration, /where item_id = p_item_id and seller_id = auth\.uid\(\)/i);
 assert.match(marketplaceMigration, /create or replace function public\.load_marketplace_v1/i);
-assert.match(marketplaceMigration, /where l\.status = 'PUBLISHED'/i);
-assert.match(marketplaceMigration, /and l\.owner_id <> auth\.uid\(\)/i);
-assert.doesNotMatch(marketplaceMigration, /location_label|notes|owner_id uuid,|returns table\([\s\S]*owner_id/i, 'marketplace read RPC must not expose private location, notes, or owner identity');
-for (const signature of [
-  'save_my_marketplace_listing\\(uuid,bigint,boolean\\)',
-  'withdraw_my_marketplace_listing\\(uuid\\)',
-  'load_my_marketplace_listings\\(\\)',
-  'load_marketplace_v1\\(\\)',
-]) {
+assert.match(marketplaceMigration, /where l\.status = 'PUBLISHED'[\s\S]*and l\.seller_id <> auth\.uid\(\)/i);
+const marketplaceReadContract = marketplaceMigration.match(/create or replace function public\.load_marketplace_v1\(\)[\s\S]*?\$\$;/i)?.[0] ?? '';
+assert.ok(marketplaceReadContract, 'marketplace read RPC body must be present');
+assert.doesNotMatch(marketplaceReadContract, /location_label|\bnotes\b|\bseller_id\b\s+(?:uuid|text)|\bowner_id\b\s+(?:uuid|text)|returns table\([\s\S]*\b(?:seller_id|owner_id)\b/i, 'marketplace read RPC must not return private location, notes, or owner identity');
+assert.match(marketplaceReadContract, /returns table\([\s\S]*item_id uuid,[\s\S]*title text,[\s\S]*category text,[\s\S]*asking_price_cents bigint,[\s\S]*estimated_value_cents bigint,[\s\S]*condition_label text,[\s\S]*published_at timestamptz/i);
+for (const signature of ['save_my_marketplace_listing\\(uuid,bigint,boolean\\)','withdraw_my_marketplace_listing\\(uuid\\)','load_my_marketplace_listings\\(\\)','load_marketplace_v1\\(\\)']) {
   assert.match(marketplaceMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon;`, 'i'));
   assert.match(marketplaceMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
