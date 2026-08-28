@@ -145,4 +145,4 @@ grant execute on function public.load_my_marketplace_listings() to authenticated
 grant execute on function public.load_marketplace_v1() to authenticated;
 
 comment on function public.load_marketplace_v1() is
-  'Returns only explicitly published listing fields. Private notes, location, owner identity and unpublished inventory are never exposed.';
+  'Returns only explicitly published listing fields. Private metadata and owner identity are not returned.';
