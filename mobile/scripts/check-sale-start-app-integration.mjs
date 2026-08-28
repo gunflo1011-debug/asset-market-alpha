@@ -8,7 +8,6 @@ const listingPanel = read('src/features/marketplace/SellListingPanel.tsx');
 
 for (const marker of [
   'buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null)',
-  '{sale.privacyNotice}',
 ]) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing sale-start screen contract: ${marker}`);
@@ -20,6 +19,9 @@ if (!screen.includes("sale.valueLabel.replace('Estimated value ', '')")) {
 }
 if (!screen.includes('<SellListingPanel')) {
   throw new Error('Explicit sale intent must reveal the real owner listing panel.');
+}
+if (!screen.includes('Your item stays private until you publish it.')) {
+  throw new Error('Sale start must visibly preserve private-by-default marketplace consent.');
 }
 if (!listingPanel.includes('Asking price (€)') || !listingPanel.includes('Publish on marketplace')) {
   throw new Error('Sale start must expose an asking-price step before explicit marketplace publishing.');
