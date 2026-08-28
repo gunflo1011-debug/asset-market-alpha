@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { loadMyMarketplaceListings, saveMyMarketplaceListing, withdrawMyMarketplaceListing } from '../../data/inventory';
+import { loadInterestSummaryForMyListings, loadMyMarketplaceListings, saveMyMarketplaceListing, withdrawMyMarketplaceListing } from '../../data/inventory';
 import type { OwnerMarketplaceListing } from '../inventory/types';
 
 type Props = {
@@ -14,16 +14,19 @@ function euro(cents: number): string {
 
 export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const [listing, setListing] = useState<OwnerMarketplaceListing | null>(null);
+  const [interestCount, setInterestCount] = useState(0);
   const [price, setPrice] = useState(estimatedValueCents != null ? String(Math.max(1, Math.round(estimatedValueCents / 100))) : '');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    void loadMyMarketplaceListings().then((rows) => {
+    void Promise.all([loadMyMarketplaceListings(), loadInterestSummaryForMyListings()]).then(([rows, summaries]) => {
       if (!active) return;
       const existing = rows.find((row) => row.item_id === itemId) ?? null;
+      const summary = summaries.find((row) => row.item_id === itemId) ?? null;
       setListing(existing);
+      setInterestCount(summary?.interested_count ?? 0);
       if (existing) setPrice(String(existing.asking_price_cents / 100));
     }).catch(() => { if (active) setStatus('Could not load listing state.'); });
     return () => { active = false; };
@@ -74,6 +77,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
         <View style={[styles.statusPill, published && styles.statusPillLive]}><Text style={[styles.statusPillText, published && styles.statusPillTextLive]}>{published ? 'Live' : 'Private'}</Text></View>
       </View>
 
+      {published ? <View style={styles.interestSummary}><View><Text style={styles.interestLabel}>BUYER INTEREST</Text><Text style={styles.interestTitle}>{interestCount === 0 ? 'No interest yet' : `${interestCount} ${interestCount === 1 ? 'person is' : 'people are'} interested`}</Text></View><Text style={styles.interestCount}>{interestCount}</Text></View> : null}
       {estimatedValueCents != null ? <View style={styles.referenceRow}><Text style={styles.referenceLabel}>Things estimate</Text><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
 
       <Text style={styles.label}>Asking price (€)</Text>
@@ -87,7 +91,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
       {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
 
       {status ? <View style={styles.feedback}><Text style={styles.status}>{status}</Text></View> : null}
-      <Text style={styles.disclaimer}>Visible: title, category, condition, asking price and optional estimate. Your identity, notes and exact location stay private.</Text>
+      <Text style={styles.disclaimer}>Buyer interest is shown only as a count. Buyer identity, email and exact location are not exposed.</Text>
     </View>
   );
 }
@@ -102,6 +106,10 @@ const styles = StyleSheet.create({
   statusPillLive: { backgroundColor: '#ECFDF3' },
   statusPillText: { fontSize: 11, fontWeight: '800', color: '#667085' },
   statusPillTextLive: { color: '#027A48' },
+  interestSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#F0F7F3', borderRadius: 16, padding: 14 },
+  interestLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#027A48' },
+  interestTitle: { fontSize: 14, fontWeight: '800', color: '#174C35', marginTop: 3 },
+  interestCount: { fontSize: 28, fontWeight: '800', color: '#027A48' },
   referenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8F9FB', borderRadius: 14, padding: 13 },
   referenceLabel: { fontSize: 12, color: '#7A8494' },
   referenceValue: { fontSize: 15, fontWeight: '800', color: '#0F1728' },

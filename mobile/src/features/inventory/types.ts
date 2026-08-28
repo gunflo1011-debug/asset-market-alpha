@@ -29,6 +29,7 @@ export type ValuationInput = {
 };
 
 export type MarketplaceListingStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+export type MarketplaceInterestStatus = 'INTERESTED' | 'WITHDRAWN';
 
 export type OwnerMarketplaceListing = {
   item_id: string;
@@ -45,6 +46,18 @@ export type MarketplaceListing = {
   estimated_value_cents: number | null;
   condition_label: string | null;
   published_at: string | null;
+};
+
+export type MarketplaceInterest = {
+  item_id: string;
+  status: MarketplaceInterestStatus;
+  updated_at: string;
+};
+
+export type MarketplaceInterestSummary = {
+  item_id: string;
+  interested_count: number;
+  latest_interest_at: string | null;
 };
 
 export type ConditionInput = {
