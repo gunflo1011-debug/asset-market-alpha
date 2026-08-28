@@ -4,18 +4,23 @@ export {
   deletePrivateDevice,
   deletePrivateThing,
   estimatePrivateItemValue,
+  saveMyMarketplaceListing,
+  withdrawMyMarketplaceListing,
   updatePrivateDevice,
   updatePrivateItemMetadata,
   updatePrivateThing,
 } from './inventoryCommands';
 
-export { loadCatalog, loadPrivateInventory } from './inventoryQueries';
+export { loadCatalog, loadMarketplace, loadMyMarketplaceListings, loadPrivateInventory } from './inventoryQueries';
 
 export type {
   AddPrivateDeviceInput,
   CatalogVariant,
   ConditionInput,
   InventoryMarketState,
+  MarketplaceListing,
+  MarketplaceListingStatus,
+  OwnerMarketplaceListing,
   PrivateInventoryItem,
   PrivateThingInput,
   ValuationConditionGrade,
