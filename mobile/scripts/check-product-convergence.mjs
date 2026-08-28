@@ -13,9 +13,8 @@ const inventory = [
 
 const requiredScreenSemantics = [
   '<Text style={styles.metric}>{props.items.length}</Text>',
-  'item.value_evidence?.estimated_value_cents ?? null',
+  'value_evidence?.estimated_value_cents ?? null',
   "sale.valueLabel.replace('Estimated value ', '')",
-  'props.saleIntentItemId === item.id',
   'summarizeInventoryValue',
   '<SellListingPanel',
 ];
@@ -23,6 +22,12 @@ for (const marker of requiredScreenSemantics) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing authenticated product-convergence semantic: ${marker}`);
   }
+}
+if (!/const\s+saleOpen\s*=\s*props\.saleIntentItemId\s*===\s*selectedItem\.id/.test(screen)) {
+  throw new Error('Selected-item detail must derive selling visibility from explicit sale-intent state.');
+}
+if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(selectedItem\.id\)\}/.test(screen)) {
+  throw new Error('Selected-item detail must require an explicit owner action to toggle selling.');
 }
 if (!listingPanel.includes('Asking price (€)') || !listingPanel.includes('Publish on marketplace')) {
   throw new Error('Authenticated sell convergence must include an asking-price step and explicit publish action.');
