@@ -1,2 +1,2 @@
-2026-08-27T22:58:00+02:00
-Reason: Create milestone APK for current main after inventory architecture cleanup, CRUD/detail/add-flow UX, verified value evidence, and private-sale handoff. Current backend-security-gate #358 and actions-smoke #242 are PASS on main. Build installable APK for device acceptance covering login/confirmation, multi-item CRUD persistence, item details, value display, private sale start, and account A/B isolation.
+2026-08-28T16:04:00+02:00
+Reason: Build milestone APK from green main after merging transparent owner-input EUR value estimate v1. Main gates backend-security-gate #368, mobile-alpha-ci #281, and actions-smoke #252 are PASS. Build installable APK for device acceptance covering login, private inventory CRUD, item detail, purchase-price/year/condition estimate input, EUR value refresh, unknown-value handling, private sale start, and account isolation.
