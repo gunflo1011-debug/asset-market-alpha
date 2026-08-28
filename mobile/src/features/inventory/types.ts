@@ -20,6 +20,14 @@ export type InventoryValueEvidence = {
   observed_at: string;
 };
 
+export type ValuationConditionGrade = 'LIKE_NEW' | 'GOOD' | 'FAIR' | 'POOR';
+
+export type ValuationInput = {
+  purchasePriceCents: number;
+  purchaseYear: number;
+  conditionGrade: ValuationConditionGrade;
+};
+
 export type ConditionInput = {
   color?: string;
   displayState?: 'INTACT' | 'DAMAGED';

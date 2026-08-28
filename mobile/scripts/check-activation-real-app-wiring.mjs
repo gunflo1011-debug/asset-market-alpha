@@ -16,9 +16,10 @@ for (const name of ['recordCaptureSuccess', 'recordInventoryVisible', 'recordVal
 assert.match(app, /activationAppTransitions/, 'App.tsx must import the privacy-safe activation transition boundary');
 assert.match(app, /await addPrivateDevice[\s\S]*recordCaptureSuccess\(/, 'capture success must be recorded only after private device creation succeeds');
 assert.match(app, /setItems\(nextItems\)[\s\S]*recordInventoryVisible\(/, 'inventory visibility must follow successful inventory loading');
-assert.match(inventoryScreen, /buildSaleStartSurface\(item\.id,\s*null\)/, 'truthful value surface must remain attached to rendered inventory items');
+assert.match(inventoryScreen, /buildSaleStartSurface\(selectedItem\.id,\s*selectedItem\.value_evidence\?\.estimated_value_cents\s*\?\?\s*null\)/, 'truthful verified value evidence must remain attached to the rendered item detail');
+assert.doesNotMatch(inventoryScreen, /buildSaleStartSurface\([^,]+,\s*0\)/, 'unknown item values must never be represented as zero');
 assert.match(app, /function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*recordSellInitiated\(\)[\s\S]*setSaleIntentItemId/s, 'sell initiation must require explicit app orchestration');
-assert.match(inventoryScreen, /onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(item\.id\)\}/, 'sell initiation must originate from the explicit owner tap');
+assert.match(inventoryScreen, /onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\((?:item|selectedItem)\.id\)\}/, 'sell initiation must originate from the explicit owner tap');
 
 for (const forbidden of ['user.id', 'item.id)', 'estimatedValueCents', 'deviceId', 'location', 'timestamp']) {
   assert.ok(!executableTransitions.includes(forbidden), `activation transition API must not accept or expose ${forbidden}`);

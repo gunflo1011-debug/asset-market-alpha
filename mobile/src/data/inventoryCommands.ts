@@ -1,7 +1,7 @@
 import { trackAlphaEvent } from './analytics';
 import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
-import type { AddPrivateDeviceInput, ConditionInput, PrivateThingInput } from '../features/inventory/types';
+import type { AddPrivateDeviceInput, ConditionInput, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
 export async function addPrivateThing(input: PrivateThingInput): Promise<string> {
   const { data, error } = await requireSupabase().rpc('add_private_thing', thingArgs(input));
@@ -24,6 +24,19 @@ export async function updatePrivateItemMetadata(itemId: string, input: PrivateTh
     ...thingArgs(input),
   });
   if (error) throw error;
+}
+
+export async function estimatePrivateItemValue(itemId: string, input: ValuationInput): Promise<number> {
+  const { data, error } = await requireSupabase().rpc('estimate_my_item_value_v1', {
+    p_item_id: itemId,
+    p_purchase_price_cents: input.purchasePriceCents,
+    p_purchase_year: input.purchaseYear,
+    p_condition_grade: input.conditionGrade,
+  });
+  if (error) throw error;
+  const cents = Number(data);
+  if (!Number.isFinite(cents) || cents < 0) throw new Error('Value estimate returned an invalid amount.');
+  return cents;
 }
 
 export async function deletePrivateThing(itemId: string): Promise<void> {

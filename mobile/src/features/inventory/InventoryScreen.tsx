@@ -3,6 +3,7 @@ import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInpu
 import { summarizeInventoryValue } from '../../lib/inventoryValue';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { itemTitle, savedDate, variantTitle } from './presentation';
+import { ValueEstimatePanel } from './ValueEstimatePanel';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
 
 type Props = {
@@ -50,12 +51,19 @@ function formatEuroCents(cents: number): string {
 }
 
 function valueEvidenceLabel(item: PrivateInventoryItem): string {
-  if (!item.value_evidence) return 'Awaiting verified value evidence';
+  if (!item.value_evidence) return 'Add purchase details below for a first Things estimate';
   const observed = new Date(item.value_evidence.observed_at);
-  const observedLabel = Number.isNaN(observed.getTime())
-    ? 'verified evidence'
-    : `verified ${observed.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-  return `${item.value_evidence.source_type} · ${observedLabel}`;
+  const dateLabel = Number.isNaN(observed.getTime())
+    ? ''
+    : ` · ${observed.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  if (item.value_evidence.source_type === 'MODEL_V1_OWNER_INPUT') {
+    return `Things estimate · purchase price, age & condition${dateLabel}`;
+  }
+  return `${item.value_evidence.source_type} · verified value evidence${dateLabel}`;
+}
+
+function isModelEstimate(item: PrivateInventoryItem): boolean {
+  return item.value_evidence?.source_type === 'MODEL_V1_OWNER_INPUT';
 }
 
 export function InventoryScreen(props: Props) {
@@ -75,9 +83,9 @@ export function InventoryScreen(props: Props) {
   );
   const portfolioValueLabel = inventoryValue.valuedItemCount > 0 ? formatEuroCents(inventoryValue.knownValueCents) : '—';
   const portfolioCoverageLabel = inventoryValue.totalItemCount === 0
-    ? 'No value evidence yet'
+    ? 'No value estimates yet'
     : inventoryValue.unvaluedItemCount === 0
-      ? `Verified across all ${inventoryValue.totalItemCount} items`
+      ? `Estimated across all ${inventoryValue.totalItemCount} items`
       : `${inventoryValue.valuedItemCount}/${inventoryValue.totalItemCount} items valued`;
 
   useEffect(() => {
@@ -93,9 +101,10 @@ export function InventoryScreen(props: Props) {
     const generic = !selectedItem.product_variants;
     const sale = buildSaleStartSurface(selectedItem.id, selectedItem.value_evidence?.estimated_value_cents ?? null);
     const saleOpen = props.saleIntentItemId === selectedItem.id;
+    const modelEstimate = isModelEstimate(selectedItem);
     return (
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.detailContainer}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContainer}>
           <View style={styles.detailHeader}>
             <TouchableOpacity style={styles.backButton} onPress={() => setSelectedItemId(null)}><Text style={styles.backButtonText}>‹ Inventory</Text></TouchableOpacity>
             <View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View>
@@ -111,10 +120,12 @@ export function InventoryScreen(props: Props) {
           </View>
 
           <View style={styles.valueHero}>
-            <Text style={styles.detailSectionLabel}>ESTIMATED VALUE</Text>
+            <Text style={styles.detailSectionLabel}>{modelEstimate ? 'THINGS ESTIMATE' : 'ESTIMATED VALUE'}</Text>
             <Text style={styles.valueHeroText}>{sale.valueLabel.replace('Estimated value ', '')}</Text>
             <Text style={styles.helper}>{valueEvidenceLabel(selectedItem)}. Unknown values are never counted as €0.</Text>
           </View>
+
+          <ValueEstimatePanel itemId={selectedItem.id} busy={props.actionBusy} onEstimated={props.onRefreshInventory} />
 
           <View style={styles.detailCard}>
             <Text style={styles.detailSectionLabel}>DETAILS</Text>
@@ -129,7 +140,7 @@ export function InventoryScreen(props: Props) {
           <View style={styles.sellHero}>
             <Text style={styles.sellHeroEyebrow}>PRIVATE SALE</Text>
             <Text style={styles.sellHeroTitle}>Ready to let it go?</Text>
-            <Text style={styles.sellHeroCopy}>{selectedItem.value_evidence ? `Use the verified ${formatEuroCents(selectedItem.value_evidence.estimated_value_cents)} reference as context, then decide whether to continue.` : 'Start privately even while value evidence is still pending.'}</Text>
+            <Text style={styles.sellHeroCopy}>{selectedItem.value_evidence ? `${modelEstimate ? 'Use the Things estimate' : 'Use the verified reference'} ${formatEuroCents(selectedItem.value_evidence.estimated_value_cents)} as context, then decide whether to continue.` : 'Start privately even while the value is still unknown.'}</Text>
             <TouchableOpacity style={styles.sellButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.sellButtonText}>{sale.actionLabel}</Text></TouchableOpacity>
             {saleOpen ? <View style={styles.saleDecisionDark}><Text style={styles.saleDecisionText}>{sale.privacyNotice}</Text></View> : null}
           </View>
@@ -242,7 +253,7 @@ export function InventoryScreen(props: Props) {
               </TouchableOpacity>
 
               <View style={styles.itemValueRow}>
-                <View style={styles.flex}><Text style={styles.itemValueEyebrow}>ESTIMATED VALUE</Text><Text style={styles.valueLabel}>{sale.valueLabel.replace('Estimated value ', '')}</Text><Text style={styles.valueEvidenceMeta}>{valueEvidenceLabel(item)}</Text></View>
+                <View style={styles.flex}><Text style={styles.itemValueEyebrow}>{isModelEstimate(item) ? 'THINGS ESTIMATE' : 'ESTIMATED VALUE'}</Text><Text style={styles.valueLabel}>{sale.valueLabel.replace('Estimated value ', '')}</Text><Text style={styles.valueEvidenceMeta}>{valueEvidenceLabel(item)}</Text></View>
                 <View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View>
               </View>
 

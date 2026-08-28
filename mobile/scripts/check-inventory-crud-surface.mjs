@@ -25,13 +25,17 @@ for (const marker of appContracts) {
   if (!app.includes(marker)) throw new Error(`Missing inventory orchestration contract: ${marker}`);
 }
 
-for (const marker of ['onStartEditing', '>Edit<', 'onDelete', '>Delete<']) {
+for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item']) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing inventory screen CRUD contract: ${marker}`);
   }
 }
-if (!/props\.items\.map\([\s\S]*onStartEditing\(item\)[\s\S]*onDelete\(item\)/s.test(screen)) {
-  throw new Error('Every visible inventory item must expose Edit and Delete actions.');
+
+if (!/props\.items\.map\([\s\S]*setSelectedItemId\(item\.id\)/s.test(screen)) {
+  throw new Error('Every visible inventory item must open its detail surface.');
+}
+if (!/if\s*\(selectedItem\)[\s\S]*onStartEditing\(selectedItem\)[\s\S]*onDelete\(selectedItem\)/s.test(screen)) {
+  throw new Error('Selected item detail must expose Edit and Delete actions.');
 }
 
 const dataContracts = [
