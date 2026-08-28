@@ -1,7 +1,7 @@
 import { trackAlphaEvent } from './analytics';
 import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
-import type { AddPrivateDeviceInput, ConditionInput, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
+import type { AddPrivateDeviceInput, ConditionInput, MarketplaceInterestStatus, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
 export async function addPrivateThing(input: PrivateThingInput): Promise<string> {
   const { data, error } = await requireSupabase().rpc('add_private_thing', thingArgs(input));
@@ -53,6 +53,16 @@ export async function saveMyMarketplaceListing(itemId: string, askingPriceCents:
 export async function withdrawMyMarketplaceListing(itemId: string): Promise<void> {
   const { error } = await requireSupabase().rpc('withdraw_my_marketplace_listing', { p_item_id: itemId });
   if (error) throw error;
+}
+
+export async function setMyMarketplaceInterest(itemId: string, interested: boolean): Promise<MarketplaceInterestStatus> {
+  const { data, error } = await requireSupabase().rpc('set_my_marketplace_interest', {
+    p_item_id: itemId,
+    p_interested: interested,
+  });
+  if (error) throw error;
+  if (data !== 'INTERESTED' && data !== 'WITHDRAWN') throw new Error('Interest command returned an invalid state.');
+  return data;
 }
 
 export async function deletePrivateThing(itemId: string): Promise<void> {
