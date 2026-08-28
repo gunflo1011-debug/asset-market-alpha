@@ -1,26 +1,39 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { loadMarketplace } from '../../data/inventory';
 import type { MarketplaceListing } from '../inventory/types';
 
-type Props = {
-  listings: MarketplaceListing[];
-  loading: boolean;
-  error: string | null;
-  onBack: () => void;
-  onRefresh: () => void;
-};
+type Props = { onBack: () => void };
 
 function euro(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 }
 
-export function MarketplaceScreen({ listings, loading, error, onBack, onRefresh }: Props) {
+export function MarketplaceScreen({ onBack }: Props) {
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    try {
+      setLoading(true);
+      setError(null);
+      setListings(await loadMarketplace());
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Could not load marketplace.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void refresh(); }, []);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
-          <TouchableOpacity onPress={onRefresh}><Text style={styles.refresh}>{loading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
         </View>
         <Text style={styles.eyebrow}>THINGS MARKETPLACE</Text>
         <Text style={styles.title}>For sale by other owners</Text>
