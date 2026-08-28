@@ -66,38 +66,56 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.eyebrow}>{published ? 'LIVE LISTING' : 'SELL THIS THING'}</Text>
-      <Text style={styles.title}>{published ? 'Your item is on the marketplace' : 'Choose your asking price'}</Text>
-      <Text style={styles.copy}>Your Things estimate is only a reference. You decide the price. Nothing becomes visible to other users until you explicitly publish.</Text>
-      {estimatedValueCents != null ? <Text style={styles.reference}>Things estimate · {euro(estimatedValueCents)}</Text> : <Text style={styles.reference}>No Things estimate available</Text>}
+      <View style={styles.headerRow}>
+        <View style={styles.flex}>
+          <Text style={styles.eyebrow}>{published ? 'LIVE LISTING' : 'ASKING PRICE'}</Text>
+          <Text style={styles.title}>{published ? 'Listed on Marketplace' : 'Set your price'}</Text>
+        </View>
+        <View style={[styles.statusPill, published && styles.statusPillLive]}><Text style={[styles.statusPillText, published && styles.statusPillTextLive]}>{published ? 'Live' : 'Private'}</Text></View>
+      </View>
+
+      {estimatedValueCents != null ? <View style={styles.referenceRow}><Text style={styles.referenceLabel}>Things estimate</Text><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
+
       <Text style={styles.label}>Asking price (€)</Text>
       <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="e.g. 90" style={styles.input} />
+      <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish.</Text>
+
       <TouchableOpacity disabled={!parsed.valid || busy} style={[styles.primary, (!parsed.valid || busy) && styles.disabled]} onPress={() => void save(true)}>
-        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update published price' : 'Publish on marketplace'}</Text>
+        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update price' : 'Publish on marketplace'}</Text>
       </TouchableOpacity>
-      {!published ? <TouchableOpacity disabled={!parsed.valid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save as draft</Text></TouchableOpacity> : null}
-      {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove from marketplace</Text></TouchableOpacity> : null}
-      {status ? <Text style={styles.status}>{status}</Text> : null}
-      <Text style={styles.disclaimer}>Marketplace visibility: title, category, condition, asking price and optional Things estimate. Private notes, exact location and your identity stay hidden.</Text>
+      {!published ? <TouchableOpacity disabled={!parsed.valid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
+      {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
+
+      {status ? <View style={styles.feedback}><Text style={styles.status}>{status}</Text></View> : null}
+      <Text style={styles.disclaimer}>Visible: title, category, condition, asking price and optional estimate. Your identity, notes and exact location stay private.</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 11, borderWidth: 1, borderColor: '#E4E7EC' },
-  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#667085' },
-  title: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: '#101828' },
-  copy: { fontSize: 14, lineHeight: 20, color: '#667085' },
-  reference: { fontSize: 14, fontWeight: '700', color: '#344054' },
-  label: { fontSize: 14, fontWeight: '700', color: '#344054' },
-  input: { minHeight: 54, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 14, paddingHorizontal: 15, fontSize: 17, fontWeight: '700', color: '#101828', backgroundColor: '#FFFFFF' },
-  primary: { minHeight: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#101828' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 19, gap: 12, borderWidth: 1, borderColor: '#E5E8ED' },
+  flex: { flex: 1 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#7A8494' },
+  title: { fontSize: 21, lineHeight: 27, fontWeight: '800', color: '#0F1728', marginTop: 4 },
+  statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#F0F2F5' },
+  statusPillLive: { backgroundColor: '#ECFDF3' },
+  statusPillText: { fontSize: 11, fontWeight: '800', color: '#667085' },
+  statusPillTextLive: { color: '#027A48' },
+  referenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8F9FB', borderRadius: 14, padding: 13 },
+  referenceLabel: { fontSize: 12, color: '#7A8494' },
+  referenceValue: { fontSize: 15, fontWeight: '800', color: '#0F1728' },
+  label: { fontSize: 13, fontWeight: '800', color: '#344054', marginTop: 2 },
+  input: { minHeight: 58, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 16, fontSize: 22, fontWeight: '800', color: '#0F1728', backgroundColor: '#FFFFFF' },
+  copy: { fontSize: 12, lineHeight: 18, color: '#7A8494' },
+  primary: { minHeight: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
   primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  secondary: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D0D5DD' },
+  secondary: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D9DEE6' },
   secondaryText: { color: '#344054', fontSize: 14, fontWeight: '700' },
-  withdraw: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF8F7', borderWidth: 1, borderColor: '#FECDCA' },
+  withdraw: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF9F8', borderWidth: 1, borderColor: '#F0C7C2' },
   withdrawText: { color: '#B42318', fontSize: 14, fontWeight: '700' },
-  status: { fontSize: 13, lineHeight: 19, fontWeight: '700', color: '#344054' },
-  disclaimer: { fontSize: 12, lineHeight: 18, color: '#98A2B3' },
+  feedback: { backgroundColor: '#F8F9FB', borderRadius: 12, padding: 11 },
+  status: { fontSize: 12, lineHeight: 18, fontWeight: '700', color: '#344054' },
+  disclaimer: { fontSize: 11, lineHeight: 17, color: '#98A2B3' },
   disabled: { opacity: 0.45 },
 });
