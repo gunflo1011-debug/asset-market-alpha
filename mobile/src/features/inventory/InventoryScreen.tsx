@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { summarizeInventoryValue } from '../../lib/inventoryValue';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
+import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
+import { SellListingPanel } from '../marketplace/SellListingPanel';
 import { itemTitle, savedDate, variantTitle } from './presentation';
 import { ValueEstimatePanel } from './ValueEstimatePanel';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
@@ -70,6 +72,7 @@ export function InventoryScreen(props: Props) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('manual');
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const selectedItem = useMemo(
     () => props.items.find((item) => item.id === selectedItemId) ?? null,
     [props.items, selectedItemId],
@@ -91,10 +94,13 @@ export function InventoryScreen(props: Props) {
   useEffect(() => {
     if (props.editingItemId) {
       setSelectedItemId(null);
+      setMarketplaceOpen(false);
       setCaptureMode('manual');
       setCaptureOpen(true);
     }
   }, [props.editingItemId]);
+
+  if (marketplaceOpen) return <MarketplaceScreen onBack={() => setMarketplaceOpen(false)} />;
 
   if (selectedItem) {
     const snapshot = selectedItem.condition_snapshots[0];
@@ -140,10 +146,12 @@ export function InventoryScreen(props: Props) {
           <View style={styles.sellHero}>
             <Text style={styles.sellHeroEyebrow}>PRIVATE SALE</Text>
             <Text style={styles.sellHeroTitle}>Ready to let it go?</Text>
-            <Text style={styles.sellHeroCopy}>{selectedItem.value_evidence ? `${modelEstimate ? 'Use the Things estimate' : 'Use the verified reference'} ${formatEuroCents(selectedItem.value_evidence.estimated_value_cents)} as context, then decide whether to continue.` : 'Start privately even while the value is still unknown.'}</Text>
-            <TouchableOpacity style={styles.sellButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.sellButtonText}>{sale.actionLabel}</Text></TouchableOpacity>
+            <Text style={styles.sellHeroCopy}>{selectedItem.value_evidence ? `${modelEstimate ? 'Use the Things estimate' : 'Use the verified reference'} ${formatEuroCents(selectedItem.value_evidence.estimated_value_cents)} as context, then choose your own asking price.` : 'You can set an asking price even while the Things estimate is unknown.'}</Text>
+            <TouchableOpacity style={styles.sellButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.sellButtonText}>{saleOpen ? 'Close selling' : sale.actionLabel}</Text></TouchableOpacity>
             {saleOpen ? <View style={styles.saleDecisionDark}><Text style={styles.saleDecisionText}>{sale.privacyNotice}</Text></View> : null}
           </View>
+
+          {saleOpen ? <SellListingPanel itemId={selectedItem.id} estimatedValueCents={selectedItem.value_evidence?.estimated_value_cents ?? null} /> : null}
 
           <View style={styles.secondaryActions}>
             <TouchableOpacity style={styles.secondaryButton} disabled={props.actionBusy} onPress={() => { props.onStartEditing(selectedItem); setSelectedItemId(null); }}><Text style={styles.secondaryButtonText}>Edit item</Text></TouchableOpacity>
@@ -163,7 +171,10 @@ export function InventoryScreen(props: Props) {
             <Text style={styles.pageTitle}>Your inventory</Text>
             <Text style={styles.subtitle}>Know what you own, what it is worth, and sell it privately when you are ready.</Text>
           </View>
-          <TouchableOpacity style={styles.headerButton} onPress={props.onOpenAccount}><Text style={styles.headerButtonText}>Account</Text></TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => setMarketplaceOpen(true)}><Text style={styles.headerButtonText}>Market</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.headerButton} onPress={props.onOpenAccount}><Text style={styles.headerButtonText}>Account</Text></TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.summaryCard}>
@@ -236,7 +247,6 @@ export function InventoryScreen(props: Props) {
           const snapshot = item.condition_snapshots[0];
           const generic = !item.product_variants;
           const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
-          const open = props.saleIntentItemId === item.id;
           return (
             <View key={item.id} style={styles.itemCard}>
               <TouchableOpacity onPress={() => setSelectedItemId(item.id)}>
@@ -257,8 +267,7 @@ export function InventoryScreen(props: Props) {
                 <View style={styles.privatePill}><Text style={styles.privatePillText}>Private</Text></View>
               </View>
 
-              <TouchableOpacity style={styles.sellInlineButton} onPress={() => props.onToggleSaleIntent(item.id)}><Text style={styles.sellInlineButtonText}>{sale.actionLabel}</Text><Text style={styles.sellInlineArrow}>›</Text></TouchableOpacity>
-              {open ? <View style={styles.saleDecision}><Text style={styles.helper}>{sale.privacyNotice}</Text></View> : null}
+              <TouchableOpacity style={styles.sellInlineButton} onPress={() => setSelectedItemId(item.id)}><Text style={styles.sellInlineButtonText}>Set selling price</Text><Text style={styles.sellInlineArrow}>›</Text></TouchableOpacity>
             </View>
           );
         })}
@@ -276,6 +285,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, lineHeight: 22, color: '#667085', marginTop: 3 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   flex: { flex: 1 },
+  headerActions: { gap: 8, alignItems: 'stretch' },
   headerButton: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E4E7EC' },
   headerButtonText: { fontSize: 14, fontWeight: '700', color: '#344054' },
   summaryCard: { backgroundColor: '#101828', borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'stretch', gap: 18 },
