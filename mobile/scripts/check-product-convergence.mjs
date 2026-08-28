@@ -49,13 +49,14 @@ if (!saleSurface.includes('Estimated value not available yet')) {
   throw new Error('Unknown inventory value must remain explicitly unavailable.');
 }
 
-if (!inventory.includes("rpc('load_my_inventory_market_states')")) {
+const compactInventory = inventory.replace(/\s+/g, '');
+if (!compactInventory.includes("rpc('load_my_inventory_market_states')")) {
   throw new Error('Missing authoritative market-state lookup for catalog-backed devices.');
 }
-if (!inventory.includes("rpc('load_my_inventory_values')")) {
+if (!compactInventory.includes("rpc('load_my_inventory_values')")) {
   throw new Error('Missing authenticated owner-scoped value-evidence lookup for inventory.');
 }
-if (!inventory.includes("rpc('save_my_marketplace_listing')") || !inventory.includes("rpc('load_marketplace_v1')")) {
+if (!compactInventory.includes("rpc('save_my_marketplace_listing'") || !compactInventory.includes("rpc('load_marketplace_v1')")) {
   throw new Error('Marketplace convergence requires owner-controlled listing writes and the filtered marketplace read RPC.');
 }
 
