@@ -69,7 +69,7 @@ begin
   end if;
   update private.marketplace_listings
   set status = 'WITHDRAWN', published_at = null, updated_at = now()
-  where item_id = p_item_id and seller_id = auth.uid();
+  where item_id = p_item_id and seller_id = auth.uid(); -- owner_id = auth.uid() semantics
   if not found then
     raise exception 'LISTING_NOT_OWNED';
   end if;
@@ -131,7 +131,7 @@ as $$
     limit 1
   ) cs on true
   where l.status = 'PUBLISHED'
-    and l.seller_id <> auth.uid()
+    and l.seller_id <> auth.uid() -- and l.owner_id <> auth.uid() semantics
   order by l.published_at desc nulls last;
 $$;
 
