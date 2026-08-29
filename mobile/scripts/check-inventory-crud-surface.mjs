@@ -20,9 +20,24 @@ const appContracts = [
   'else await deletePrivateThing(item.id)',
   "setMessage('Item deleted.')",
   "setMessage(wasEditing ? 'Item updated.' : 'Thing added to your inventory.')",
+  'const inventoryRequestIdRef = useRef(0)',
+  'inventoryUserIdRef.current = inventoryUserId',
+  'inventoryRequestIdRef.current += 1',
+  'void refreshInventory(session.user.id)',
+  'const requestId = ++inventoryRequestIdRef.current',
 ];
 for (const marker of appContracts) {
   if (!app.includes(marker)) throw new Error(`Missing inventory orchestration contract: ${marker}`);
+}
+
+if (!/const nextItems = await loadPrivateInventory\(\);[\s\S]*requestId !== inventoryRequestIdRef\.current \|\| inventoryUserIdRef\.current !== expectedUserId[\s\S]*setItems\(nextItems\)/s.test(app)) {
+  throw new Error('Inventory results must be discarded after account changes or a newer refresh.');
+}
+if (!/catch \(error\) \{[\s\S]*requestId === inventoryRequestIdRef\.current && inventoryUserIdRef\.current === expectedUserId[\s\S]*setInventoryError/s.test(app)) {
+  throw new Error('Stale inventory failures must not overwrite the current account error state.');
+}
+if (!/finally \{[\s\S]*requestId === inventoryRequestIdRef\.current && inventoryUserIdRef\.current === expectedUserId[\s\S]*setInventoryLoading\(false\)/s.test(app)) {
+  throw new Error('Stale inventory requests must not clear loading state for a newer request.');
 }
 
 for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item']) {

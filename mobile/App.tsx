@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ActivityIndicator, Alert, Linking, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import {
@@ -67,6 +67,10 @@ export default function App() {
   const [thingNotes, setThingNotes] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const inventoryRequestIdRef = useRef(0);
+  const inventoryUserId = session && authMode !== 'recovery' ? session.user.id : null;
+  const inventoryUserIdRef = useRef<string | null>(inventoryUserId);
+  inventoryUserIdRef.current = inventoryUserId;
 
   const [showAccount, setShowAccount] = useState(false);
   const [accountEmail, setAccountEmail] = useState('');
@@ -128,31 +132,42 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    inventoryRequestIdRef.current += 1;
     if (!session || authMode === 'recovery') {
       setItems([]);
       setCatalog([]);
       setShowAccount(false);
       setInventoryError(null);
+      setInventoryLoading(false);
       setCatalogError(null);
       return;
     }
     setAccountEmail(session.user.email ?? '');
-    void refreshInventory();
+    void refreshInventory(session.user.id);
     void refreshCatalog();
   }, [session, authMode]);
 
-  async function refreshInventory() {
+  async function refreshInventory(expectedUserId = inventoryUserIdRef.current): Promise<boolean> {
+    if (!expectedUserId) return false;
+    const requestId = ++inventoryRequestIdRef.current;
     try {
       setInventoryLoading(true);
       setInventoryError(null);
       const nextItems = await loadPrivateInventory();
+      if (requestId !== inventoryRequestIdRef.current || inventoryUserIdRef.current !== expectedUserId) return false;
       setItems(nextItems);
       recordInventoryVisible();
       recordValueVisible();
+      return true;
     } catch (error) {
-      setInventoryError(friendlyInventoryError(error));
+      if (requestId === inventoryRequestIdRef.current && inventoryUserIdRef.current === expectedUserId) {
+        setInventoryError(friendlyInventoryError(error));
+      }
+      return false;
     } finally {
-      setInventoryLoading(false);
+      if (requestId === inventoryRequestIdRef.current && inventoryUserIdRef.current === expectedUserId) {
+        setInventoryLoading(false);
+      }
     }
   }
 
