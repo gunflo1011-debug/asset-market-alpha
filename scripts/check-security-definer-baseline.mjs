@@ -35,9 +35,9 @@ const found = new Set();
 
 for (const file of files) {
   const sql = await readFile(path.join(migrationsDir, file), 'utf8');
-  const functionPattern = /create\s+(?:or\s+replace\s+)?function\s+public\.([a-zA-Z0-9_]+)\s*\([^]*?\)\s*returns\b[^]*?security\s+definer/gi;
-  for (const match of sql.matchAll(functionPattern)) {
-    found.add(match[1]);
+  const declarationPattern = /create\s+(?:or\s+replace\s+)?function\s+public\.([a-zA-Z0-9_]+)\s*\([^]*?\)\s*returns\b[^]*?\bas\s+\$\$/gi;
+  for (const match of sql.matchAll(declarationPattern)) {
+    if (/\bsecurity\s+definer\b/i.test(match[0])) found.add(match[1]);
   }
 }
 
