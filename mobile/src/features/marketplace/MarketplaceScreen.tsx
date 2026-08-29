@@ -16,20 +16,32 @@ export function MarketplaceScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interestWarning, setInterestWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const selected = useMemo(() => listings.find((listing) => listing.item_id === selectedItemId) ?? null, [listings, selectedItemId]);
   const interestByItem = useMemo(() => new Map(interests.map((row) => [row.item_id, row.status])), [interests]);
 
   async function refresh() {
+    setLoading(true);
+    setError(null);
+    setInterestWarning(null);
+
+    const listingsRequest = loadMarketplace();
+    const interestsRequest = loadMyMarketplaceInterests();
+
     try {
-      setLoading(true);
-      setError(null);
-      const [nextListings, nextInterests] = await Promise.all([loadMarketplace(), loadMyMarketplaceInterests()]);
+      const nextListings = await listingsRequest;
       setListings(nextListings);
-      setInterests(nextInterests);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Could not load marketplace.');
+    }
+
+    try {
+      const nextInterests = await interestsRequest;
+      setInterests(nextInterests);
+    } catch {
+      setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
     } finally {
       setLoading(false);
     }
@@ -47,6 +59,7 @@ export function MarketplaceScreen({ onBack }: Props) {
         const rest = current.filter((row) => row.item_id !== itemId);
         return [...rest, { item_id: itemId, status, updated_at: new Date().toISOString() }];
       });
+      setInterestWarning(null);
       setMessage(interested ? 'Interest sent. The seller can now see that someone is interested.' : 'Interest withdrawn.');
     } catch (nextError) {
       setMessage(nextError instanceof Error ? nextError.message : 'Could not update interest.');
@@ -81,6 +94,7 @@ export function MarketplaceScreen({ onBack }: Props) {
             <Text style={styles.eyebrow}>{interested ? 'INTEREST SENT' : 'INTERESTED?'}</Text>
             <Text style={styles.interestTitle}>{interested ? 'The seller can see your interest' : 'Interested in this Thing?'}</Text>
             <Text style={styles.copy}>{interested ? 'Your identity is still hidden. This is only a private signal to the seller.' : 'Send a private interest signal. Your email, account identity and exact location are not shared.'}</Text>
+            {interestWarning ? <Text style={styles.warningText}>{interestWarning}</Text> : null}
             <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void changeInterest(selected.item_id, !interested)}>
               <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : interested ? 'Withdraw interest' : 'I’m interested'}</Text>
             </TouchableOpacity>
@@ -108,6 +122,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
         {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
         {error ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
+        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text><TouchableOpacity disabled={loading} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry personal status</Text></TouchableOpacity></View> : null}
         {!loading && !error && listings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
         {listings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>Newest first</Text></View> : null}
 
@@ -185,4 +200,8 @@ const styles = StyleSheet.create({
   errorCard: { backgroundColor: '#FFF8F7', borderRadius: 18, padding: 16, gap: 6, borderWidth: 1, borderColor: '#FECDCA' },
   errorTitle: { fontSize: 16, fontWeight: '800', color: '#B42318' },
   errorText: { fontSize: 13, lineHeight: 19, color: '#B42318' },
+  warningCard: { backgroundColor: '#FFFAEB', borderRadius: 18, padding: 16, gap: 7, borderWidth: 1, borderColor: '#FEDF89' },
+  warningTitle: { fontSize: 15, fontWeight: '800', color: '#93370D' },
+  warningText: { fontSize: 12, lineHeight: 18, color: '#7A2E0E' },
+  retryLink: { fontSize: 12, fontWeight: '800', color: '#B54708', paddingVertical: 4 },
 });
