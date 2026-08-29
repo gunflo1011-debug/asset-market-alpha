@@ -69,6 +69,7 @@ export default function App() {
   const [actionBusy, setActionBusy] = useState(false);
   const inventoryRequestIdRef = useRef(0);
   const actionUserIdRef = useRef<string | null>(null);
+  const actionRequestIdRef = useRef(0);
   const inventoryUserId = session && authMode !== 'recovery' ? session.user.id : null;
   const inventoryUserIdRef = useRef<string | null>(inventoryUserId);
   inventoryUserIdRef.current = inventoryUserId;
@@ -135,6 +136,7 @@ export default function App() {
   useEffect(() => {
     inventoryRequestIdRef.current += 1;
     if (actionUserIdRef.current && actionUserIdRef.current !== inventoryUserId) {
+      actionRequestIdRef.current += 1;
       actionUserIdRef.current = null;
       setActionBusy(false);
     }
@@ -320,6 +322,7 @@ export default function App() {
     }
     const expectedUserId = inventoryUserIdRef.current;
     if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
     const editingId = editingItemId;
     const wasEditing = editingId !== null;
     const input = { name: thingName, category: thingCategory, location: thingLocation, notes: thingNotes };
@@ -333,7 +336,7 @@ export default function App() {
         createdItemId = await addPrivateThing(input);
         recordCaptureSuccess();
       }
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
 
       if (editingId) {
         setItems((current) => current.map((item) => item.id === editingId ? {
@@ -362,18 +365,18 @@ export default function App() {
 
       resetThingForm();
       const synced = await refreshInventory(expectedUserId);
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
       setMessage(synced
         ? (wasEditing ? 'Item updated.' : 'Thing added to your inventory.')
         : (wasEditing
           ? 'Item updated. Inventory sync is delayed; use Refresh to confirm the latest details.'
           : 'Thing saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.'));
     } catch (error) {
-      if (inventoryUserIdRef.current === expectedUserId) {
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         setMessage(error instanceof Error ? error.message : 'Could not save this item.');
       }
     } finally {
-      if (actionUserIdRef.current === expectedUserId) {
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         actionUserIdRef.current = null;
         setActionBusy(false);
       }
@@ -390,27 +393,28 @@ export default function App() {
   async function removeThing(item: PrivateInventoryItem) {
     const expectedUserId = inventoryUserIdRef.current;
     if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
     actionUserIdRef.current = expectedUserId;
     try {
       setActionBusy(true);
       setMessage(null);
       if (item.product_variants) await deletePrivateDevice(item.id);
       else await deletePrivateThing(item.id);
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
 
       setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
       if (editingItemId === item.id) resetThingForm();
       const synced = await refreshInventory(expectedUserId);
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
       setMessage(synced
         ? 'Item deleted.'
         : 'Item deleted. Inventory sync is delayed; use Refresh if it still appears.');
     } catch (error) {
-      if (inventoryUserIdRef.current === expectedUserId) {
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         setMessage(error instanceof Error ? error.message : 'Could not delete this item.');
       }
     } finally {
-      if (actionUserIdRef.current === expectedUserId) {
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         actionUserIdRef.current = null;
         setActionBusy(false);
       }
@@ -421,25 +425,26 @@ export default function App() {
     if (!selectedVariantId) return;
     const expectedUserId = inventoryUserIdRef.current;
     if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
     actionUserIdRef.current = expectedUserId;
     try {
       setActionBusy(true);
       setMessage(null);
       await addPrivateDevice({ variantId: selectedVariantId });
       recordCaptureSuccess();
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
 
       const synced = await refreshInventory(expectedUserId);
-      if (inventoryUserIdRef.current !== expectedUserId) return;
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
       setMessage(synced
         ? 'Device saved privately.'
         : 'Device saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.');
     } catch (error) {
-      if (inventoryUserIdRef.current === expectedUserId) {
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         setMessage(error instanceof Error ? error.message : 'Could not save device.');
       }
     } finally {
-      if (actionUserIdRef.current === expectedUserId) {
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
         actionUserIdRef.current = null;
         setActionBusy(false);
       }
