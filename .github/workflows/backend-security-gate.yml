@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Guard SECURITY DEFINER RPC baseline
+        run: node scripts/check-security-definer-baseline.mjs
       - name: Verify owner market-state migration contract
         run: node scripts/check-owner-market-state-migration.mjs
       - name: Verify owner market-state release gate
