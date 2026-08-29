@@ -68,6 +68,8 @@ export default function App() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const inventoryRequestIdRef = useRef(0);
+  const actionUserIdRef = useRef<string | null>(null);
+  const actionRequestIdRef = useRef(0);
   const inventoryUserId = session && authMode !== 'recovery' ? session.user.id : null;
   const inventoryUserIdRef = useRef<string | null>(inventoryUserId);
   inventoryUserIdRef.current = inventoryUserId;
@@ -133,6 +135,11 @@ export default function App() {
 
   useEffect(() => {
     inventoryRequestIdRef.current += 1;
+    if (actionUserIdRef.current && actionUserIdRef.current !== inventoryUserId) {
+      actionRequestIdRef.current += 1;
+      actionUserIdRef.current = null;
+      setActionBusy(false);
+    }
     if (!session || authMode === 'recovery') {
       setItems([]);
       setCatalog([]);
@@ -313,23 +320,66 @@ export default function App() {
       setMessage('Give your Thing a name.');
       return;
     }
-    const wasEditing = editingItemId !== null;
+    const expectedUserId = inventoryUserIdRef.current;
+    if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
+    const editingId = editingItemId;
+    const wasEditing = editingId !== null;
+    const input = { name: thingName, category: thingCategory, location: thingLocation, notes: thingNotes };
+    actionUserIdRef.current = expectedUserId;
     try {
       setActionBusy(true);
       setMessage(null);
-      const input = { name: thingName, category: thingCategory, location: thingLocation, notes: thingNotes };
-      if (editingItemId) await updatePrivateItemMetadata(editingItemId, input);
+      let createdItemId: string | null = null;
+      if (editingId) await updatePrivateItemMetadata(editingId, input);
       else {
-        await addPrivateThing(input);
+        createdItemId = await addPrivateThing(input);
         recordCaptureSuccess();
       }
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+
+      if (editingId) {
+        setItems((current) => current.map((item) => item.id === editingId ? {
+          ...item,
+          custom_name: input.name.trim(),
+          category: input.category.trim() || null,
+          location_label: input.location.trim() || null,
+          notes: input.notes.trim() || null,
+        } : item));
+      } else if (createdItemId) {
+        const optimisticItem: PrivateInventoryItem = {
+          id: createdItemId,
+          custom_name: input.name.trim(),
+          category: input.category.trim() || null,
+          location_label: input.location.trim() || null,
+          notes: input.notes.trim() || null,
+          color: null,
+          created_at: new Date().toISOString(),
+          market_state: null,
+          value_evidence: null,
+          product_variants: null,
+          condition_snapshots: [],
+        };
+        setItems((current) => [optimisticItem, ...current.filter((item) => item.id !== createdItemId)]);
+      }
+
       resetThingForm();
-      await refreshInventory();
-      setMessage(wasEditing ? 'Item updated.' : 'Thing added to your inventory.');
+      const synced = await refreshInventory(expectedUserId);
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+      setMessage(synced
+        ? (wasEditing ? 'Item updated.' : 'Thing added to your inventory.')
+        : (wasEditing
+          ? 'Item updated. Inventory sync is delayed; use Refresh to confirm the latest details.'
+          : 'Thing saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.'));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save this item.');
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        setMessage(error instanceof Error ? error.message : 'Could not save this item.');
+      }
     } finally {
-      setActionBusy(false);
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        actionUserIdRef.current = null;
+        setActionBusy(false);
+      }
     }
   }
 
@@ -341,34 +391,63 @@ export default function App() {
   }
 
   async function removeThing(item: PrivateInventoryItem) {
+    const expectedUserId = inventoryUserIdRef.current;
+    if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
+    actionUserIdRef.current = expectedUserId;
     try {
       setActionBusy(true);
       setMessage(null);
       if (item.product_variants) await deletePrivateDevice(item.id);
       else await deletePrivateThing(item.id);
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+
+      setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
       if (editingItemId === item.id) resetThingForm();
-      await refreshInventory();
-      setMessage('Item deleted.');
+      const synced = await refreshInventory(expectedUserId);
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+      setMessage(synced
+        ? 'Item deleted.'
+        : 'Item deleted. Inventory sync is delayed; use Refresh if it still appears.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not delete this item.');
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        setMessage(error instanceof Error ? error.message : 'Could not delete this item.');
+      }
     } finally {
-      setActionBusy(false);
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        actionUserIdRef.current = null;
+        setActionBusy(false);
+      }
     }
   }
 
   async function createPrivateDevice() {
     if (!selectedVariantId) return;
+    const expectedUserId = inventoryUserIdRef.current;
+    if (!expectedUserId || actionUserIdRef.current) return;
+    const actionRequestId = ++actionRequestIdRef.current;
+    actionUserIdRef.current = expectedUserId;
     try {
       setActionBusy(true);
       setMessage(null);
       await addPrivateDevice({ variantId: selectedVariantId });
       recordCaptureSuccess();
-      await refreshInventory();
-      setMessage('Device saved privately.');
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+
+      const synced = await refreshInventory(expectedUserId);
+      if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return;
+      setMessage(synced
+        ? 'Device saved privately.'
+        : 'Device saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save device.');
+      if (inventoryUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        setMessage(error instanceof Error ? error.message : 'Could not save device.');
+      }
     } finally {
-      setActionBusy(false);
+      if (actionUserIdRef.current === expectedUserId && actionRequestIdRef.current === actionRequestId) {
+        actionUserIdRef.current = null;
+        setActionBusy(false);
+      }
     }
   }
 
