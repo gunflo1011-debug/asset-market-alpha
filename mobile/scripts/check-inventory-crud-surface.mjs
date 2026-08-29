@@ -14,12 +14,19 @@ const appContracts = [
   'setThingName(item.custom_name?.trim() || itemTitle(item))',
   'setThingLocation(item.location_label ??',
   'setThingNotes(item.notes ??',
-  'await updatePrivateItemMetadata(editingItemId, input)',
-  'await refreshInventory()',
+  'await updatePrivateItemMetadata(editingId, input)',
+  'const synced = await refreshInventory(expectedUserId)',
   'if (item.product_variants) await deletePrivateDevice(item.id)',
   'else await deletePrivateThing(item.id)',
-  "setMessage('Item deleted.')",
-  "setMessage(wasEditing ? 'Item updated.' : 'Thing added to your inventory.')",
+  "'Item deleted.'",
+  "'Thing added to your inventory.'",
+  "'Thing saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.'",
+  "'Item deleted. Inventory sync is delayed; use Refresh if it still appears.'",
+  "'Device saved privately. Inventory sync is delayed—do not add it again. Use Refresh to confirm it.'",
+  'const optimisticItem: PrivateInventoryItem',
+  'setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))',
+  'const actionUserIdRef = useRef<string | null>(null)',
+  'if (inventoryUserIdRef.current !== expectedUserId) return',
   'const inventoryRequestIdRef = useRef(0)',
   'inventoryUserIdRef.current = inventoryUserId',
   'inventoryRequestIdRef.current += 1',
@@ -40,7 +47,20 @@ if (!/finally \{[\s\S]*requestId === inventoryRequestIdRef\.current && inventory
   throw new Error('Stale inventory requests must not clear loading state for a newer request.');
 }
 
-for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item']) {
+if (!/createdItemId = await addPrivateThing\(input\)[\s\S]*const optimisticItem: PrivateInventoryItem[\s\S]*setItems\(\(current\) => \[optimisticItem,/s.test(app)) {
+  throw new Error('Confirmed generic Thing creation must appear locally before the follow-up sync.');
+}
+if (!/await updatePrivateItemMetadata\(editingId, input\)[\s\S]*setItems\(\(current\) => current\.map/s.test(app)) {
+  throw new Error('Confirmed Thing edits must update the local inventory before the follow-up sync.');
+}
+if (!/await deletePrivateThing\(item\.id\)[\s\S]*setItems\(\(current\) => current\.filter/s.test(app)) {
+  throw new Error('Confirmed deletion must remove the local item before the follow-up sync.');
+}
+if (!/actionUserIdRef\.current = expectedUserId[\s\S]*inventoryUserIdRef\.current !== expectedUserId[\s\S]*finally \{[\s\S]*actionUserIdRef\.current === expectedUserId/s.test(app)) {
+  throw new Error('Inventory mutation UI effects must remain bound to the account that started them.');
+}
+
+for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item', 'accessibilityLabel="Refresh private inventory"', 'accessibilityLabel="Retry loading private inventory"', 'minHeight: 44']) {
   if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
     throw new Error(`Missing inventory screen CRUD contract: ${marker}`);
   }
