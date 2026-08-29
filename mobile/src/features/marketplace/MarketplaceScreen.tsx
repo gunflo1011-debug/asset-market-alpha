@@ -27,24 +27,24 @@ export function MarketplaceScreen({ onBack }: Props) {
     setError(null);
     setInterestWarning(null);
 
-    const listingsRequest = loadMarketplace();
-    const interestsRequest = loadMyMarketplaceInterests();
+    const [listingsResult, interestsResult] = await Promise.allSettled([
+      loadMarketplace(),
+      loadMyMarketplaceInterests(),
+    ]);
 
-    try {
-      const nextListings = await listingsRequest;
-      setListings(nextListings);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Could not load marketplace.');
+    if (listingsResult.status === 'fulfilled') {
+      setListings(listingsResult.value);
+    } else {
+      setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
     }
 
-    try {
-      const nextInterests = await interestsRequest;
-      setInterests(nextInterests);
-    } catch {
+    if (interestsResult.status === 'fulfilled') {
+      setInterests(interestsResult.value);
+    } else {
       setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   }
 
   useEffect(() => { void refresh(); }, []);
