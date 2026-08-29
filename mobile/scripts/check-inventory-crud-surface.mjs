@@ -26,7 +26,8 @@ const appContracts = [
   'const optimisticItem: PrivateInventoryItem',
   'setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))',
   'const actionUserIdRef = useRef<string | null>(null)',
-  'if (inventoryUserIdRef.current !== expectedUserId) return',
+  'const actionRequestIdRef = useRef(0)',
+  'if (inventoryUserIdRef.current !== expectedUserId || actionRequestIdRef.current !== actionRequestId) return',
   'const inventoryRequestIdRef = useRef(0)',
   'inventoryUserIdRef.current = inventoryUserId',
   'inventoryRequestIdRef.current += 1',
@@ -56,8 +57,8 @@ if (!/await updatePrivateItemMetadata\(editingId, input\)[\s\S]*setItems\(\(curr
 if (!/await deletePrivateThing\(item\.id\)[\s\S]*setItems\(\(current\) => current\.filter/s.test(app)) {
   throw new Error('Confirmed deletion must remove the local item before the follow-up sync.');
 }
-if (!/actionUserIdRef\.current = expectedUserId[\s\S]*inventoryUserIdRef\.current !== expectedUserId[\s\S]*finally \{[\s\S]*actionUserIdRef\.current === expectedUserId/s.test(app)) {
-  throw new Error('Inventory mutation UI effects must remain bound to the account that started them.');
+if (!/actionUserIdRef\.current = expectedUserId[\s\S]*inventoryUserIdRef\.current !== expectedUserId \|\| actionRequestIdRef\.current !== actionRequestId[\s\S]*finally \{[\s\S]*actionUserIdRef\.current === expectedUserId && actionRequestIdRef\.current === actionRequestId/s.test(app)) {
+  throw new Error('Inventory mutation UI effects must remain bound to the account and mutation that started them.');
 }
 
 for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item', 'accessibilityLabel="Refresh private inventory"', 'accessibilityLabel="Retry loading private inventory"', 'minHeight: 44']) {
