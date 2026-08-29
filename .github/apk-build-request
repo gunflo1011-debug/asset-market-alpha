@@ -1,2 +1,2 @@
-2026-08-28T16:04:00+02:00
-Reason: Build milestone APK from green main after merging transparent owner-input EUR value estimate v1. Main gates backend-security-gate #368, mobile-alpha-ci #281, and actions-smoke #252 are PASS. Build installable APK for device acceptance covering login, private inventory CRUD, item detail, purchase-price/year/condition estimate input, EUR value refresh, unknown-value handling, private sale start, and account isolation.
+2026-08-29T06:38:00+02:00
+Reason: Build milestone APK from current main after Marketplace v2 merge. Include premium inventory/dashboard polish, marketplace listing detail, buyer interest/withdraw-interest flow, seller aggregate interest count, existing value estimate flow, private inventory CRUD, account controls, and privacy-safe marketplace behavior.
