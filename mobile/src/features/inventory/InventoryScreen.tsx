@@ -216,15 +216,15 @@ export function InventoryScreen(props: Props) {
           </View>
         ) : null}
 
-        {props.message ? <Text style={styles.notice}>{props.message}</Text> : null}
+        {props.message ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{props.message}</Text> : null}
 
         <View style={styles.inventoryHeading}>
           <View><Text style={styles.sectionTitle}>Things</Text><Text style={styles.compactCopy}>{props.items.length ? `${props.items.length} saved · newest first` : 'Your saved Things appear here.'}</Text></View>
-          <TouchableOpacity disabled={props.inventoryLoading} onPress={props.onRefreshInventory}><Text style={styles.refreshLink}>{props.inventoryLoading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh private inventory" disabled={props.inventoryLoading} style={styles.inventoryRefreshButton} onPress={props.onRefreshInventory}><Text style={styles.refreshLink}>{props.inventoryLoading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
         </View>
 
         {props.inventoryLoading && props.items.length === 0 ? <ActivityIndicator /> : null}
-        {props.inventoryError ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text></View> : null}
+        {props.inventoryError ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View> : null}
         {!props.inventoryLoading && !props.inventoryError && props.items.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Add anything you own. You can add value details later.</Text></View> : null}
 
         <View style={styles.listCard}>
@@ -300,7 +300,8 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   notice: { fontSize: 13, lineHeight: 19, color: '#344054', backgroundColor: '#EEF4FF', padding: 13, borderRadius: 14 },
   inventoryHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginTop: 2 },
-  refreshLink: { fontSize: 13, fontWeight: '800', color: '#475467', paddingVertical: 5 },
+  inventoryRefreshButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  refreshLink: { fontSize: 13, fontWeight: '800', color: '#475467' },
   listCard: { overflow: 'hidden', backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 1, borderColor: '#E5E8ED' },
   compactItem: { minHeight: 86, paddingHorizontal: 15, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   compactItemBorder: { borderBottomWidth: 1, borderBottomColor: '#EEF0F3' },
@@ -318,6 +319,8 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
   errorCard: { backgroundColor: '#FFF8F7', borderRadius: 18, padding: 16, gap: 6, borderWidth: 1, borderColor: '#FECDCA' },
   errorTitle: { fontSize: 16, fontWeight: '800', color: '#B42318' },
+  errorRetryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 4 },
+  errorRetryText: { fontSize: 13, fontWeight: '800', color: '#B42318' },
   variantButton: { borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 12, padding: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   variantButtonSelected: { borderWidth: 2, borderColor: '#0F1728', backgroundColor: '#F8F9FB' },
   variantText: { fontSize: 14, color: '#344054', flex: 1 },
