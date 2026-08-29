@@ -122,7 +122,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
         {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
         {error ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
-        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text><TouchableOpacity disabled={loading} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry personal status</Text></TouchableOpacity></View> : null}
+        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{interestWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading personal interest status" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry personal status</Text></TouchableOpacity></View> : null}
         {!loading && !error && listings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
         {listings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>Newest first</Text></View> : null}
 
@@ -203,5 +203,6 @@ const styles = StyleSheet.create({
   warningCard: { backgroundColor: '#FFFAEB', borderRadius: 18, padding: 16, gap: 7, borderWidth: 1, borderColor: '#FEDF89' },
   warningTitle: { fontSize: 15, fontWeight: '800', color: '#93370D' },
   warningText: { fontSize: 12, lineHeight: 18, color: '#7A2E0E' },
-  retryLink: { fontSize: 12, fontWeight: '800', color: '#B54708', paddingVertical: 4 },
+  retryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 4 },
+  retryLink: { fontSize: 12, fontWeight: '800', color: '#B54708' },
 });
