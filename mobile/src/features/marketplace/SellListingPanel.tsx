@@ -17,6 +17,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const [listing, setListing] = useState<OwnerMarketplaceListing | null>(null);
   const [interestCount, setInterestCount] = useState(0);
   const [price, setPrice] = useState(estimatedValueCents != null ? String(Math.max(1, Math.round(estimatedValueCents / 100))) : '');
+  const [publicLocation, setPublicLocation] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -28,7 +29,10 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
       const summary = summaries.find((row) => row.item_id === itemId) ?? null;
       setListing(existing);
       setInterestCount(summary?.interested_count ?? 0);
-      if (existing) setPrice(String(existing.asking_price_cents / 100));
+      if (existing) {
+        setPrice(String(existing.asking_price_cents / 100));
+        setPublicLocation(existing.public_location ?? '');
+      }
     }).catch(() => { if (active) setStatus('Could not load listing state.'); });
     return () => { active = false; };
   }, [itemId]);
@@ -37,20 +41,28 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
     const euros = Number(price.replace(',', '.').trim());
     return { valid: Number.isFinite(euros) && euros > 0 && euros <= 10_000_000, cents: Math.round(euros * 100) };
   }, [price]);
+  const normalizedLocation = publicLocation.trim();
+  const locationValid = normalizedLocation.length <= 80;
   const published = listing?.status === 'PUBLISHED';
 
   async function save(publish: boolean) {
-    if (!parsed.valid || busy) return;
+    if (!parsed.valid || !locationValid || busy) return;
     try {
       setBusy(true);
       setStatus(null);
       const imageCount = publish ? await syncMyMarketplaceImageProjections(itemId) : 0;
-      const nextStatus = await saveMyMarketplaceListing(itemId, parsed.cents, publish);
-      setListing({ item_id: itemId, asking_price_cents: parsed.cents, status: nextStatus, published_at: publish ? new Date().toISOString() : null });
+      const nextStatus = await saveMyMarketplaceListing(itemId, parsed.cents, publish, normalizedLocation || null);
+      setListing({
+        item_id: itemId,
+        asking_price_cents: parsed.cents,
+        public_location: normalizedLocation || null,
+        status: nextStatus,
+        published_at: publish ? new Date().toISOString() : null,
+      });
       setStatus(publish
         ? imageCount > 0
-          ? `Published with ${imageCount} selected ${imageCount === 1 ? 'photo' : 'photos'}.`
-          : 'Published. No photos were selected for this listing.'
+          ? `Published with ${imageCount} selected ${imageCount === 1 ? 'photo' : 'photos'}${normalizedLocation ? ` · ${normalizedLocation}` : ''}.`
+          : `Published${normalizedLocation ? ` · ${normalizedLocation}` : ''}. No photos were selected for this listing.`
         : 'Draft saved. This item is still private.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not save this listing.');
@@ -88,12 +100,27 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
       <Text style={styles.label}>Asking price (€)</Text>
       <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="e.g. 90" style={styles.input} />
+
+      <Text style={styles.label}>Marketplace location (optional)</Text>
+      <TextInput
+        value={publicLocation}
+        onChangeText={setPublicLocation}
+        autoCapitalize="words"
+        maxLength={80}
+        placeholder="City or town, e.g. Hambrücken"
+        style={styles.locationInput}
+      />
+      <View style={styles.privacyHint}>
+        <Text style={styles.privacyHintTitle}>City/town only</Text>
+        <Text style={styles.privacyHintText}>This text becomes public when you publish. Things never copies your private inventory location automatically. Do not enter a street address.</Text>
+      </View>
+
       <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish. Only photos you selected for Marketplace are copied to the buyer-facing image store.</Text>
 
-      <TouchableOpacity disabled={!parsed.valid || busy} style={[styles.primary, (!parsed.valid || busy) && styles.disabled]} onPress={() => void save(true)}>
+      <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={[styles.primary, (!parsed.valid || !locationValid || busy) && styles.disabled]} onPress={() => void save(true)}>
         <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update listing' : 'Publish on marketplace'}</Text>
       </TouchableOpacity>
-      {!published ? <TouchableOpacity disabled={!parsed.valid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
+      {!published ? <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
       {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
 
       {status ? <View style={styles.feedback}><Text style={styles.status}>{status}</Text></View> : null}
@@ -121,6 +148,10 @@ const styles = StyleSheet.create({
   referenceValue: { fontSize: 15, fontWeight: '800', color: '#0F1728' },
   label: { fontSize: 13, fontWeight: '800', color: '#344054', marginTop: 2 },
   input: { minHeight: 58, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 16, fontSize: 22, fontWeight: '800', color: '#0F1728', backgroundColor: '#FFFFFF' },
+  locationInput: { minHeight: 52, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 14, fontSize: 16, color: '#0F1728', backgroundColor: '#FFFFFF' },
+  privacyHint: { borderRadius: 14, padding: 12, backgroundColor: '#F8F9FB', gap: 3 },
+  privacyHintTitle: { fontSize: 12, fontWeight: '800', color: '#344054' },
+  privacyHintText: { fontSize: 11, lineHeight: 17, color: '#667085' },
   copy: { fontSize: 12, lineHeight: 18, color: '#7A8494' },
   primary: { minHeight: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
   primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },

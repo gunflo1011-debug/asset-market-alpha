@@ -24,7 +24,6 @@ export function MarketplaceScreen({ onBack }: Props) {
   const selected = useMemo(() => listings.find((listing) => listing.item_id === selectedItemId) ?? null, [listings, selectedItemId]);
   const interestByItem = useMemo(() => new Map(interests.map((row) => [row.item_id, row.status])), [interests]);
   const ownerListingIds = useMemo(() => new Set(myListings.filter((row) => row.status === 'PUBLISHED').map((row) => row.item_id)), [myListings]);
-  const publicListingByItem = useMemo(() => new Map(listings.map((row) => [row.item_id, row])), [listings]);
   const publishedMine = useMemo(() => myListings.filter((row) => row.status === 'PUBLISHED'), [myListings]);
   const browseListings = useMemo(() => listings.filter((row) => !ownerListingIds.has(row.item_id)), [listings, ownerListingIds]);
 
@@ -94,7 +93,7 @@ export function MarketplaceScreen({ onBack }: Props) {
           <View style={styles.detailHero}>
             <View style={styles.cardTop}><View style={styles.pillDark}><Text style={styles.pillDarkText}>{selected.category}</Text></View><Text style={styles.detailPrice}>{euro(selected.asking_price_cents)}</Text></View>
             <Text style={styles.detailTitle}>{selected.title}</Text>
-            <Text style={styles.detailSubtitle}>Private seller · identity and exact location hidden</Text>
+            <Text style={styles.detailSubtitle}>{selected.public_location ? `Private seller · ${selected.public_location} · exact address hidden` : 'Private seller · location not shared'}</Text>
           </View>
 
           {selected.image_urls.length > 0 ? (
@@ -106,6 +105,7 @@ export function MarketplaceScreen({ onBack }: Props) {
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
             <View style={styles.detailRow}><Text style={styles.detailKey}>Asking price</Text><Text style={styles.detailValue}>{euro(selected.asking_price_cents)}</Text></View>
+            {selected.public_location ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Seller area</Text><Text style={styles.detailValue}>{selected.public_location}</Text></View></> : null}
             {selected.condition_label ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Condition</Text><Text style={styles.detailValue}>{selected.condition_label}</Text></View></> : null}
             {selected.estimated_value_cents != null ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Things estimate</Text><Text style={styles.detailValue}>{euro(selected.estimated_value_cents)}</Text></View></> : null}
           </View>
@@ -146,19 +146,20 @@ export function MarketplaceScreen({ onBack }: Props) {
         {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{ownerListingWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading my marketplace listings" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry your listings</Text></TouchableOpacity></View> : null}
 
         {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
-        {publishedMine.map((ownerListing) => {
-          const publicListing = publicListingByItem.get(ownerListing.item_id);
-          return (
-            <View key={ownerListing.item_id} style={styles.ownerCard}>
-              <View style={styles.cardTop}>
-                <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
-                <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
-              </View>
-              <Text style={styles.itemTitle}>{publicListing?.title ?? 'Your Thing'}</Text>
-              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item</Text>
+        {publishedMine.map((ownerListing) => (
+          <View key={ownerListing.item_id} style={styles.ownerCard}>
+            <View style={styles.cardTop}>
+              <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
+              <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
             </View>
-          );
-        })}
+            <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
+            <View style={styles.metaRow}>
+              {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
+              {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
+            </View>
+            <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
+          </View>
+        ))}
 
         {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
         {browseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>From other sellers</Text></View> : null}
@@ -171,12 +172,13 @@ export function MarketplaceScreen({ onBack }: Props) {
               <View style={styles.cardTop}><View style={styles.pill}><Text style={styles.pillText}>{listing.category}</Text></View><Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text></View>
               <Text style={styles.itemTitle}>{listing.title}</Text>
               <View style={styles.metaRow}>
+                {listing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.public_location}</Text></View> : null}
                 {listing.condition_label ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.condition_label}</Text></View> : null}
                 {listing.estimated_value_cents != null ? <View style={styles.metaChip}><Text style={styles.metaChipText}>Estimate {euro(listing.estimated_value_cents)}</Text></View> : null}
                 {listing.image_urls.length > 1 ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.image_urls.length} photos</Text></View> : null}
                 {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>Interested</Text></View> : null}
               </View>
-              <View style={styles.cardFooter}><Text style={styles.footerLabel}>View listing</Text><Text style={styles.footerPrivacy}>Private seller ›</Text></View>
+              <View style={styles.cardFooter}><Text style={styles.footerLabel}>{listing.public_location ?? 'Location not shared'}</Text><Text style={styles.footerPrivacy}>Private seller ›</Text></View>
             </TouchableOpacity>
           );
         })}
