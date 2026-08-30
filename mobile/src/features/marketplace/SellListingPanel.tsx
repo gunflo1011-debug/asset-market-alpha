@@ -16,6 +16,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const [listing, setListing] = useState<OwnerMarketplaceListing | null>(null);
   const [interestCount, setInterestCount] = useState(0);
   const [price, setPrice] = useState(estimatedValueCents != null ? String(Math.max(1, Math.round(estimatedValueCents / 100))) : '');
+  const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -27,7 +28,10 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
       const summary = summaries.find((row) => row.item_id === itemId) ?? null;
       setListing(existing);
       setInterestCount(summary?.interested_count ?? 0);
-      if (existing) setPrice(String(existing.asking_price_cents / 100));
+      if (existing) {
+        setPrice(String(existing.asking_price_cents / 100));
+        setLocation(existing.location_label ?? '');
+      }
     }).catch(() => { if (active) setStatus('Could not load listing state.'); });
     return () => { active = false; };
   }, [itemId]);
@@ -36,16 +40,18 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
     const euros = Number(price.replace(',', '.').trim());
     return { valid: Number.isFinite(euros) && euros > 0 && euros <= 10_000_000, cents: Math.round(euros * 100) };
   }, [price]);
+  const normalizedLocation = location.trim();
+  const locationValid = normalizedLocation.length > 0 && normalizedLocation.length <= 120;
   const published = listing?.status === 'PUBLISHED';
 
   async function save(publish: boolean) {
-    if (!parsed.valid || busy) return;
+    if (!parsed.valid || busy || (publish && !locationValid)) return;
     try {
       setBusy(true);
       setStatus(null);
-      const nextStatus = await saveMyMarketplaceListing(itemId, parsed.cents, publish);
-      setListing({ item_id: itemId, asking_price_cents: parsed.cents, status: nextStatus, published_at: publish ? new Date().toISOString() : null });
-      setStatus(publish ? 'Published. Other users can now see this listing.' : 'Draft saved. This item is still private.');
+      const nextStatus = await saveMyMarketplaceListing(itemId, parsed.cents, publish, normalizedLocation);
+      setListing({ item_id: itemId, asking_price_cents: parsed.cents, status: nextStatus, location_label: normalizedLocation || null, published_at: publish ? new Date().toISOString() : null });
+      setStatus(publish ? 'Published. Other users can now see this listing and your town/city.' : 'Draft saved. This item is still private.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not save this listing.');
     } finally {
@@ -82,16 +88,19 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
       <Text style={styles.label}>Asking price (€)</Text>
       <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="e.g. 90" style={styles.input} />
-      <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish.</Text>
 
-      <TouchableOpacity disabled={!parsed.valid || busy} style={[styles.primary, (!parsed.valid || busy) && styles.disabled]} onPress={() => void save(true)}>
-        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update price' : 'Publish on marketplace'}</Text>
+      <Text style={styles.label}>Town / city</Text>
+      <TextInput value={location} onChangeText={setLocation} autoCapitalize="words" maxLength={120} placeholder="e.g. Hambrücken" style={styles.locationInput} />
+      <Text style={styles.copy}>Only this coarse marketplace location is shared. Your exact private location remains hidden.</Text>
+
+      <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={[styles.primary, (!parsed.valid || !locationValid || busy) && styles.disabled]} onPress={() => void save(true)}>
+        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update listing' : 'Publish on marketplace'}</Text>
       </TouchableOpacity>
       {!published ? <TouchableOpacity disabled={!parsed.valid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
       {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
 
       {status ? <View style={styles.feedback}><Text style={styles.status}>{status}</Text></View> : null}
-      <Text style={styles.disclaimer}>Buyer interest is shown only as a count. Buyer identity, email and exact location are not exposed.</Text>
+      <Text style={styles.disclaimer}>Buyer interest is shown only as a count. Buyer identity, email and exact address are not exposed.</Text>
     </View>
   );
 }
@@ -115,6 +124,7 @@ const styles = StyleSheet.create({
   referenceValue: { fontSize: 15, fontWeight: '800', color: '#0F1728' },
   label: { fontSize: 13, fontWeight: '800', color: '#344054', marginTop: 2 },
   input: { minHeight: 58, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 16, fontSize: 22, fontWeight: '800', color: '#0F1728', backgroundColor: '#FFFFFF' },
+  locationInput: { minHeight: 54, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 16, fontSize: 16, fontWeight: '700', color: '#0F1728', backgroundColor: '#FFFFFF' },
   copy: { fontSize: 12, lineHeight: 18, color: '#7A8494' },
   primary: { minHeight: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
   primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
