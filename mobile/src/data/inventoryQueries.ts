@@ -34,15 +34,30 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
 }
 
 export async function loadMyMarketplaceListings(): Promise<OwnerMarketplaceListing[]> {
-  const { data, error } = await requireSupabase().rpc('load_my_marketplace_listings');
+  const { data, error } = await requireSupabase().rpc('load_my_marketplace_listings_v2');
   if (error) throw error;
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({ item_id: String(row.item_id), asking_price_cents: Number(row.asking_price_cents), status: row.status as OwnerMarketplaceListing['status'], published_at: row.published_at ? String(row.published_at) : null }));
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    item_id: String(row.item_id),
+    asking_price_cents: Number(row.asking_price_cents),
+    status: row.status as OwnerMarketplaceListing['status'],
+    location_label: row.location_label == null ? null : String(row.location_label),
+    published_at: row.published_at ? String(row.published_at) : null,
+  }));
 }
 
 export async function loadMarketplace(): Promise<MarketplaceListing[]> {
-  const { data, error } = await requireSupabase().rpc('load_marketplace_v1');
+  const { data, error } = await requireSupabase().rpc('load_marketplace_v2');
   if (error) throw error;
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({ item_id: String(row.item_id), title: String(row.title ?? 'Thing'), category: String(row.category ?? 'Other'), asking_price_cents: Number(row.asking_price_cents), estimated_value_cents: row.estimated_value_cents == null ? null : Number(row.estimated_value_cents), condition_label: row.condition_label == null ? null : String(row.condition_label), published_at: row.published_at == null ? null : String(row.published_at) }));
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    item_id: String(row.item_id),
+    title: String(row.title ?? 'Thing'),
+    category: String(row.category ?? 'Other'),
+    asking_price_cents: Number(row.asking_price_cents),
+    estimated_value_cents: row.estimated_value_cents == null ? null : Number(row.estimated_value_cents),
+    condition_label: row.condition_label == null ? null : String(row.condition_label),
+    location_label: row.location_label == null ? null : String(row.location_label),
+    published_at: row.published_at == null ? null : String(row.published_at),
+  }));
 }
 
 export async function loadMyMarketplaceInterests(): Promise<MarketplaceInterest[]> {
