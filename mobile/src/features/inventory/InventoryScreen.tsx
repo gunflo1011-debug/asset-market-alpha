@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { summarizeInventoryValue } from '../../lib/inventoryValue';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
@@ -56,6 +56,14 @@ function valueEvidenceLabel(item: PrivateInventoryItem): string {
   return isModelEstimate(item) ? 'Things estimate' : 'Value evidence';
 }
 
+function isSuccessfulCaptureMessage(message: string | null): boolean {
+  if (!message) return false;
+  return message === 'Thing added to your inventory.'
+    || message.startsWith('Thing saved privately.')
+    || message === 'Device saved privately.'
+    || message.startsWith('Device saved privately.');
+}
+
 export function InventoryScreen(props: Props) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -83,6 +91,13 @@ export function InventoryScreen(props: Props) {
       setCaptureOpen(true);
     }
   }, [props.editingItemId]);
+
+  useEffect(() => {
+    if (!props.editingItemId && isSuccessfulCaptureMessage(props.message)) {
+      setCaptureOpen(false);
+      Keyboard.dismiss();
+    }
+  }, [props.editingItemId, props.message]);
 
   if (marketplaceOpen) return <MarketplaceScreen onBack={() => setMarketplaceOpen(false)} />;
 
