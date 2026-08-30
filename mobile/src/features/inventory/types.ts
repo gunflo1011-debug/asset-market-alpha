@@ -35,6 +35,7 @@ export type OwnerMarketplaceListing = {
   item_id: string;
   asking_price_cents: number;
   status: MarketplaceListingStatus;
+  location_label: string | null;
   published_at: string | null;
 };
 
@@ -45,6 +46,7 @@ export type MarketplaceListing = {
   asking_price_cents: number;
   estimated_value_cents: number | null;
   condition_label: string | null;
+  location_label: string | null;
   published_at: string | null;
 };
 
