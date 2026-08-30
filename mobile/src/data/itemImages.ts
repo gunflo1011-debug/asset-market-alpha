@@ -77,6 +77,15 @@ export async function setMyItemPrimaryImage(itemId: string, imageId: string): Pr
   if (error) throw error;
 }
 
+export async function setMyItemMarketplaceVisibility(itemId: string, imageId: string, visible: boolean): Promise<void> {
+  const { error } = await requireSupabase().rpc('set_my_item_image_marketplace_visibility', {
+    p_item_id: itemId,
+    p_image_id: imageId,
+    p_visible: visible,
+  });
+  if (error) throw error;
+}
+
 export async function deleteMyItemImage(itemId: string, imageId: string): Promise<void> {
   const client = requireSupabase();
   const { data, error } = await client.rpc('delete_my_item_image', {
