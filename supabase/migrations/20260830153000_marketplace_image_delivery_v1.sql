@@ -41,7 +41,6 @@ begin
         and ii.item_id = v_item_id
         and ii.owner_id = v_user
         and i.owner_id = v_user
-        and ii.marketplace_visible
     );
   end if;
 
