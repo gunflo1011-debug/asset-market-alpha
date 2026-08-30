@@ -3,12 +3,21 @@
 -- into this separate private bucket before publishing. Buyers can read only projections
 -- whose source image is still selected and whose listing is currently PUBLISHED.
 
-insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-values ('marketplace-images', 'marketplace-images', false, 10485760, array['image/jpeg','image/png','image/webp'])
-on conflict (id) do update set
-  public = false,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='public')
+     and exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='file_size_limit')
+     and exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='allowed_mime_types') then
+    execute $sql$
+      insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+      values ('marketplace-images', 'marketplace-images', false, 10485760, array['image/jpeg','image/png','image/webp'])
+      on conflict (id) do update set public=false, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types
+    $sql$;
+  else
+    insert into storage.buckets(id, name) values ('marketplace-images', 'marketplace-images') on conflict (id) do nothing;
+  end if;
+end;
+$$;
 
 create or replace function public.marketplace_image_object_access(p_name text, p_manage boolean default false)
 returns boolean
