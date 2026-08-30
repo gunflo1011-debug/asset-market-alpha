@@ -23,6 +23,11 @@ function extensionFromMime(mimeType: string | null | undefined): string {
   return 'jpg';
 }
 
+function normalizeImageMime(mimeType: string | null): 'image/jpeg' | 'image/png' | 'image/webp' {
+  if (mimeType === 'image/png' || mimeType === 'image/webp') return mimeType;
+  return 'image/jpeg';
+}
+
 export async function loadMyItemImages(itemId: string): Promise<ItemImage[]> {
   const client = requireSupabase();
   const { data, error } = await client.rpc('load_my_item_images', { p_item_id: itemId });
@@ -102,10 +107,9 @@ export async function syncMyMarketplaceImageProjections(itemId: string): Promise
     if (!response.ok) throw new Error('Could not prepare a selected Marketplace photo.');
     const bytes = await response.arrayBuffer();
     if (bytes.byteLength === 0 || bytes.byteLength > 10 * 1024 * 1024) throw new Error('A selected Marketplace photo has an invalid size.');
-    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    const contentType = normalizeImageMime(response.headers.get('content-type'));
     const path = `${itemId}/${image.id}`;
 
-    // Delete-then-insert avoids requiring buyer-style SELECT permission before first publish.
     const { error: removeError } = await client.storage.from('marketplace-images').remove([path]);
     if (removeError) throw removeError;
     const { error: uploadError } = await client.storage.from('marketplace-images').upload(path, bytes, {
