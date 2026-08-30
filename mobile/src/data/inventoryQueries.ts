@@ -39,6 +39,8 @@ export async function loadMyMarketplaceListings(): Promise<OwnerMarketplaceListi
   if (error) throw error;
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
     item_id: String(row.item_id),
+    title: String(row.title ?? 'Thing'),
+    category: String(row.category ?? 'Other'),
     asking_price_cents: Number(row.asking_price_cents),
     public_location: row.public_location == null ? null : String(row.public_location),
     status: row.status as OwnerMarketplaceListing['status'],
