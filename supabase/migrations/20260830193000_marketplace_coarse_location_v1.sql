@@ -1,4 +1,4 @@
--- Owner-controlled coarse marketplace location.
+-- Owner-controlled coarse marketplace location plus owner-facing listing identity.
 -- This intentionally does not copy private inventory location automatically.
 -- Existing v1 RPCs remain unchanged for backwards compatibility with installed APKs.
 
@@ -59,6 +59,8 @@ $$;
 create or replace function public.load_my_marketplace_listings_v2()
 returns table(
   item_id uuid,
+  title text,
+  category text,
   asking_price_cents bigint,
   public_location text,
   status text,
@@ -69,8 +71,18 @@ security definer
 set search_path = public, private, auth, pg_temp
 stable
 as $$
-  select l.item_id, l.asking_price_cents, l.public_location, l.status, l.published_at
+  select
+    l.item_id,
+    coalesce(nullif(btrim(i.custom_name), ''), p.brand || ' ' || p.family, 'Thing') as title,
+    coalesce(nullif(btrim(i.category), ''), case when i.variant_id is not null then 'Device' else 'Other' end) as category,
+    l.asking_price_cents,
+    l.public_location,
+    l.status,
+    l.published_at
   from private.marketplace_listings l
+  join public.items i on i.id = l.item_id and i.owner_id = auth.uid()
+  left join public.product_variants pv on pv.id = i.variant_id
+  left join public.products p on p.id = pv.product_id
   where l.seller_id = auth.uid()
   order by l.updated_at desc;
 $$;
@@ -130,5 +142,7 @@ grant execute on function public.save_my_marketplace_listing_v2(uuid,bigint,bool
 grant execute on function public.load_my_marketplace_listings_v2() to authenticated;
 grant execute on function public.load_marketplace_v2() to authenticated;
 
+comment on function public.load_my_marketplace_listings_v2() is
+  'Returns only the authenticated seller own listings with owner-visible title/category and optional seller-entered public city/town.';
 comment on function public.load_marketplace_v2() is
   'Returns only explicitly published listing fields plus optional seller-entered coarse city/town. Seller identity, exact address, GPS and private inventory location are not returned.';
