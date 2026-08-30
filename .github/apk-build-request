@@ -1,2 +1,2 @@
-2026-08-30T17:36:00+02:00
-Reason: Build a new installable Things APK from current main after merging secure end-to-end Marketplace image selection and delivery. This baseline includes the already integrated Add Thing completion and estimate-pending UX fixes plus private Thing photos, explicit listing photo selection, separate private Marketplace image projection, and buyer gallery/card image rendering. Use as the next real-device regression baseline.
+2026-08-30T18:30:00+02:00
+Reason: Build a new installable Things APK from current main after integrating barcode-first capture. This baseline adds EAN/UPC/GTIN camera scanning, conservative QR parsing, product lookup suggestions with explicit user confirmation, and manual barcode entry while preserving the validated inventory, estimate, photo, listing and marketplace flows. Use as the next real-device barcode regression baseline.
