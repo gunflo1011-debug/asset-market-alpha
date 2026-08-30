@@ -1,7 +1,7 @@
 import { trackAlphaEvent } from './analytics';
 import { loadMarketplaceImageRefs } from './itemImages';
 import { requireSupabase } from './supabaseClient';
-import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, MarketplaceInterest, MarketplaceInterestSummary, MarketplaceListing, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
+import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, MarketplaceConversation, MarketplaceInterest, MarketplaceInterestSummary, MarketplaceListing, MarketplaceMessage, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
 
 export async function loadCatalog(): Promise<CatalogVariant[]> {
   const { data, error } = await requireSupabase().from('product_variants').select('id, storage_gb, region, products(brand, family)').order('storage_gb', { ascending: true });
@@ -90,4 +90,27 @@ export async function loadInterestSummaryForMyListings(): Promise<MarketplaceInt
   const { data, error } = await requireSupabase().rpc('load_interest_summary_for_my_listings');
   if (error) throw error;
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({ item_id: String(row.item_id), interested_count: Number(row.interested_count ?? 0), latest_interest_at: row.latest_interest_at == null ? null : String(row.latest_interest_at) }));
+}
+
+export async function loadMyMarketplaceConversations(): Promise<MarketplaceConversation[]> {
+  const { data, error } = await requireSupabase().rpc('load_my_marketplace_conversations');
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    conversation_id: String(row.conversation_id),
+    item_id: String(row.item_id),
+    role: row.role as MarketplaceConversation['role'],
+    status: row.status as MarketplaceConversation['status'],
+    updated_at: String(row.updated_at),
+  }));
+}
+
+export async function loadMyMarketplaceMessages(conversationId: string): Promise<MarketplaceMessage[]> {
+  const { data, error } = await requireSupabase().rpc('load_my_marketplace_messages', { p_conversation_id: conversationId });
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    message_id: String(row.message_id),
+    sender_role: row.sender_role as MarketplaceMessage['sender_role'],
+    body: String(row.body),
+    created_at: String(row.created_at),
+  }));
 }

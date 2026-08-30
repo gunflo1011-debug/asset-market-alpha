@@ -30,6 +30,8 @@ export type ValuationInput = {
 
 export type MarketplaceListingStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
 export type MarketplaceInterestStatus = 'INTERESTED' | 'WITHDRAWN';
+export type MarketplaceConversationStatus = 'OPEN' | 'RESERVED' | 'SOLD' | 'CLOSED';
+export type MarketplaceConversationRole = 'BUYER' | 'SELLER';
 
 export type OwnerMarketplaceListing = {
   item_id: string;
@@ -63,6 +65,21 @@ export type MarketplaceInterestSummary = {
   item_id: string;
   interested_count: number;
   latest_interest_at: string | null;
+};
+
+export type MarketplaceConversation = {
+  conversation_id: string;
+  item_id: string;
+  role: MarketplaceConversationRole;
+  status: MarketplaceConversationStatus;
+  updated_at: string;
+};
+
+export type MarketplaceMessage = {
+  message_id: string;
+  sender_role: 'ME' | 'OTHER';
+  body: string;
+  created_at: string;
 };
 
 export type ConditionInput = {
