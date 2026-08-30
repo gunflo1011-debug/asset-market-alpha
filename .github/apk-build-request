@@ -1,2 +1,2 @@
-2026-08-29T06:38:00+02:00
-Reason: Build milestone APK from current main after Marketplace v2 merge. Include premium inventory/dashboard polish, marketplace listing detail, buyer interest/withdraw-interest flow, seller aggregate interest count, existing value estimate flow, private inventory CRUD, account controls, and privacy-safe marketplace behavior.
+2026-08-30T12:27:27+02:00
+Reason: Build integrated Things APK from current main after inventory session-isolation, committed-mutation sync recovery, marketplace resilience, and generic Thing create/update/delete RPC hardening. Use as the next device-regression baseline for duplicate-test-data diagnosis, inventory CRUD, value/price consistency, long-list UX, Settings, Marketplace listing/interest, and Item Selling.
