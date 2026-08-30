@@ -8,7 +8,12 @@ export type SaleStartSurface = {
 };
 
 function formatEuroCents(cents: number): string {
-  return `€${(cents / 100).toFixed(2)}`;
+  return (cents / 100).toLocaleString('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /**
@@ -23,7 +28,7 @@ export function buildSaleStartSurface(itemId: string, estimatedValueCents: numbe
     intent,
     valueLabel: intent.valueEvidence === 'KNOWN' && intent.referenceValueCents != null
       ? `Estimated value ${formatEuroCents(intent.referenceValueCents)}`
-      : 'Estimated value not available yet',
+      : 'Estimate pending',
     actionLabel: 'Start selling',
     privacyNotice: 'Nothing is listed or sold until you explicitly continue.',
   };
