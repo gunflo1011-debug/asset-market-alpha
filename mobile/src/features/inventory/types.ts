@@ -46,6 +46,7 @@ export type MarketplaceListing = {
   estimated_value_cents: number | null;
   condition_label: string | null;
   published_at: string | null;
+  image_urls: string[];
 };
 
 export type MarketplaceInterest = {

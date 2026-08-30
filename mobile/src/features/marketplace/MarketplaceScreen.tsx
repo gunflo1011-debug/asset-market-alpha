@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { loadMarketplace, loadMyMarketplaceInterests, loadMyMarketplaceListings, setMyMarketplaceInterest } from '../../data/inventory';
 import type { MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 
@@ -97,6 +97,12 @@ export function MarketplaceScreen({ onBack }: Props) {
             <Text style={styles.detailSubtitle}>Private seller · identity and exact location hidden</Text>
           </View>
 
+          {selected.image_urls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery}>
+              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
+            </ScrollView>
+          ) : null}
+
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
             <View style={styles.detailRow}><Text style={styles.detailKey}>Asking price</Text><Text style={styles.detailValue}>{euro(selected.asking_price_cents)}</Text></View>
@@ -160,12 +166,14 @@ export function MarketplaceScreen({ onBack }: Props) {
         {browseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
           return (
-            <TouchableOpacity key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
+              {listing.image_urls[0] ? <Image accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" /> : null}
               <View style={styles.cardTop}><View style={styles.pill}><Text style={styles.pillText}>{listing.category}</Text></View><Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text></View>
               <Text style={styles.itemTitle}>{listing.title}</Text>
               <View style={styles.metaRow}>
                 {listing.condition_label ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.condition_label}</Text></View> : null}
                 {listing.estimated_value_cents != null ? <View style={styles.metaChip}><Text style={styles.metaChipText}>Estimate {euro(listing.estimated_value_cents)}</Text></View> : null}
+                {listing.image_urls.length > 1 ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.image_urls.length} photos</Text></View> : null}
                 {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>Interested</Text></View> : null}
               </View>
               <View style={styles.cardFooter}><Text style={styles.footerLabel}>View listing</Text><Text style={styles.footerPrivacy}>Private seller ›</Text></View>
@@ -199,6 +207,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
   sectionMeta: { fontSize: 12, color: '#7A8494' },
   card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 11, borderWidth: 1, borderColor: '#E5E8ED' },
+  listingImage: { width: '100%', height: 190, borderRadius: 16, backgroundColor: '#EEF0F3' },
+  detailGallery: { gap: 10, paddingRight: 4 },
+  detailImage: { width: 280, height: 220, borderRadius: 20, backgroundColor: '#EEF0F3' },
   ownerCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 9, borderWidth: 1, borderColor: '#B7E4C7' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   pill: { backgroundColor: '#F0F2F5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
