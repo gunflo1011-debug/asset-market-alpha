@@ -1,2 +1,2 @@
-2026-08-30T16:11:00+02:00
-Reason: Build a new installable Things APK from current main after merging the estimate-pending/value-formatting improvements and the confirmed Add Thing completion fix that closes the capture form and dismisses the keyboard after a successful save. Use as the next real-device regression baseline before the larger product-images and inventory/For-Sale structure slice.
+2026-08-30T17:36:00+02:00
+Reason: Build a new installable Things APK from current main after merging secure end-to-end Marketplace image selection and delivery. This baseline includes the already integrated Add Thing completion and estimate-pending UX fixes plus private Thing photos, explicit listing photo selection, separate private Marketplace image projection, and buyer gallery/card image rendering. Use as the next real-device regression baseline.
