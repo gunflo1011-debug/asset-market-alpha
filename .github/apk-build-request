@@ -1,2 +1,2 @@
-2026-08-30T12:27:27+02:00
-Reason: Build integrated Things APK from current main after inventory session-isolation, committed-mutation sync recovery, marketplace resilience, and generic Thing create/update/delete RPC hardening. Use as the next device-regression baseline for duplicate-test-data diagnosis, inventory CRUD, value/price consistency, long-list UX, Settings, Marketplace listing/interest, and Item Selling.
+2026-08-30T16:11:00+02:00
+Reason: Build a new installable Things APK from current main after merging the estimate-pending/value-formatting improvements and the confirmed Add Thing completion fix that closes the capture form and dismisses the keyboard after a successful save. Use as the next real-device regression baseline before the larger product-images and inventory/For-Sale structure slice.
