@@ -39,11 +39,12 @@ export async function estimatePrivateItemValue(itemId: string, input: ValuationI
   return cents;
 }
 
-export async function saveMyMarketplaceListing(itemId: string, askingPriceCents: number, publish: boolean): Promise<MarketplaceListingStatus> {
-  const { data, error } = await requireSupabase().rpc('save_my_marketplace_listing', {
+export async function saveMyMarketplaceListing(itemId: string, askingPriceCents: number, publish: boolean, publicLocation?: string | null): Promise<MarketplaceListingStatus> {
+  const { data, error } = await requireSupabase().rpc('save_my_marketplace_listing_v2', {
     p_item_id: itemId,
     p_asking_price_cents: askingPriceCents,
     p_publish: publish,
+    p_public_location: publicLocation?.trim() || null,
   });
   if (error) throw error;
   if (data !== 'DRAFT' && data !== 'PUBLISHED' && data !== 'WITHDRAWN') throw new Error('Listing command returned an invalid state.');
