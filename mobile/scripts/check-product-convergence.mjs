@@ -45,8 +45,8 @@ if (!saleSurface.includes('estimatedValueCents: number | null')) {
 if (!saleSurface.includes('Nothing is listed or sold until you explicitly continue.')) {
   throw new Error('Sale surface must preserve explicit owner intent before listing or selling.');
 }
-if (!saleSurface.includes('Estimated value not available yet')) {
-  throw new Error('Unknown inventory value must remain explicitly unavailable.');
+if (!saleSurface.includes('Estimate pending')) {
+  throw new Error('Unknown inventory value must remain explicit as a pending estimate.');
 }
 
 const compactInventory = inventory.replace(/\s+/g, '');
