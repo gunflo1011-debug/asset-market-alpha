@@ -99,7 +99,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
           {selected.image_urls.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery}>
-              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
+              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
             </ScrollView>
           ) : null}
 
@@ -166,8 +166,8 @@ export function MarketplaceScreen({ onBack }: Props) {
         {browseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
           return (
-            <TouchableOpacity key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
-              {listing.image_urls[0] ? <Image source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" /> : null}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
+              {listing.image_urls[0] ? <Image accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" /> : null}
               <View style={styles.cardTop}><View style={styles.pill}><Text style={styles.pillText}>{listing.category}</Text></View><Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text></View>
               <Text style={styles.itemTitle}>{listing.title}</Text>
               <View style={styles.metaRow}>
