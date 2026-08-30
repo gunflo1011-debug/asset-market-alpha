@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { summarizeInventoryValue } from '../../lib/inventoryValue';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
+import type { ProductSuggestion } from '../../lib/barcodeProductResolver';
 import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
 import { SellListingPanel } from '../marketplace/SellListingPanel';
+import { BarcodeCapturePanel } from './BarcodeCapturePanel';
 import { itemTitle, savedDate, variantTitle } from './presentation';
 import { ValueEstimatePanel } from './ValueEstimatePanel';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
@@ -41,7 +43,7 @@ type Props = {
   onRefreshCatalog: () => void;
 };
 
-type CaptureMode = 'manual' | 'catalog';
+type CaptureMode = 'scan' | 'manual' | 'catalog';
 
 function formatEuroCents(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -49,11 +51,6 @@ function formatEuroCents(cents: number): string {
 
 function isModelEstimate(item: PrivateInventoryItem): boolean {
   return item.value_evidence?.source_type === 'MODEL_V1_OWNER_INPUT';
-}
-
-function valueEvidenceLabel(item: PrivateInventoryItem): string {
-  if (!item.value_evidence) return 'Value not estimated yet';
-  return isModelEstimate(item) ? 'Things estimate' : 'Value evidence';
 }
 
 function isSuccessfulCaptureMessage(message: string | null): boolean {
@@ -67,7 +64,7 @@ function isSuccessfulCaptureMessage(message: string | null): boolean {
 export function InventoryScreen(props: Props) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
-  const [captureMode, setCaptureMode] = useState<CaptureMode>('manual');
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('scan');
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
 
   const selectedItem = useMemo(() => props.items.find((item) => item.id === selectedItemId) ?? null, [props.items, selectedItemId]);
@@ -95,9 +92,20 @@ export function InventoryScreen(props: Props) {
   useEffect(() => {
     if (!props.editingItemId && isSuccessfulCaptureMessage(props.message)) {
       setCaptureOpen(false);
+      setCaptureMode('scan');
       Keyboard.dismiss();
     }
   }, [props.editingItemId, props.message]);
+
+  function useScannedSuggestion(suggestion: ProductSuggestion) {
+    props.onThingNameChange(suggestion.title);
+    props.onThingCategoryChange(suggestion.category || 'Device');
+    const identity = [suggestion.brand ? `Brand: ${suggestion.brand}` : null, suggestion.model ? `Model: ${suggestion.model}` : null, suggestion.kind === 'gtin' ? `GTIN/UPC: ${suggestion.code}` : null]
+      .filter(Boolean)
+      .join('\n');
+    props.onThingNotesChange(identity);
+    setCaptureMode('manual');
+  }
 
   if (marketplaceOpen) return <MarketplaceScreen onBack={() => setMarketplaceOpen(false)} />;
 
@@ -187,7 +195,7 @@ export function InventoryScreen(props: Props) {
         </View>
 
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.primaryQuickAction} onPress={() => setCaptureOpen((open) => !open)}>
+          <TouchableOpacity style={styles.primaryQuickAction} onPress={() => { setCaptureOpen((open) => !open); if (!captureOpen) setCaptureMode('scan'); }}>
             <Text style={styles.primaryQuickIcon}>{captureOpen ? '×' : '+'}</Text>
             <Text style={styles.primaryQuickText}>{captureOpen ? 'Close' : 'Add Thing'}</Text>
           </TouchableOpacity>
@@ -199,13 +207,17 @@ export function InventoryScreen(props: Props) {
         {captureOpen ? (
           <View style={styles.captureCard}>
             <View style={styles.segmentedControl}>
-              <TouchableOpacity style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Any Thing</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Device</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, captureMode === 'scan' && styles.segmentActive]} onPress={() => setCaptureMode('scan')}><Text style={[styles.segmentText, captureMode === 'scan' && styles.segmentTextActive]}>Scan</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Manual</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Catalog</Text></TouchableOpacity>
             </View>
 
-            {captureMode === 'manual' ? (
+            {captureMode === 'scan' ? (
+              <BarcodeCapturePanel onUseSuggestion={useScannedSuggestion} onEnterManually={() => setCaptureMode('manual')} />
+            ) : captureMode === 'manual' ? (
               <>
-                <Text style={styles.sectionTitle}>{props.editingItemId ? 'Edit Thing' : 'Add a Thing'}</Text>
+                <Text style={styles.sectionTitle}>{props.editingItemId ? 'Edit Thing' : 'Confirm Thing details'}</Text>
+                {!props.editingItemId ? <Text style={styles.compactCopy}>Review or correct every suggestion before saving. Scanned data is never treated as verified truth.</Text> : null}
                 <TextInput value={props.thingName} onChangeText={props.onThingNameChange} placeholder="Name" maxLength={120} style={styles.input} />
                 <View style={styles.twoColumnInputs}>
                   <TextInput value={props.thingCategory} onChangeText={props.onThingCategoryChange} placeholder="Category" maxLength={80} style={[styles.input, styles.flexInput]} />
@@ -217,7 +229,7 @@ export function InventoryScreen(props: Props) {
               </>
             ) : (
               <>
-                <Text style={styles.sectionTitle}>Choose a device</Text>
+                <Text style={styles.sectionTitle}>Choose a known device</Text>
                 {props.catalogLoading ? <ActivityIndicator /> : null}
                 {props.catalogError ? <Text style={styles.compactCopy}>{props.catalogError}</Text> : null}
                 {props.catalog.slice(0, 4).map((variant) => {
@@ -240,7 +252,7 @@ export function InventoryScreen(props: Props) {
 
         {props.inventoryLoading && props.items.length === 0 ? <ActivityIndicator /> : null}
         {props.inventoryError ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View> : null}
-        {!props.inventoryLoading && !props.inventoryError && props.items.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Add anything you own. You can add value details later.</Text></View> : null}
+        {!props.inventoryLoading && !props.inventoryError && props.items.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Scan a barcode or add anything you own manually.</Text></View> : null}
 
         <View style={styles.listCard}>
           {props.items.map((item, index) => {
