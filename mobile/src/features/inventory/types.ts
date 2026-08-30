@@ -33,8 +33,8 @@ export type MarketplaceInterestStatus = 'INTERESTED' | 'WITHDRAWN';
 
 export type OwnerMarketplaceListing = {
   item_id: string;
-  title: string;
-  category: string;
+  title?: string;
+  category?: string;
   asking_price_cents: number;
   public_location: string | null;
   status: MarketplaceListingStatus;
