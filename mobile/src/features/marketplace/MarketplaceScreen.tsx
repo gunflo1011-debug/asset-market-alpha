@@ -40,23 +40,14 @@ export function MarketplaceScreen({ onBack }: Props) {
       loadMyMarketplaceListings(),
     ]);
 
-    if (listingsResult.status === 'fulfilled') {
-      setListings(listingsResult.value);
-    } else {
-      setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
-    }
+    if (listingsResult.status === 'fulfilled') setListings(listingsResult.value);
+    else setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
 
-    if (interestsResult.status === 'fulfilled') {
-      setInterests(interestsResult.value);
-    } else {
-      setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
-    }
+    if (interestsResult.status === 'fulfilled') setInterests(interestsResult.value);
+    else setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
 
-    if (ownerListingsResult.status === 'fulfilled') {
-      setMyListings(ownerListingsResult.value);
-    } else {
-      setOwnerListingWarning('Marketplace is available, but your own listing status could not be refreshed.');
-    }
+    if (ownerListingsResult.status === 'fulfilled') setMyListings(ownerListingsResult.value);
+    else setOwnerListingWarning('Marketplace is available, but your own listing status could not be refreshed.');
 
     setLoading(false);
   }
@@ -94,12 +85,13 @@ export function MarketplaceScreen({ onBack }: Props) {
           <View style={styles.detailHero}>
             <View style={styles.cardTop}><View style={styles.pillDark}><Text style={styles.pillDarkText}>{selected.category}</Text></View><Text style={styles.detailPrice}>{euro(selected.asking_price_cents)}</Text></View>
             <Text style={styles.detailTitle}>{selected.title}</Text>
-            <Text style={styles.detailSubtitle}>Private seller · identity and exact location hidden</Text>
+            <Text style={styles.detailSubtitle}>Private seller · exact address hidden</Text>
           </View>
 
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
             <View style={styles.detailRow}><Text style={styles.detailKey}>Asking price</Text><Text style={styles.detailValue}>{euro(selected.asking_price_cents)}</Text></View>
+            {selected.location_label ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Location</Text><Text style={styles.detailValue}>{selected.location_label}</Text></View></> : null}
             {selected.condition_label ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Condition</Text><Text style={styles.detailValue}>{selected.condition_label}</Text></View></> : null}
             {selected.estimated_value_cents != null ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Things estimate</Text><Text style={styles.detailValue}>{euro(selected.estimated_value_cents)}</Text></View></> : null}
           </View>
@@ -107,7 +99,7 @@ export function MarketplaceScreen({ onBack }: Props) {
           <View style={styles.interestCard}>
             <Text style={styles.eyebrow}>{interested ? 'INTEREST SENT' : 'INTERESTED?'}</Text>
             <Text style={styles.interestTitle}>{interested ? 'The seller can see your interest' : 'Interested in this Thing?'}</Text>
-            <Text style={styles.copy}>{interested ? 'Your identity is still hidden. This is only a private signal to the seller.' : 'Send a private interest signal. Your email, account identity and exact location are not shared.'}</Text>
+            <Text style={styles.copy}>{interested ? 'Your identity is still hidden. This is only a private signal to the seller.' : 'Send a private interest signal. Your email, account identity and exact address are not shared.'}</Text>
             {interestWarning ? <Text style={styles.warningText}>{interestWarning}</Text> : null}
             <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void changeInterest(selected.item_id, !interested)}>
               <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : interested ? 'Withdraw interest' : 'I’m interested'}</Text>
@@ -130,7 +122,7 @@ export function MarketplaceScreen({ onBack }: Props) {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>MARKETPLACE</Text>
           <Text style={styles.title}>Discover Things for sale</Text>
-          <Text style={styles.copy}>Browse published listings and privately signal interest without revealing your identity.</Text>
+          <Text style={styles.copy}>Browse published listings with a coarse town/city and privately signal interest without revealing your identity.</Text>
           <View style={styles.heroStats}><Text style={styles.heroStatValue}>{browseListings.length}</Text><Text style={styles.heroStatLabel}>{browseListings.length === 1 ? 'listing from others' : 'listings from others'}</Text></View>
         </View>
 
@@ -149,7 +141,7 @@ export function MarketplaceScreen({ onBack }: Props) {
                 <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
               </View>
               <Text style={styles.itemTitle}>{publicListing?.title ?? 'Your Thing'}</Text>
-              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item</Text>
+              <Text style={styles.copy}>{ownerListing.location_label ? `${ownerListing.location_label} · ` : ''}Published on Marketplace · linked to your private inventory item</Text>
             </View>
           );
         })}
@@ -164,6 +156,7 @@ export function MarketplaceScreen({ onBack }: Props) {
               <View style={styles.cardTop}><View style={styles.pill}><Text style={styles.pillText}>{listing.category}</Text></View><Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text></View>
               <Text style={styles.itemTitle}>{listing.title}</Text>
               <View style={styles.metaRow}>
+                {listing.location_label ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.location_label} · Pickup</Text></View> : null}
                 {listing.condition_label ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.condition_label}</Text></View> : null}
                 {listing.estimated_value_cents != null ? <View style={styles.metaChip}><Text style={styles.metaChipText}>Estimate {euro(listing.estimated_value_cents)}</Text></View> : null}
                 {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>Interested</Text></View> : null}
