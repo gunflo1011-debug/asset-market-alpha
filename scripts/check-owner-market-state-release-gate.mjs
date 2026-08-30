@@ -16,6 +16,7 @@ const metadataHardeningName = '20260829213000_harden_update_private_item_metadat
 const addThingHardeningName = '20260830003000_harden_add_private_thing_search_path.sql';
 const updateThingHardeningName = '20260830043000_harden_update_private_thing_search_path.sql';
 const deleteThingHardeningName = '20260830073000_harden_delete_private_thing_search_path.sql';
+const itemImagesName = '20260830145000_private_thing_images_v1.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -29,6 +30,7 @@ const metadataHardeningMigration = read(`supabase/migrations/${metadataHardening
 const addThingHardeningMigration = read(`supabase/migrations/${addThingHardeningName}`);
 const updateThingHardeningMigration = read(`supabase/migrations/${updateThingHardeningName}`);
 const deleteThingHardeningMigration = read(`supabase/migrations/${deleteThingHardeningName}`);
+const itemImagesMigration = read(`supabase/migrations/${itemImagesName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -36,8 +38,8 @@ const inventory = [
   read('mobile/src/data/inventoryCommands.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), deleteThingHardeningName, 'release gate knows only reviewed migrations through generic Thing delete RPC search-path hardening; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName];
+assert.equal(migrationFiles.at(-1), itemImagesName, 'release gate knows only reviewed migrations through private Thing images v1; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -68,7 +70,6 @@ const marketplaceReturn = marketplaceMigration.match(/create or replace function
 assert.ok(marketplaceReturn, 'marketplace read return contract missing');
 assert.doesNotMatch(marketplaceReturn, /\b(?:seller_id|owner_id|location_label|notes|email)\b/i, 'marketplace read must not expose seller identity or private metadata');
 
-// Marketplace interest v1 review: buyer/seller IDs remain private and callers only get their own state or aggregate seller counts.
 assert.match(interestMigration, /create table if not exists private\.marketplace_interests/i);
 assert.match(interestMigration, /primary key \(item_id, buyer_id\)/i);
 assert.match(interestMigration, /check \(buyer_id <> seller_id\)/i);
@@ -92,6 +93,18 @@ for (const signature of ['set_my_marketplace_interest\\(uuid,boolean\\)', 'load_
   assert.match(interestMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
 
+// Thing images v1 review: private bucket, owner-scoped object paths and metadata RPCs only.
+assert.match(itemImagesMigration, /values \('thing-images', 'thing-images', false/i);
+assert.match(itemImagesMigration, /storage\.foldername\(name\)\)\[1\] = auth\.uid\(\)::text/i);
+assert.match(itemImagesMigration, /split_part\(p_storage_path, '\/', 1\) <> v_owner::text/i);
+assert.match(itemImagesMigration, /split_part\(p_storage_path, '\/', 2\) <> p_item_id::text/i);
+assert.match(itemImagesMigration, /where ii\.item_id = p_item_id and i\.owner_id = auth\.uid\(\) and ii\.owner_id = auth\.uid\(\)/i);
+assert.match(itemImagesMigration, /revoke all on table private\.item_images from public, anon, authenticated;/i);
+for (const signature of ['register_my_item_image\\(uuid,text\\)', 'load_my_item_images\\(uuid\\)', 'set_my_item_primary_image\\(uuid,uuid\\)', 'delete_my_item_image\\(uuid,uuid\\)']) {
+  assert.match(itemImagesMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon;`, 'i'));
+  assert.match(itemImagesMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
+}
+
 for (const marker of [
   'load_my_inventory_market_states',
   'load_my_inventory_values',
@@ -111,4 +124,4 @@ for (const marker of [
   'SOLD',
 ]) assert.match(inventory, new RegExp(marker, 'i'), `mobile inventory missing ${marker}`);
 
-console.log('owner, value, marketplace listing, and privacy-safe interest release gate: OK');
+console.log('owner, value, marketplace, interest, and private Thing image release gate: OK');
