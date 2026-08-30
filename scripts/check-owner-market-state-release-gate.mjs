@@ -18,6 +18,7 @@ const updateThingHardeningName = '20260830043000_harden_update_private_thing_sea
 const deleteThingHardeningName = '20260830073000_harden_delete_private_thing_search_path.sql';
 const itemImagesName = '20260830145000_private_thing_images_v1.sql';
 const marketplaceImageSelectionName = '20260830150000_marketplace_image_selection_v1.sql';
+const marketplaceImageDeliveryName = '20260830153000_marketplace_image_delivery_v1.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -33,6 +34,7 @@ const updateThingHardeningMigration = read(`supabase/migrations/${updateThingHar
 const deleteThingHardeningMigration = read(`supabase/migrations/${deleteThingHardeningName}`);
 const itemImagesMigration = read(`supabase/migrations/${itemImagesName}`);
 const marketplaceImageSelectionMigration = read(`supabase/migrations/${marketplaceImageSelectionName}`);
+const marketplaceImageDeliveryMigration = read(`supabase/migrations/${marketplaceImageDeliveryName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -41,8 +43,8 @@ const inventory = [
   read('mobile/src/data/itemImages.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), marketplaceImageSelectionName, 'release gate knows only reviewed migrations through Marketplace image selection v1; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName];
+assert.equal(migrationFiles.at(-1), marketplaceImageDeliveryName, 'release gate knows only reviewed migrations through Marketplace image delivery v1; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -114,6 +116,19 @@ assert.match(marketplaceImageSelectionMigration, /This flag alone never grants f
 assert.match(marketplaceImageSelectionMigration, /revoke all on function public\.set_my_item_image_marketplace_visibility\(uuid,uuid,boolean\) from public, anon;/i);
 assert.match(marketplaceImageSelectionMigration, /grant execute on function public\.set_my_item_image_marketplace_visibility\(uuid,uuid,boolean\) to authenticated;/i);
 
+assert.match(marketplaceImageDeliveryMigration, /values \('marketplace-images', 'marketplace-images', false/i);
+assert.match(marketplaceImageDeliveryMigration, /create or replace function public\.marketplace_image_object_access/i);
+assert.match(marketplaceImageDeliveryMigration, /ii\.marketplace_visible[\s\S]*l\.status = 'PUBLISHED'/i);
+assert.match(marketplaceImageDeliveryMigration, /create or replace function public\.load_marketplace_image_refs_v1/i);
+assert.match(marketplaceImageDeliveryMigration, /l\.seller_id <> auth\.uid\(\)/i);
+assert.doesNotMatch(marketplaceImageDeliveryMigration.match(/returns table\(item_id uuid, image_id uuid, sort_order integer\)/i)?.[0] ?? '', /seller_id|owner_id|storage_path/i);
+assert.match(marketplaceImageDeliveryMigration, /marketplace_images_selected_read[\s\S]*marketplace_image_object_access\(name, false\)/i);
+assert.match(marketplaceImageDeliveryMigration, /marketplace_images_owner_insert[\s\S]*marketplace_image_object_access\(name, true\)/i);
+for (const signature of ['marketplace_image_object_access\\(text,boolean\\)', 'load_marketplace_image_refs_v1\\(\\)']) {
+  assert.match(marketplaceImageDeliveryMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon;`, 'i'));
+  assert.match(marketplaceImageDeliveryMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
+}
+
 for (const marker of [
   'load_my_inventory_market_states',
   'load_my_inventory_values',
@@ -121,6 +136,7 @@ for (const marker of [
   'save_my_marketplace_listing',
   'withdraw_my_marketplace_listing',
   'load_marketplace_v1',
+  'load_marketplace_image_refs_v1',
   'set_my_marketplace_interest',
   'load_my_marketplace_interests',
   'load_interest_summary_for_my_listings',
@@ -131,7 +147,8 @@ for (const marker of [
   'delete_private_thing',
   'update_private_item_metadata',
   'set_my_item_image_marketplace_visibility',
+  'syncMyMarketplaceImageProjections',
   'SOLD',
 ]) assert.match(inventory, new RegExp(marker, 'i'), `mobile inventory missing ${marker}`);
 
-console.log('owner, value, marketplace, interest, private Thing images, and Marketplace image selection release gate: OK');
+console.log('owner, value, marketplace, interest, private Thing images, selection, and secure Marketplace image delivery release gate: OK');
