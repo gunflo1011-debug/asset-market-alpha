@@ -15,12 +15,24 @@ create index if not exists item_images_item_order_idx
 
 revoke all on table private.item_images from public, anon, authenticated;
 
-insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-values ('thing-images', 'thing-images', false, 10485760, array['image/jpeg','image/png','image/webp'])
-on conflict (id) do update set
-  public = false,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
+-- Storage schema differs across supported local/hosted Supabase versions. Keep the bucket
+-- private on schemas exposing the privacy/config columns, while retaining replayability on
+-- older local schemas where a new bucket is private by default.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='public')
+     and exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='file_size_limit')
+     and exists (select 1 from information_schema.columns where table_schema='storage' and table_name='buckets' and column_name='allowed_mime_types') then
+    execute $sql$
+      insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+      values ('thing-images', 'thing-images', false, 10485760, array['image/jpeg','image/png','image/webp'])
+      on conflict (id) do update set public=false, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types
+    $sql$;
+  else
+    insert into storage.buckets(id, name) values ('thing-images', 'thing-images') on conflict (id) do nothing;
+  end if;
+end;
+$$;
 
 -- Object names must be <user-id>/<item-id>/<file>.
 drop policy if exists thing_images_owner_select on storage.objects;
