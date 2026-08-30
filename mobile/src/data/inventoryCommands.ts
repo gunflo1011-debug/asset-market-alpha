@@ -66,6 +66,25 @@ export async function setMyMarketplaceInterest(itemId: string, interested: boole
   return data;
 }
 
+export async function openMyMarketplaceConversation(itemId: string): Promise<string> {
+  const { data, error } = await requireSupabase().rpc('open_my_marketplace_conversation', { p_item_id: itemId });
+  if (error) throw error;
+  if (typeof data !== 'string') throw new Error('Conversation command returned no conversation id.');
+  return data;
+}
+
+export async function sendMyMarketplaceMessage(conversationId: string, body: string): Promise<string> {
+  const trimmed = body.trim();
+  if (!trimmed || trimmed.length > 1200) throw new Error('Message must be between 1 and 1200 characters.');
+  const { data, error } = await requireSupabase().rpc('send_my_marketplace_message', {
+    p_conversation_id: conversationId,
+    p_body: trimmed,
+  });
+  if (error) throw error;
+  if (typeof data !== 'string') throw new Error('Message command returned no message id.');
+  return data;
+}
+
 export async function deletePrivateThing(itemId: string): Promise<void> {
   const { error } = await requireSupabase().rpc('delete_private_thing', { p_item_id: itemId });
   if (error) throw error;
