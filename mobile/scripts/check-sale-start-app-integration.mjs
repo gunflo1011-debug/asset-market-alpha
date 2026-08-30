@@ -47,8 +47,8 @@ if (!/estimatedValueCents:\s*number\s*\|\s*null/.test(surface)) {
 if (!surface.includes('Nothing is listed or sold until you explicitly continue.')) {
   throw new Error('Sale-start surface must preserve explicit owner consent before listing or selling.');
 }
-if (!surface.includes('Estimated value not available yet')) {
-  throw new Error('Sale-start surface must not invent a value when evidence is unknown.');
+if (!surface.includes('Estimate pending')) {
+  throw new Error('Sale-start surface must represent missing evidence as a pending estimate without inventing a value.');
 }
 
 console.log('sale-start app integration regression passed');
