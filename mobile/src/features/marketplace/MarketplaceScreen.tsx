@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { loadMarketplace, loadMyMarketplaceInterests, setMyMarketplaceInterest } from '../../data/inventory';
-import type { MarketplaceInterest, MarketplaceListing } from '../inventory/types';
+import { loadMarketplace, loadMyMarketplaceInterests, loadMyMarketplaceListings, setMyMarketplaceInterest } from '../../data/inventory';
+import type { MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 
 type Props = { onBack: () => void };
 
@@ -11,25 +11,33 @@ function euro(cents: number): string {
 
 export function MarketplaceScreen({ onBack }: Props) {
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [myListings, setMyListings] = useState<OwnerMarketplaceListing[]>([]);
   const [interests, setInterests] = useState<MarketplaceInterest[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [interestWarning, setInterestWarning] = useState<string | null>(null);
+  const [ownerListingWarning, setOwnerListingWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const selected = useMemo(() => listings.find((listing) => listing.item_id === selectedItemId) ?? null, [listings, selectedItemId]);
   const interestByItem = useMemo(() => new Map(interests.map((row) => [row.item_id, row.status])), [interests]);
+  const ownerListingIds = useMemo(() => new Set(myListings.filter((row) => row.status === 'PUBLISHED').map((row) => row.item_id)), [myListings]);
+  const publicListingByItem = useMemo(() => new Map(listings.map((row) => [row.item_id, row])), [listings]);
+  const publishedMine = useMemo(() => myListings.filter((row) => row.status === 'PUBLISHED'), [myListings]);
+  const browseListings = useMemo(() => listings.filter((row) => !ownerListingIds.has(row.item_id)), [listings, ownerListingIds]);
 
   async function refresh() {
     setLoading(true);
     setError(null);
     setInterestWarning(null);
+    setOwnerListingWarning(null);
 
-    const [listingsResult, interestsResult] = await Promise.allSettled([
+    const [listingsResult, interestsResult, ownerListingsResult] = await Promise.allSettled([
       loadMarketplace(),
       loadMyMarketplaceInterests(),
+      loadMyMarketplaceListings(),
     ]);
 
     if (listingsResult.status === 'fulfilled') {
@@ -42,6 +50,12 @@ export function MarketplaceScreen({ onBack }: Props) {
       setInterests(interestsResult.value);
     } else {
       setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
+    }
+
+    if (ownerListingsResult.status === 'fulfilled') {
+      setMyListings(ownerListingsResult.value);
+    } else {
+      setOwnerListingWarning('Marketplace is available, but your own listing status could not be refreshed.');
     }
 
     setLoading(false);
@@ -117,16 +131,33 @@ export function MarketplaceScreen({ onBack }: Props) {
           <Text style={styles.eyebrow}>MARKETPLACE</Text>
           <Text style={styles.title}>Discover Things for sale</Text>
           <Text style={styles.copy}>Browse published listings and privately signal interest without revealing your identity.</Text>
-          <View style={styles.heroStats}><Text style={styles.heroStatValue}>{listings.length}</Text><Text style={styles.heroStatLabel}>{listings.length === 1 ? 'listing available' : 'listings available'}</Text></View>
+          <View style={styles.heroStats}><Text style={styles.heroStatValue}>{browseListings.length}</Text><Text style={styles.heroStatLabel}>{browseListings.length === 1 ? 'listing from others' : 'listings from others'}</Text></View>
         </View>
 
         {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
         {error ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
         {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{interestWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading personal interest status" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry personal status</Text></TouchableOpacity></View> : null}
-        {!loading && !error && listings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
-        {listings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>Newest first</Text></View> : null}
+        {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{ownerListingWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading my marketplace listings" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry your listings</Text></TouchableOpacity></View> : null}
 
-        {listings.map((listing) => {
+        {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
+        {publishedMine.map((ownerListing) => {
+          const publicListing = publicListingByItem.get(ownerListing.item_id);
+          return (
+            <View key={ownerListing.item_id} style={styles.ownerCard}>
+              <View style={styles.cardTop}>
+                <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
+                <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
+              </View>
+              <Text style={styles.itemTitle}>{publicListing?.title ?? 'Your Thing'}</Text>
+              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item</Text>
+            </View>
+          );
+        })}
+
+        {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
+        {browseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>From other sellers</Text></View> : null}
+
+        {browseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
           return (
             <TouchableOpacity key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
@@ -168,9 +199,12 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
   sectionMeta: { fontSize: 12, color: '#7A8494' },
   card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 11, borderWidth: 1, borderColor: '#E5E8ED' },
+  ownerCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 9, borderWidth: 1, borderColor: '#B7E4C7' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   pill: { backgroundColor: '#F0F2F5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   pillText: { fontSize: 11, fontWeight: '800', color: '#475467' },
+  ownerPill: { backgroundColor: '#ECFDF3', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  ownerPillText: { fontSize: 11, fontWeight: '800', color: '#027A48' },
   pillDark: { backgroundColor: '#263247', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
   pillDarkText: { fontSize: 11, fontWeight: '800', color: '#E7EBF0' },
   ask: { fontSize: 25, fontWeight: '800', color: '#0F1728' },
