@@ -120,6 +120,7 @@ assert.match(marketplaceImageDeliveryMigration, /values \('marketplace-images', 
 assert.match(marketplaceImageDeliveryMigration, /create or replace function public\.marketplace_image_object_access/i);
 assert.match(marketplaceImageDeliveryMigration, /ii\.marketplace_visible[\s\S]*l\.status = 'PUBLISHED'/i);
 assert.match(marketplaceImageDeliveryMigration, /create or replace function public\.load_marketplace_image_refs_v1/i);
+assert.match(marketplaceImageDeliveryMigration, /returns table\(item_id uuid, image_id uuid, sort_order integer\)/i);
 assert.match(marketplaceImageDeliveryMigration, /l\.seller_id <> auth\.uid\(\)/i);
 assert.doesNotMatch(marketplaceImageDeliveryMigration.match(/returns table\(item_id uuid, image_id uuid, sort_order integer\)/i)?.[0] ?? '', /seller_id|owner_id|storage_path/i);
 assert.match(marketplaceImageDeliveryMigration, /marketplace_images_selected_read[\s\S]*marketplace_image_object_access\(name, false\)/i);
