@@ -6,6 +6,14 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Things to use your camera to scan product barcodes and QR codes."
+        }
+      ]
+    ],
     "android": {
       "package": "com.gunflo1011.thingsalpha"
     },
