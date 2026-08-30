@@ -10,6 +10,13 @@ export type ItemImage = {
   signedUrl: string;
 };
 
+export type MarketplaceImageRef = {
+  itemId: string;
+  imageId: string;
+  sortOrder: number;
+  signedUrl: string;
+};
+
 function extensionFromMime(mimeType: string | null | undefined): string {
   if (mimeType === 'image/png') return 'png';
   if (mimeType === 'image/webp') return 'webp';
@@ -84,6 +91,49 @@ export async function setMyItemMarketplaceVisibility(itemId: string, imageId: st
     p_visible: visible,
   });
   if (error) throw error;
+}
+
+export async function syncMyMarketplaceImageProjections(itemId: string): Promise<number> {
+  const client = requireSupabase();
+  const selected = (await loadMyItemImages(itemId)).filter((image) => image.marketplaceVisible).slice(0, 6);
+
+  for (const image of selected) {
+    const response = await fetch(image.signedUrl);
+    if (!response.ok) throw new Error('Could not prepare a selected Marketplace photo.');
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength === 0 || bytes.byteLength > 10 * 1024 * 1024) throw new Error('A selected Marketplace photo has an invalid size.');
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    const path = `${itemId}/${image.id}`;
+
+    // Delete-then-insert avoids requiring buyer-style SELECT permission before first publish.
+    const { error: removeError } = await client.storage.from('marketplace-images').remove([path]);
+    if (removeError) throw removeError;
+    const { error: uploadError } = await client.storage.from('marketplace-images').upload(path, bytes, {
+      contentType,
+      upsert: false,
+    });
+    if (uploadError) throw uploadError;
+  }
+
+  return selected.length;
+}
+
+export async function loadMarketplaceImageRefs(): Promise<MarketplaceImageRef[]> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc('load_marketplace_image_refs_v1');
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const refs: MarketplaceImageRef[] = [];
+  for (const row of rows) {
+    const itemId = String(row.item_id);
+    const imageId = String(row.image_id);
+    const path = `${itemId}/${imageId}`;
+    const { data: signed, error: signedError } = await client.storage.from('marketplace-images').createSignedUrl(path, 1800);
+    if (signedError || !signed?.signedUrl) continue;
+    refs.push({ itemId, imageId, sortOrder: Number(row.sort_order), signedUrl: signed.signedUrl });
+  }
+  return refs;
 }
 
 export async function deleteMyItemImage(itemId: string, imageId: string): Promise<void> {
