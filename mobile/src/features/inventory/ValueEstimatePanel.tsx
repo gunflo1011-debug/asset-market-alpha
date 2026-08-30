@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { estimatePrivateItemValue } from '../../data/inventory';
+import { ItemImagesPanel } from './ItemImagesPanel';
 import type { ValuationConditionGrade } from './types';
 
 type Props = {
@@ -54,48 +55,38 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.eyebrow}>THINGS ESTIMATE</Text>
-      <Text style={styles.title}>Get a first euro estimate</Text>
-      <Text style={styles.copy}>Tell Things what you paid, when you bought it, and its condition. This is a transparent model estimate — not a verified market comparison.</Text>
+    <>
+      <ItemImagesPanel itemId={itemId} />
+      <View style={styles.card}>
+        <Text style={styles.eyebrow}>THINGS ESTIMATE</Text>
+        <Text style={styles.title}>Get a first euro estimate</Text>
+        <Text style={styles.copy}>Tell Things what you paid, when you bought it, and its condition. This is a transparent model estimate — not a verified market comparison.</Text>
 
-      <Text style={styles.label}>Purchase price (€)</Text>
-      <TextInput
-        value={purchasePrice}
-        onChangeText={setPurchasePrice}
-        keyboardType="decimal-pad"
-        placeholder="e.g. 1200"
-        style={styles.input}
-      />
+        <Text style={styles.label}>Purchase price (€)</Text>
+        <TextInput value={purchasePrice} onChangeText={setPurchasePrice} keyboardType="decimal-pad" placeholder="e.g. 1200" style={styles.input} />
 
-      <Text style={styles.label}>Purchase year</Text>
-      <TextInput
-        value={purchaseYear}
-        onChangeText={setPurchaseYear}
-        keyboardType="number-pad"
-        maxLength={4}
-        placeholder="e.g. 2023"
-        style={styles.input}
-      />
+        <Text style={styles.label}>Purchase year</Text>
+        <TextInput value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={styles.input} />
 
-      <Text style={styles.label}>Condition</Text>
-      <View style={styles.options}>
-        {CONDITION_OPTIONS.map((option) => {
-          const active = option.grade === conditionGrade;
-          return (
-            <TouchableOpacity key={option.grade} style={[styles.option, active && styles.optionActive]} onPress={() => setConditionGrade(option.grade)}>
-              <Text style={[styles.optionText, active && styles.optionTextActive]}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        <Text style={styles.label}>Condition</Text>
+        <View style={styles.options}>
+          {CONDITION_OPTIONS.map((option) => {
+            const active = option.grade === conditionGrade;
+            return (
+              <TouchableOpacity key={option.grade} style={[styles.option, active && styles.optionActive]} onPress={() => setConditionGrade(option.grade)}>
+                <Text style={[styles.optionText, active && styles.optionTextActive]}>{option.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TouchableOpacity disabled={disabled} style={[styles.button, disabled && styles.buttonDisabled]} onPress={() => void runEstimate()}>
+          <Text style={styles.buttonText}>{estimating ? 'Estimating…' : 'Estimate current value'}</Text>
+        </TouchableOpacity>
+        {status ? <Text style={styles.status}>{status}</Text> : null}
+        <Text style={styles.disclaimer}>Purchase price unknown? Skip this for now. Unknown value stays unknown and is never treated as €0.</Text>
       </View>
-
-      <TouchableOpacity disabled={disabled} style={[styles.button, disabled && styles.buttonDisabled]} onPress={() => void runEstimate()}>
-        <Text style={styles.buttonText}>{estimating ? 'Estimating…' : 'Estimate current value'}</Text>
-      </TouchableOpacity>
-      {status ? <Text style={styles.status}>{status}</Text> : null}
-      <Text style={styles.disclaimer}>Purchase price unknown? Skip this for now. Unknown value stays unknown and is never treated as €0.</Text>
-    </View>
+    </>
   );
 }
 
