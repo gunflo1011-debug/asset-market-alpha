@@ -5,6 +5,7 @@ const app = read('App.tsx');
 const screen = read('src/features/inventory/InventoryScreen.tsx');
 const saleSurface = read('src/lib/saleStartSurface.ts');
 const listingPanel = read('src/features/marketplace/SellListingPanel.tsx');
+const marketplaceScreen = read('src/features/marketplace/MarketplaceScreen.tsx');
 const inventory = [
   read('src/data/inventory.ts'),
   read('src/data/inventoryQueries.ts'),
@@ -35,6 +36,12 @@ if (!listingPanel.includes('Asking price (€)') || !listingPanel.includes('Publ
 if (!listingPanel.includes('Nothing becomes visible to other users until you explicitly publish.')) {
   throw new Error('Marketplace convergence must preserve explicit owner consent before visibility.');
 }
+if (!listingPanel.includes('Marketplace location (optional)') || !listingPanel.includes('Things never copies your private inventory location automatically.')) {
+  throw new Error('Marketplace convergence must keep coarse location optional and separate from private inventory location.');
+}
+if (!marketplaceScreen.includes('location not shared') || !marketplaceScreen.includes('exact address hidden')) {
+  throw new Error('Marketplace buyer surfaces must distinguish optional coarse location from hidden exact location.');
+}
 if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*setSaleIntentItemId/s.test(app)) {
   throw new Error('App shell must own the selected sale-intent state transition.');
 }
@@ -56,8 +63,13 @@ if (!compactInventory.includes("rpc('load_my_inventory_market_states')")) {
 if (!compactInventory.includes("rpc('load_my_inventory_values')")) {
   throw new Error('Missing authenticated owner-scoped value-evidence lookup for inventory.');
 }
-if (!compactInventory.includes("rpc('save_my_marketplace_listing'") || !compactInventory.includes("rpc('load_marketplace_v1')")) {
+const hasListingWrite = compactInventory.includes("rpc('save_my_marketplace_listing_v2'") || compactInventory.includes("rpc('save_my_marketplace_listing'");
+const hasMarketplaceRead = compactInventory.includes("rpc('load_marketplace_v2')") || compactInventory.includes("rpc('load_marketplace_v1')");
+if (!hasListingWrite || !hasMarketplaceRead) {
   throw new Error('Marketplace convergence requires owner-controlled listing writes and the filtered marketplace read RPC.');
+}
+if (compactInventory.includes("rpc('save_my_marketplace_listing_v2'") && !compactInventory.includes('p_public_location:publicLocation?.trim()||null')) {
+  throw new Error('Marketplace v2 listing writes must send only the explicit seller-entered public location.');
 }
 
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
