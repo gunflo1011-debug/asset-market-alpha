@@ -3,12 +3,12 @@ import path from 'node:path';
 
 const migrationsDir = path.resolve('supabase/migrations');
 
-// Hosted Supabase security advisor baseline observed 2026-08-29.
-// This gate does not claim these functions are safe; it prevents silently adding
-// new SECURITY DEFINER RPC surface before the existing functions are reviewed.
+// Hosted Supabase security advisor baseline observed 2026-08-29 and reviewed additions.
+// This gate prevents silently adding new SECURITY DEFINER RPC surface.
 const allowed = new Set([
   'add_private_device',
   'add_private_thing',
+  'delete_my_item_image',
   'delete_private_device',
   'delete_private_thing',
   'estimate_my_item_value_v1',
@@ -16,9 +16,12 @@ const allowed = new Set([
   'load_marketplace_v1',
   'load_my_inventory_market_states',
   'load_my_inventory_values',
+  'load_my_item_images',
   'load_my_marketplace_interests',
   'load_my_marketplace_listings',
+  'register_my_item_image',
   'save_my_marketplace_listing',
+  'set_my_item_primary_image',
   'set_my_marketplace_interest',
   'track_alpha_event',
   'update_private_device',
