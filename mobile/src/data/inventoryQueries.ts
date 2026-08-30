@@ -1,4 +1,5 @@
 import { trackAlphaEvent } from './analytics';
+import { loadMarketplaceImageRefs } from './itemImages';
 import { requireSupabase } from './supabaseClient';
 import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, MarketplaceInterest, MarketplaceInterestSummary, MarketplaceListing, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
 
@@ -42,7 +43,32 @@ export async function loadMyMarketplaceListings(): Promise<OwnerMarketplaceListi
 export async function loadMarketplace(): Promise<MarketplaceListing[]> {
   const { data, error } = await requireSupabase().rpc('load_marketplace_v1');
   if (error) throw error;
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({ item_id: String(row.item_id), title: String(row.title ?? 'Thing'), category: String(row.category ?? 'Other'), asking_price_cents: Number(row.asking_price_cents), estimated_value_cents: row.estimated_value_cents == null ? null : Number(row.estimated_value_cents), condition_label: row.condition_label == null ? null : String(row.condition_label), published_at: row.published_at == null ? null : String(row.published_at) }));
+
+  const imageUrls = new Map<string, string[]>();
+  try {
+    const refs = await loadMarketplaceImageRefs();
+    for (const ref of refs) {
+      const current = imageUrls.get(ref.itemId) ?? [];
+      current.push(ref.signedUrl);
+      imageUrls.set(ref.itemId, current);
+    }
+  } catch {
+    // Listings remain usable when optional photo delivery is temporarily unavailable.
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
+    const itemId = String(row.item_id);
+    return {
+      item_id: itemId,
+      title: String(row.title ?? 'Thing'),
+      category: String(row.category ?? 'Other'),
+      asking_price_cents: Number(row.asking_price_cents),
+      estimated_value_cents: row.estimated_value_cents == null ? null : Number(row.estimated_value_cents),
+      condition_label: row.condition_label == null ? null : String(row.condition_label),
+      published_at: row.published_at == null ? null : String(row.published_at),
+      image_urls: imageUrls.get(itemId) ?? [],
+    };
+  });
 }
 
 export async function loadMyMarketplaceInterests(): Promise<MarketplaceInterest[]> {
