@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { loadInterestSummaryForMyListings, loadMyMarketplaceListings, saveMyMarketplaceListing, withdrawMyMarketplaceListing } from '../../data/inventory';
+import { syncMyMarketplaceImageProjections } from '../../data/itemImages';
 import type { OwnerMarketplaceListing } from '../inventory/types';
 
 type Props = {
@@ -43,9 +44,14 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
     try {
       setBusy(true);
       setStatus(null);
+      const imageCount = publish ? await syncMyMarketplaceImageProjections(itemId) : 0;
       const nextStatus = await saveMyMarketplaceListing(itemId, parsed.cents, publish);
       setListing({ item_id: itemId, asking_price_cents: parsed.cents, status: nextStatus, published_at: publish ? new Date().toISOString() : null });
-      setStatus(publish ? 'Published. Other users can now see this listing.' : 'Draft saved. This item is still private.');
+      setStatus(publish
+        ? imageCount > 0
+          ? `Published with ${imageCount} selected ${imageCount === 1 ? 'photo' : 'photos'}.`
+          : 'Published. No photos were selected for this listing.'
+        : 'Draft saved. This item is still private.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not save this listing.');
     } finally {
@@ -59,7 +65,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
       setStatus(null);
       await withdrawMyMarketplaceListing(itemId);
       setListing((current) => current ? { ...current, status: 'WITHDRAWN', published_at: null } : current);
-      setStatus('Removed from marketplace.');
+      setStatus('Removed from marketplace. Selected photo projections are no longer readable by buyers.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not remove this listing.');
     } finally {
@@ -82,10 +88,10 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
       <Text style={styles.label}>Asking price (€)</Text>
       <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="e.g. 90" style={styles.input} />
-      <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish.</Text>
+      <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish. Only photos you selected for Marketplace are copied to the buyer-facing image store.</Text>
 
       <TouchableOpacity disabled={!parsed.valid || busy} style={[styles.primary, (!parsed.valid || busy) && styles.disabled]} onPress={() => void save(true)}>
-        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update price' : 'Publish on marketplace'}</Text>
+        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update listing' : 'Publish on marketplace'}</Text>
       </TouchableOpacity>
       {!published ? <TouchableOpacity disabled={!parsed.valid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
       {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
