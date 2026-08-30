@@ -13,6 +13,7 @@ const valueEstimateName = '20260827232500_owner_value_estimate_v1.sql';
 const marketplaceName = '20260828171000_marketplace_listing_v1.sql';
 const interestName = '20260828220500_marketplace_interest_v1.sql';
 const metadataHardeningName = '20260829213000_harden_update_private_item_metadata_search_path.sql';
+const addThingHardeningName = '20260830003000_harden_add_private_thing_search_path.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -23,6 +24,7 @@ const valueEstimateMigration = read(`supabase/migrations/${valueEstimateName}`);
 const marketplaceMigration = read(`supabase/migrations/${marketplaceName}`);
 const interestMigration = read(`supabase/migrations/${interestName}`);
 const metadataHardeningMigration = read(`supabase/migrations/${metadataHardeningName}`);
+const addThingHardeningMigration = read(`supabase/migrations/${addThingHardeningName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -30,8 +32,8 @@ const inventory = [
   read('mobile/src/data/inventoryCommands.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), metadataHardeningName, 'release gate knows only reviewed migrations through item metadata RPC search-path hardening; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName];
+assert.equal(migrationFiles.at(-1), addThingHardeningName, 'release gate knows only reviewed migrations through generic Thing create RPC search-path hardening; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -49,6 +51,7 @@ assert.match(genericCrudMigration, /where id=p_item_id and owner_id=v_owner and 
 assert.doesNotMatch(genericCrudMigration, /p_owner|owner_id\s+uuid\s+default/i);
 assert.match(itemMetadataMigration, /where id=p_item_id and owner_id=v_owner/i);
 assert.match(metadataHardeningMigration, /alter function public\.update_private_item_metadata\(uuid, text, text, text, text\)[\s\S]*set search_path = ''/i);
+assert.match(addThingHardeningMigration, /alter function public\.add_private_thing\(text, text, text, text\)[\s\S]*set search_path = ''/i);
 assert.match(valueEvidenceMigration, /where i\.owner_id = auth\.uid\(\)/i);
 assert.match(valueEstimateMigration, /where id = p_item_id and owner_id = v_owner/i);
 
