@@ -40,7 +40,6 @@ begin
   where a.conversation_id = p_conversation_id and a.buyer_id = auth.uid();
   if v_adopted is not null then return v_adopted; end if;
 
-  -- Only copy fields that were already part of the public listing projection.
   select coalesce(nullif(btrim(i.custom_name), ''), 'Purchased Thing'),
          nullif(btrim(i.category), '')
     into v_title, v_category

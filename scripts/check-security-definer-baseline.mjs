@@ -8,6 +8,7 @@ const migrationsDir = path.resolve('supabase/migrations');
 const allowed = new Set([
   'add_private_device',
   'add_private_thing',
+  'adopt_my_sold_marketplace_thing',
   'delete_my_item_image',
   'delete_private_device',
   'delete_private_thing',
