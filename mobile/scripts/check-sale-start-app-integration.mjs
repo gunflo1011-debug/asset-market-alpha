@@ -23,17 +23,23 @@ if (!screen.includes('<SellListingPanel')) {
 if (!screen.includes('Your item stays private until you publish it.')) {
   throw new Error('Sale start must visibly preserve private-by-default marketplace consent.');
 }
-if (!listingPanel.includes('Seller asking price (€)') || !listingPanel.includes('Publish${parsed.valid ? ` at ${euro(parsed.cents)}` : \'\'}')) {
+if (!listingPanel.includes("published ? 'New marketplace price (€)' : 'Seller asking price (€)'") || !listingPanel.includes('Publish${parsed.valid ? ` at ${euro(parsed.cents)}` : \'\'}')) {
   throw new Error('Sale start must expose an explicit seller-controlled asking-price step before marketplace publishing.');
 }
-if (!listingPanel.includes('Reference only · never auto-published')) {
-  throw new Error('Things Estimate must remain reference-only and must never be presented as an automatic listing price.');
+if (!listingPanel.includes('reference only · never auto-published')) {
+  throw new Error('Personal estimate must remain reference-only and must never be presented as an automatic listing price.');
+}
+if (!listingPanel.includes('THINGS MARKET VALUE') || !listingPanel.includes('Use price') || !listingPanel.includes('setPrice(String(suggestedMarketPrice / 100))')) {
+  throw new Error('Market Value may suggest a price only through an explicit seller action.');
+}
+if (!listingPanel.includes('Market Value and Personal Estimate are references only and are never copied into the listing automatically.')) {
+  throw new Error('Market guidance must remain separate from the seller-controlled listing price.');
 }
 if (!listingPanel.includes('BUYERS CURRENTLY SEE') || !listingPanel.includes('listing?.asking_price_cents ?? null')) {
   throw new Error('Published Marketplace price must be rendered from the persisted listing source of truth.');
 }
 if (!listingPanel.includes("const [price, setPrice] = useState('')")) {
-  throw new Error('Seller asking price must start empty instead of inheriting the Things Estimate.');
+  throw new Error('Seller asking price must start empty instead of inheriting any estimate or market suggestion.');
 }
 if (!listingPanel.includes('Nothing becomes visible to other users until you explicitly publish.')) {
   throw new Error('Listing panel must preserve explicit owner consent before marketplace visibility.');
