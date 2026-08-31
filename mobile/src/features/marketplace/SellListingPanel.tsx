@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { loadInterestSummaryForMyListings, loadMyMarketplaceListings, saveMyMarketplaceListing, withdrawMyMarketplaceListing } from '../../data/inventory';
+import { loadMarketValueForMyItem, type MarketValueInsight } from '../../data/inventoryQueries';
 import { syncMyMarketplaceImageProjections } from '../../data/itemImages';
 import type { OwnerMarketplaceListing } from '../inventory/types';
 
@@ -16,6 +17,7 @@ function euro(cents: number): string {
 export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const [listing, setListing] = useState<OwnerMarketplaceListing | null>(null);
   const [interestCount, setInterestCount] = useState(0);
+  const [marketValue, setMarketValue] = useState<MarketValueInsight | null>(null);
   const [price, setPrice] = useState('');
   const [publicLocation, setPublicLocation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,12 +25,17 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([loadMyMarketplaceListings(), loadInterestSummaryForMyListings()]).then(([rows, summaries]) => {
+    void Promise.all([
+      loadMyMarketplaceListings(),
+      loadInterestSummaryForMyListings(),
+      loadMarketValueForMyItem(itemId).catch(() => null),
+    ]).then(([rows, summaries, insight]) => {
       if (!active) return;
       const existing = rows.find((row) => row.item_id === itemId) ?? null;
       const summary = summaries.find((row) => row.item_id === itemId) ?? null;
       setListing(existing);
       setInterestCount(summary?.interested_count ?? 0);
+      setMarketValue(insight);
       if (existing) {
         setPrice(String(existing.asking_price_cents / 100));
         setPublicLocation(existing.public_location ?? '');
@@ -45,6 +52,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const locationValid = normalizedLocation.length <= 80;
   const published = listing?.status === 'PUBLISHED';
   const displayedMarketplacePrice = listing?.asking_price_cents ?? null;
+  const suggestedMarketPrice = marketValue?.marketValueCents ?? null;
 
   async function save(publish: boolean) {
     if (!parsed.valid || !locationValid || busy) return;
@@ -96,11 +104,30 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
 
       {published ? <View style={styles.publishedPrice}><Text style={styles.publishedPriceLabel}>BUYERS CURRENTLY SEE</Text><Text style={styles.publishedPriceValue}>{displayedMarketplacePrice != null ? euro(displayedMarketplacePrice) : '—'}</Text></View> : null}
       {published ? <View style={styles.interestSummary}><View><Text style={styles.interestLabel}>BUYER INTEREST</Text><Text style={styles.interestTitle}>{interestCount === 0 ? 'No interest yet' : `${interestCount} ${interestCount === 1 ? 'person is' : 'people are'} interested`}</Text></View><Text style={styles.interestCount}>{interestCount}</Text></View> : null}
-      {estimatedValueCents != null ? <View style={styles.referenceRow}><View style={styles.flex}><Text style={styles.referenceLabel}>Things estimate</Text><Text style={styles.referenceHint}>Reference only · never auto-published</Text></View><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
+
+      {suggestedMarketPrice != null && marketValue ? (
+        <View style={styles.marketValueCard}>
+          <View style={styles.flex}>
+            <Text style={styles.marketValueLabel}>THINGS MARKET VALUE</Text>
+            <Text style={styles.marketValueAmount}>{euro(suggestedMarketPrice)}</Text>
+            <Text style={styles.marketValueHint}>{marketValue.source === 'SOLD_MEDIAN' ? `Median of ${marketValue.sampleCount} completed sales` : `Median of ${marketValue.sampleCount} active listings`} · exact product match</Text>
+          </View>
+          <TouchableOpacity style={styles.useSuggestion} onPress={() => setPrice(String(suggestedMarketPrice / 100))}>
+            <Text style={styles.useSuggestionText}>Use price</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.marketValuePending}>
+          <Text style={styles.marketValuePendingTitle}>Market value needs more data</Text>
+          <Text style={styles.marketValuePendingText}>Things only suggests a market price after at least 3 independent exact-product observations. Completed sales are preferred; otherwise active listings are used. No fuzzy title guess is shown.</Text>
+        </View>
+      )}
+
+      {estimatedValueCents != null ? <View style={styles.referenceRow}><View style={styles.flex}><Text style={styles.referenceLabel}>Personal estimate</Text><Text style={styles.referenceHint}>Based on your inputs · reference only · never auto-published</Text></View><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
 
       <Text style={styles.label}>{published ? 'New marketplace price (€)' : 'Seller asking price (€)'}</Text>
-      <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder={estimatedValueCents != null ? `Choose a price · estimate ${euro(estimatedValueCents)}` : 'e.g. 90'} style={styles.input} />
-      <Text style={styles.priceHint}>{published ? 'Changing this value does nothing until you tap Update listing. After that, this exact price becomes the buyer-visible Marketplace price.' : 'You choose this price yourself. Things Estimate is only a reference and is never copied into the listing automatically.'}</Text>
+      <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder={suggestedMarketPrice != null ? `Market suggestion ${euro(suggestedMarketPrice)}` : estimatedValueCents != null ? `Choose a price · personal estimate ${euro(estimatedValueCents)}` : 'e.g. 90'} style={styles.input} />
+      <Text style={styles.priceHint}>{published ? 'Changing this value does nothing until you tap Update listing. After that, this exact price becomes the buyer-visible Marketplace price.' : 'You choose this price yourself. Market Value and Personal Estimate are references only and are never copied into the listing automatically.'}</Text>
 
       <Text style={styles.label}>Marketplace location (optional)</Text>
       <TextInput
@@ -147,6 +174,15 @@ const styles = StyleSheet.create({
   interestLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#027A48' },
   interestTitle: { fontSize: 14, fontWeight: '800', color: '#174C35', marginTop: 3 },
   interestCount: { fontSize: 28, fontWeight: '800', color: '#027A48' },
+  marketValueCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, backgroundColor: '#EEF4FF', borderWidth: 1, borderColor: '#C7D7FE' },
+  marketValueLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#3538CD' },
+  marketValueAmount: { marginTop: 2, fontSize: 24, fontWeight: '800', color: '#101828' },
+  marketValueHint: { marginTop: 2, fontSize: 10, lineHeight: 15, color: '#475467' },
+  useSuggestion: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3538CD' },
+  useSuggestionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  marketValuePending: { borderRadius: 14, padding: 12, backgroundColor: '#F8F9FB', gap: 3 },
+  marketValuePendingTitle: { fontSize: 12, fontWeight: '800', color: '#344054' },
+  marketValuePendingText: { fontSize: 11, lineHeight: 17, color: '#667085' },
   referenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#F8F9FB', borderRadius: 14, padding: 13 },
   referenceLabel: { fontSize: 12, fontWeight: '700', color: '#475467' },
   referenceHint: { fontSize: 10, color: '#98A2B3', marginTop: 2 },
