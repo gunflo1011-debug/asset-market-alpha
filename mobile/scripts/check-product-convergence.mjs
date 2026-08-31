@@ -6,6 +6,7 @@ const screen = read('src/features/inventory/InventoryScreen.tsx');
 const saleSurface = read('src/lib/saleStartSurface.ts');
 const listingPanel = read('src/features/marketplace/SellListingPanel.tsx');
 const marketplaceScreen = read('src/features/marketplace/MarketplaceScreen.tsx');
+const conversationScreen = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 const inventory = [
   read('src/data/inventory.ts'),
   read('src/data/inventoryQueries.ts'),
@@ -42,6 +43,24 @@ if (!listingPanel.includes('Marketplace location (optional)') || !listingPanel.i
 if (!marketplaceScreen.includes('location not shared') || !marketplaceScreen.includes('exact address hidden')) {
   throw new Error('Marketplace buyer surfaces must distinguish optional coarse location from hidden exact location.');
 }
+if (!marketplaceScreen.includes('Message seller') || !marketplaceScreen.includes('Open conversation')) {
+  throw new Error('Interested buyers must have an explicit private-conversation entry point.');
+}
+if (!marketplaceScreen.includes('loadMyMarketplaceConversations') || !marketplaceScreen.includes('openMyMarketplaceConversation')) {
+  throw new Error('Marketplace must load and open authenticated listing-bound conversations.');
+}
+if (!marketplaceScreen.includes("row.role === 'SELLER'") || !marketplaceScreen.includes('Reply ›')) {
+  throw new Error('Seller listing surfaces must expose participant-safe reply entry points.');
+}
+if (!conversationScreen.includes('loadMyMarketplaceMessages') || !conversationScreen.includes('sendMyMarketplaceMessage')) {
+  throw new Error('Conversation surface must load and send through authenticated Marketplace message RPCs.');
+}
+if (!conversationScreen.includes('Account identities and private inventory details are not exposed here.')) {
+  throw new Error('Conversation surface must retain explicit privacy semantics.');
+}
+if (!conversationScreen.includes("conversation.status === 'SOLD'") || !conversationScreen.includes("conversation.status === 'CLOSED'")) {
+  throw new Error('Conversation UI must disable messaging for sold/closed listing conversations.');
+}
 if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*setSaleIntentItemId/s.test(app)) {
   throw new Error('App shell must own the selected sale-intent state transition.');
 }
@@ -71,6 +90,9 @@ if (!hasListingWrite || !hasMarketplaceRead) {
 if (compactInventory.includes("rpc('save_my_marketplace_listing_v2'") && !compactInventory.includes('p_public_location:publicLocation?.trim()||null')) {
   throw new Error('Marketplace v2 listing writes must send only the explicit seller-entered public location.');
 }
+for (const rpc of ['open_my_marketplace_conversation', 'load_my_marketplace_conversations', 'load_my_marketplace_messages', 'send_my_marketplace_message']) {
+  if (!compactInventory.includes(`rpc('${rpc}'`)) throw new Error(`Missing Marketplace conversation RPC wiring: ${rpc}`);
+}
 
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
 const discriminatedRpcFailClosed = /const\s+isCatalogDevice\s*=\s*item\.product_variants\s*!==\s*null\s*;[\s\S]{0,240}if\s*\(\s*isCatalogDevice\s*&&\s*marketStateResult\.error\s*\)\s*return\s*\[\]\s*;/s;
@@ -91,4 +113,4 @@ if (/buildSaleStartSurface\([^,]+,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must never be converted to a zero-price estimate.');
 }
 
-console.log('authenticated ownership/value/sell convergence regression passed');
+console.log('authenticated ownership/value/sell/conversation convergence regression passed');
