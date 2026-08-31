@@ -21,6 +21,7 @@ const marketplaceImageSelectionName = '20260830150000_marketplace_image_selectio
 const marketplaceImageDeliveryName = '20260830153000_marketplace_image_delivery_v1.sql';
 const coarseLocationName = '20260830193000_marketplace_coarse_location_v1.sql';
 const coarseLocationHardeningName = '20260831102500_harden_marketplace_coarse_location_v2.sql';
+const marketValueName = '20260831154000_market_value_median_v1.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -39,6 +40,7 @@ const marketplaceImageSelectionMigration = read(`supabase/migrations/${marketpla
 const marketplaceImageDeliveryMigration = read(`supabase/migrations/${marketplaceImageDeliveryName}`);
 const coarseLocationMigration = read(`supabase/migrations/${coarseLocationName}`);
 const coarseLocationHardeningMigration = read(`supabase/migrations/${coarseLocationHardeningName}`);
+const marketValueMigration = read(`supabase/migrations/${marketValueName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -47,8 +49,8 @@ const inventory = [
   read('mobile/src/data/itemImages.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), coarseLocationHardeningName, 'release gate knows only reviewed migrations through coarse Marketplace location privacy hardening v2; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName];
+assert.equal(migrationFiles.at(-1), marketValueName, 'release gate knows only reviewed migrations through Marketplace median market value v1; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName, marketValueName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -161,6 +163,21 @@ for (const signature of ['save_my_marketplace_listing_v2\\(uuid,bigint,boolean,t
   assert.match(coarseLocationHardeningMigration, new RegExp(`grant execute on function public\\.${signature} to authenticated;`, 'i'));
 }
 
+assert.match(marketValueMigration, /create or replace function public\.load_my_market_value_v1\(p_item_id uuid\)/i);
+assert.match(marketValueMigration, /security definer[\s\S]*set search_path = ''/i);
+assert.match(marketValueMigration, /where i\.id = p_item_id and i\.owner_id = v_owner/i);
+assert.match(marketValueMigration, /percentile_disc\(0\.5\)/i);
+assert.match(marketValueMigration, /v_count >= 3/i);
+assert.match(marketValueMigration, /ms\.market_state = 'SOLD'/i);
+assert.match(marketValueMigration, /l\.status = 'PUBLISHED'/i);
+assert.match(marketValueMigration, /distinct on \(l\.seller_id\)/i);
+assert.match(marketValueMigration, /l\.seller_id <> v_owner/i);
+assert.match(marketValueMigration, /revoke all on function public\.load_my_market_value_v1\(uuid\) from public, anon;/i);
+assert.match(marketValueMigration, /grant execute on function public\.load_my_market_value_v1\(uuid\) to authenticated;/i);
+const marketValueReturn = marketValueMigration.match(/returns table\(([\s\S]*?)\)\s*language plpgsql/i)?.[1] ?? '';
+assert.ok(marketValueReturn, 'market value return contract missing');
+assert.doesNotMatch(marketValueReturn, /\b(?:seller_id|owner_id|email|notes|location|address)\b/i, 'market value aggregate must not expose seller identity or private metadata');
+
 for (const marker of [
   'load_my_inventory_market_states',
   'load_my_inventory_values',
@@ -170,6 +187,7 @@ for (const marker of [
   'load_marketplace_v2',
   'load_my_marketplace_listings_v2',
   'load_marketplace_image_refs_v1',
+  'load_my_market_value_v1',
   'set_my_marketplace_interest',
   'load_my_marketplace_interests',
   'load_interest_summary_for_my_listings',
@@ -184,4 +202,4 @@ for (const marker of [
   'SOLD',
 ]) assert.match(inventory, new RegExp(marker, 'i'), `mobile inventory missing ${marker}`);
 
-console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, and coarse Marketplace location privacy hardening release gate: OK');
+console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, coarse Marketplace location privacy hardening, and Marketplace median market value release gate: OK');
