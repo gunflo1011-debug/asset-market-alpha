@@ -11,18 +11,12 @@ export async function addPrivateThing(input: PrivateThingInput): Promise<string>
 }
 
 export async function updatePrivateThing(itemId: string, input: PrivateThingInput): Promise<void> {
-  const { error } = await requireSupabase().rpc('update_private_thing', {
-    p_item_id: itemId,
-    ...thingArgs(input),
-  });
+  const { error } = await requireSupabase().rpc('update_private_thing', { p_item_id: itemId, ...thingArgs(input) });
   if (error) throw error;
 }
 
 export async function updatePrivateItemMetadata(itemId: string, input: PrivateThingInput): Promise<void> {
-  const { error } = await requireSupabase().rpc('update_private_item_metadata', {
-    p_item_id: itemId,
-    ...thingArgs(input),
-  });
+  const { error } = await requireSupabase().rpc('update_private_item_metadata', { p_item_id: itemId, ...thingArgs(input) });
   if (error) throw error;
 }
 
@@ -57,10 +51,7 @@ export async function withdrawMyMarketplaceListing(itemId: string): Promise<void
 }
 
 export async function setMyMarketplaceInterest(itemId: string, interested: boolean): Promise<MarketplaceInterestStatus> {
-  const { data, error } = await requireSupabase().rpc('set_my_marketplace_interest', {
-    p_item_id: itemId,
-    p_interested: interested,
-  });
+  const { data, error } = await requireSupabase().rpc('set_my_marketplace_interest', { p_item_id: itemId, p_interested: interested });
   if (error) throw error;
   if (data !== 'INTERESTED' && data !== 'WITHDRAWN') throw new Error('Interest command returned an invalid state.');
   return data;
@@ -76,22 +67,23 @@ export async function openMyMarketplaceConversation(itemId: string): Promise<str
 export async function sendMyMarketplaceMessage(conversationId: string, body: string): Promise<string> {
   const trimmed = body.trim();
   if (!trimmed || trimmed.length > 1200) throw new Error('Message must be between 1 and 1200 characters.');
-  const { data, error } = await requireSupabase().rpc('send_my_marketplace_message', {
-    p_conversation_id: conversationId,
-    p_body: trimmed,
-  });
+  const { data, error } = await requireSupabase().rpc('send_my_marketplace_message', { p_conversation_id: conversationId, p_body: trimmed });
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Message command returned no message id.');
   return data;
 }
 
 export async function setMyMarketplaceConversationStatus(conversationId: string, status: 'RESERVED' | 'SOLD'): Promise<MarketplaceConversationStatus> {
-  const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status', {
-    p_conversation_id: conversationId,
-    p_status: status,
-  });
+  const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status', { p_conversation_id: conversationId, p_status: status });
   if (error) throw error;
   if (data !== 'RESERVED' && data !== 'SOLD') throw new Error('Conversation lifecycle command returned an invalid state.');
+  return data;
+}
+
+export async function adoptMySoldMarketplaceThing(conversationId: string): Promise<string> {
+  const { data, error } = await requireSupabase().rpc('adopt_my_sold_marketplace_thing', { p_conversation_id: conversationId });
+  if (error) throw error;
+  if (typeof data !== 'string') throw new Error('Purchased Thing adoption returned no item id.');
   return data;
 }
 
@@ -101,10 +93,7 @@ export async function deletePrivateThing(itemId: string): Promise<void> {
 }
 
 export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<string> {
-  const { data, error } = await requireSupabase().rpc('add_private_device', {
-    p_variant_id: input.variantId,
-    ...conditionArgs(input),
-  });
+  const { data, error } = await requireSupabase().rpc('add_private_device', { p_variant_id: input.variantId, ...conditionArgs(input) });
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Inventory command returned no item id.');
   void trackAlphaEvent('DEVICE_ADDED', data);
@@ -112,10 +101,7 @@ export async function addPrivateDevice(input: AddPrivateDeviceInput): Promise<st
 }
 
 export async function updatePrivateDevice(itemId: string, input: ConditionInput): Promise<void> {
-  const { error } = await requireSupabase().rpc('update_private_device', {
-    p_item_id: itemId,
-    ...conditionArgs(input),
-  });
+  const { error } = await requireSupabase().rpc('update_private_device', { p_item_id: itemId, ...conditionArgs(input) });
   if (error) throw error;
 }
 

@@ -1,6 +1,7 @@
 export {
   addPrivateDevice,
   addPrivateThing,
+  adoptMySoldMarketplaceThing,
   deletePrivateDevice,
   deletePrivateThing,
   estimatePrivateItemValue,
