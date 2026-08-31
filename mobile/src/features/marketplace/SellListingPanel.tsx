@@ -16,7 +16,7 @@ function euro(cents: number): string {
 export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const [listing, setListing] = useState<OwnerMarketplaceListing | null>(null);
   const [interestCount, setInterestCount] = useState(0);
-  const [price, setPrice] = useState(estimatedValueCents != null ? String(Math.max(1, Math.round(estimatedValueCents / 100))) : '');
+  const [price, setPrice] = useState('');
   const [publicLocation, setPublicLocation] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -44,6 +44,7 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
   const normalizedLocation = publicLocation.trim();
   const locationValid = normalizedLocation.length <= 80;
   const published = listing?.status === 'PUBLISHED';
+  const displayedMarketplacePrice = listing?.asking_price_cents ?? null;
 
   async function save(publish: boolean) {
     if (!parsed.valid || !locationValid || busy) return;
@@ -60,10 +61,8 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
         published_at: publish ? new Date().toISOString() : null,
       });
       setStatus(publish
-        ? imageCount > 0
-          ? `Published with ${imageCount} selected ${imageCount === 1 ? 'photo' : 'photos'}${normalizedLocation ? ` · ${normalizedLocation}` : ''}.`
-          : `Published${normalizedLocation ? ` · ${normalizedLocation}` : ''}. No photos were selected for this listing.`
-        : 'Draft saved. This item is still private.');
+        ? `${published ? 'Marketplace price updated' : 'Published on Marketplace'} at ${euro(parsed.cents)}${imageCount > 0 ? ` with ${imageCount} selected ${imageCount === 1 ? 'photo' : 'photos'}` : ' with no public photos'}${normalizedLocation ? ` · ${normalizedLocation}` : ''}.`
+        : `Draft saved with seller asking price ${euro(parsed.cents)}. This item is still private.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not save this listing.');
     } finally {
@@ -89,17 +88,19 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.flex}>
-          <Text style={styles.eyebrow}>{published ? 'LIVE LISTING' : 'ASKING PRICE'}</Text>
-          <Text style={styles.title}>{published ? 'Listed on Marketplace' : 'Set your price'}</Text>
+          <Text style={styles.eyebrow}>{published ? 'PUBLISHED MARKETPLACE PRICE' : 'SELLER ASKING PRICE'}</Text>
+          <Text style={styles.title}>{published ? 'Marketplace listing' : 'Choose your selling price'}</Text>
         </View>
         <View style={[styles.statusPill, published && styles.statusPillLive]}><Text style={[styles.statusPillText, published && styles.statusPillTextLive]}>{published ? 'Live' : 'Private'}</Text></View>
       </View>
 
+      {published ? <View style={styles.publishedPrice}><Text style={styles.publishedPriceLabel}>BUYERS CURRENTLY SEE</Text><Text style={styles.publishedPriceValue}>{displayedMarketplacePrice != null ? euro(displayedMarketplacePrice) : '—'}</Text></View> : null}
       {published ? <View style={styles.interestSummary}><View><Text style={styles.interestLabel}>BUYER INTEREST</Text><Text style={styles.interestTitle}>{interestCount === 0 ? 'No interest yet' : `${interestCount} ${interestCount === 1 ? 'person is' : 'people are'} interested`}</Text></View><Text style={styles.interestCount}>{interestCount}</Text></View> : null}
-      {estimatedValueCents != null ? <View style={styles.referenceRow}><Text style={styles.referenceLabel}>Things estimate</Text><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
+      {estimatedValueCents != null ? <View style={styles.referenceRow}><View style={styles.flex}><Text style={styles.referenceLabel}>Things estimate</Text><Text style={styles.referenceHint}>Reference only · never auto-published</Text></View><Text style={styles.referenceValue}>{euro(estimatedValueCents)}</Text></View> : null}
 
-      <Text style={styles.label}>Asking price (€)</Text>
-      <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="e.g. 90" style={styles.input} />
+      <Text style={styles.label}>{published ? 'New marketplace price (€)' : 'Seller asking price (€)'}</Text>
+      <TextInput value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder={estimatedValueCents != null ? `Choose a price · estimate ${euro(estimatedValueCents)}` : 'e.g. 90'} style={styles.input} />
+      <Text style={styles.priceHint}>{published ? 'Changing this value does nothing until you tap Update listing. After that, this exact price becomes the buyer-visible Marketplace price.' : 'You choose this price yourself. Things Estimate is only a reference and is never copied into the listing automatically.'}</Text>
 
       <Text style={styles.label}>Marketplace location (optional)</Text>
       <TextInput
@@ -118,9 +119,9 @@ export function SellListingPanel({ itemId, estimatedValueCents }: Props) {
       <Text style={styles.copy}>Nothing becomes visible to other users until you explicitly publish. Only photos you selected for Marketplace are copied to the buyer-facing image store.</Text>
 
       <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={[styles.primary, (!parsed.valid || !locationValid || busy) && styles.disabled]} onPress={() => void save(true)}>
-        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? 'Update listing' : 'Publish on marketplace'}</Text>
+        <Text style={styles.primaryText}>{busy ? 'Saving…' : published ? `Update listing${parsed.valid ? ` to ${euro(parsed.cents)}` : ''}` : `Publish${parsed.valid ? ` at ${euro(parsed.cents)}` : ''}`}</Text>
       </TouchableOpacity>
-      {!published ? <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save draft</Text></TouchableOpacity> : null}
+      {!published ? <TouchableOpacity disabled={!parsed.valid || !locationValid || busy} style={styles.secondary} onPress={() => void save(false)}><Text style={styles.secondaryText}>Save private draft</Text></TouchableOpacity> : null}
       {published ? <TouchableOpacity disabled={busy} style={styles.withdraw} onPress={() => void withdraw()}><Text style={styles.withdrawText}>Remove listing</Text></TouchableOpacity> : null}
 
       {status ? <View style={styles.feedback}><Text style={styles.status}>{status}</Text></View> : null}
@@ -139,15 +140,20 @@ const styles = StyleSheet.create({
   statusPillLive: { backgroundColor: '#ECFDF3' },
   statusPillText: { fontSize: 11, fontWeight: '800', color: '#667085' },
   statusPillTextLive: { color: '#027A48' },
+  publishedPrice: { borderRadius: 16, padding: 15, backgroundColor: '#0F1728' },
+  publishedPriceLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#98A2B3' },
+  publishedPriceValue: { marginTop: 4, fontSize: 30, lineHeight: 36, fontWeight: '800', color: '#FFFFFF' },
   interestSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#F0F7F3', borderRadius: 16, padding: 14 },
   interestLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#027A48' },
   interestTitle: { fontSize: 14, fontWeight: '800', color: '#174C35', marginTop: 3 },
   interestCount: { fontSize: 28, fontWeight: '800', color: '#027A48' },
-  referenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8F9FB', borderRadius: 14, padding: 13 },
-  referenceLabel: { fontSize: 12, color: '#7A8494' },
+  referenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: '#F8F9FB', borderRadius: 14, padding: 13 },
+  referenceLabel: { fontSize: 12, fontWeight: '700', color: '#475467' },
+  referenceHint: { fontSize: 10, color: '#98A2B3', marginTop: 2 },
   referenceValue: { fontSize: 15, fontWeight: '800', color: '#0F1728' },
   label: { fontSize: 13, fontWeight: '800', color: '#344054', marginTop: 2 },
   input: { minHeight: 58, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 16, fontSize: 22, fontWeight: '800', color: '#0F1728', backgroundColor: '#FFFFFF' },
+  priceHint: { fontSize: 11, lineHeight: 17, color: '#667085', marginTop: -4 },
   locationInput: { minHeight: 52, borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 15, paddingHorizontal: 14, fontSize: 16, color: '#0F1728', backgroundColor: '#FFFFFF' },
   privacyHint: { borderRadius: 14, padding: 12, backgroundColor: '#F8F9FB', gap: 3 },
   privacyHintTitle: { fontSize: 12, fontWeight: '800', color: '#344054' },
