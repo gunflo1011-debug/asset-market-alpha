@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { loadMarketplace, loadMyMarketplaceInterests, loadMyMarketplaceListings, setMyMarketplaceInterest } from '../../data/inventory';
-import type { MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
+import {
+  loadMarketplace,
+  loadMyMarketplaceConversations,
+  loadMyMarketplaceInterests,
+  loadMyMarketplaceListings,
+  openMyMarketplaceConversation,
+  setMyMarketplaceInterest,
+} from '../../data/inventory';
+import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
+import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
 
 type Props = { onBack: () => void };
 
@@ -13,49 +21,64 @@ export function MarketplaceScreen({ onBack }: Props) {
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [myListings, setMyListings] = useState<OwnerMarketplaceListing[]>([]);
   const [interests, setInterests] = useState<MarketplaceInterest[]>([]);
+  const [conversations, setConversations] = useState<MarketplaceConversation[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [interestWarning, setInterestWarning] = useState<string | null>(null);
   const [ownerListingWarning, setOwnerListingWarning] = useState<string | null>(null);
+  const [conversationWarning, setConversationWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const selected = useMemo(() => listings.find((listing) => listing.item_id === selectedItemId) ?? null, [listings, selectedItemId]);
+  const selectedConversation = useMemo(() => conversations.find((row) => row.conversation_id === selectedConversationId) ?? null, [conversations, selectedConversationId]);
   const interestByItem = useMemo(() => new Map(interests.map((row) => [row.item_id, row.status])), [interests]);
   const ownerListingIds = useMemo(() => new Set(myListings.filter((row) => row.status === 'PUBLISHED').map((row) => row.item_id)), [myListings]);
   const publishedMine = useMemo(() => myListings.filter((row) => row.status === 'PUBLISHED'), [myListings]);
   const browseListings = useMemo(() => listings.filter((row) => !ownerListingIds.has(row.item_id)), [listings, ownerListingIds]);
+  const conversationsByItem = useMemo(() => {
+    const map = new Map<string, MarketplaceConversation[]>();
+    for (const conversation of conversations) {
+      const current = map.get(conversation.item_id) ?? [];
+      current.push(conversation);
+      map.set(conversation.item_id, current);
+    }
+    return map;
+  }, [conversations]);
+
+  function titleForConversation(conversation: MarketplaceConversation): string {
+    return listings.find((row) => row.item_id === conversation.item_id)?.title
+      ?? myListings.find((row) => row.item_id === conversation.item_id)?.title
+      ?? 'Marketplace Thing';
+  }
 
   async function refresh() {
     setLoading(true);
     setError(null);
     setInterestWarning(null);
     setOwnerListingWarning(null);
+    setConversationWarning(null);
 
-    const [listingsResult, interestsResult, ownerListingsResult] = await Promise.allSettled([
+    const [listingsResult, interestsResult, ownerListingsResult, conversationsResult] = await Promise.allSettled([
       loadMarketplace(),
       loadMyMarketplaceInterests(),
       loadMyMarketplaceListings(),
+      loadMyMarketplaceConversations(),
     ]);
 
-    if (listingsResult.status === 'fulfilled') {
-      setListings(listingsResult.value);
-    } else {
-      setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
-    }
+    if (listingsResult.status === 'fulfilled') setListings(listingsResult.value);
+    else setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
 
-    if (interestsResult.status === 'fulfilled') {
-      setInterests(interestsResult.value);
-    } else {
-      setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
-    }
+    if (interestsResult.status === 'fulfilled') setInterests(interestsResult.value);
+    else setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
 
-    if (ownerListingsResult.status === 'fulfilled') {
-      setMyListings(ownerListingsResult.value);
-    } else {
-      setOwnerListingWarning('Marketplace is available, but your own listing status could not be refreshed.');
-    }
+    if (ownerListingsResult.status === 'fulfilled') setMyListings(ownerListingsResult.value);
+    else setOwnerListingWarning('Marketplace is available, but your own listing status could not be refreshed.');
+
+    if (conversationsResult.status === 'fulfilled') setConversations(conversationsResult.value);
+    else setConversationWarning('Marketplace is available, but private conversations could not be refreshed.');
 
     setLoading(false);
   }
@@ -73,7 +96,7 @@ export function MarketplaceScreen({ onBack }: Props) {
         return [...rest, { item_id: itemId, status, updated_at: new Date().toISOString() }];
       });
       setInterestWarning(null);
-      setMessage(interested ? 'Interest sent. The seller can now see that someone is interested.' : 'Interest withdrawn.');
+      setMessage(interested ? 'Interest sent. You can now message the seller privately.' : 'Interest withdrawn.');
     } catch (nextError) {
       setMessage(nextError instanceof Error ? nextError.message : 'Could not update interest.');
     } finally {
@@ -81,8 +104,42 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
   }
 
+  async function openConversationForBuyer(itemId: string) {
+    if (busy) return;
+    const existing = (conversationsByItem.get(itemId) ?? []).find((row) => row.role === 'BUYER');
+    if (existing) {
+      setSelectedConversationId(existing.conversation_id);
+      return;
+    }
+    try {
+      setBusy(true);
+      setMessage(null);
+      const conversationId = await openMyMarketplaceConversation(itemId);
+      const refreshed = await loadMyMarketplaceConversations();
+      setConversations(refreshed);
+      const opened = refreshed.find((row) => row.conversation_id === conversationId);
+      if (!opened) throw new Error('Conversation was created but could not be opened yet. Refresh and try again.');
+      setSelectedConversationId(opened.conversation_id);
+    } catch (nextError) {
+      setMessage(nextError instanceof Error ? nextError.message : 'Could not open private conversation.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (selectedConversation) {
+    return (
+      <MarketplaceConversationScreen
+        conversation={selectedConversation}
+        title={titleForConversation(selectedConversation)}
+        onBack={() => { setSelectedConversationId(null); void refresh(); }}
+      />
+    );
+  }
+
   if (selected) {
     const interested = interestByItem.get(selected.item_id) === 'INTERESTED';
+    const buyerConversation = (conversationsByItem.get(selected.item_id) ?? []).find((row) => row.role === 'BUYER');
     return (
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
@@ -111,13 +168,21 @@ export function MarketplaceScreen({ onBack }: Props) {
           </View>
 
           <View style={styles.interestCard}>
-            <Text style={styles.eyebrow}>{interested ? 'INTEREST SENT' : 'INTERESTED?'}</Text>
-            <Text style={styles.interestTitle}>{interested ? 'The seller can see your interest' : 'Interested in this Thing?'}</Text>
-            <Text style={styles.copy}>{interested ? 'Your identity is still hidden. This is only a private signal to the seller.' : 'Send a private interest signal. Your email, account identity and exact location are not shared.'}</Text>
+            <Text style={styles.eyebrow}>{interested ? 'PRIVATE CONTACT' : 'INTERESTED?'}</Text>
+            <Text style={styles.interestTitle}>{interested ? 'Message the seller securely' : 'Interested in this Thing?'}</Text>
+            <Text style={styles.copy}>{interested ? 'Your conversation is bound to this listing. Things does not reveal either account email or private inventory details.' : 'Send a private interest signal first. Your email, account identity and exact location are not shared.'}</Text>
             {interestWarning ? <Text style={styles.warningText}>{interestWarning}</Text> : null}
-            <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void changeInterest(selected.item_id, !interested)}>
-              <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : interested ? 'Withdraw interest' : 'I’m interested'}</Text>
-            </TouchableOpacity>
+            {conversationWarning ? <Text style={styles.warningText}>{conversationWarning}</Text> : null}
+            {interested ? (
+              <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void openConversationForBuyer(selected.item_id)}>
+                <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : buyerConversation ? 'Open conversation' : 'Message seller'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void changeInterest(selected.item_id, true)}>
+                <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'I’m interested'}</Text>
+              </TouchableOpacity>
+            )}
+            {interested ? <TouchableOpacity disabled={busy} style={styles.secondaryButton} onPress={() => void changeInterest(selected.item_id, false)}><Text style={styles.secondaryButtonText}>Withdraw interest</Text></TouchableOpacity> : null}
             {message ? <Text style={styles.feedback}>{message}</Text> : null}
           </View>
         </ScrollView>
@@ -136,36 +201,48 @@ export function MarketplaceScreen({ onBack }: Props) {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>MARKETPLACE</Text>
           <Text style={styles.title}>Discover Things for sale</Text>
-          <Text style={styles.copy}>Browse published listings and privately signal interest without revealing your identity.</Text>
+          <Text style={styles.copy}>Browse published listings, signal interest and continue in a listing-bound private conversation.</Text>
           <View style={styles.heroStats}><Text style={styles.heroStatValue}>{browseListings.length}</Text><Text style={styles.heroStatLabel}>{browseListings.length === 1 ? 'listing from others' : 'listings from others'}</Text></View>
         </View>
 
         {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
         {error ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
-        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{interestWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading personal interest status" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry personal status</Text></TouchableOpacity></View> : null}
-        {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text accessibilityLiveRegion="polite" style={styles.warningText}>{ownerListingWarning}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading my marketplace listings" disabled={loading} style={styles.retryButton} onPress={() => void refresh()}><Text style={styles.retryLink}>Retry your listings</Text></TouchableOpacity></View> : null}
+        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
+        {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
+        {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
 
         {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
-        {publishedMine.map((ownerListing) => (
-          <View key={ownerListing.item_id} style={styles.ownerCard}>
-            <View style={styles.cardTop}>
-              <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
-              <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
+        {publishedMine.map((ownerListing) => {
+          const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
+          return (
+            <View key={ownerListing.item_id} style={styles.ownerCard}>
+              <View style={styles.cardTop}>
+                <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
+                <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
+              </View>
+              <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
+              <View style={styles.metaRow}>
+                {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
+                {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
+                {sellerConversations.length > 0 ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{sellerConversations.length} {sellerConversations.length === 1 ? 'conversation' : 'conversations'}</Text></View> : null}
+              </View>
+              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
+              {sellerConversations.map((conversation, index) => (
+                <TouchableOpacity key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+                  <View><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+                  <Text style={styles.messageRowAction}>Reply ›</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
-            <View style={styles.metaRow}>
-              {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
-              {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
-            </View>
-            <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
-          </View>
-        ))}
+          );
+        })}
 
         {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
         {browseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>From other sellers</Text></View> : null}
 
         {browseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
+          const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
           return (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
               {listing.image_urls[0] ? <Image accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" /> : null}
@@ -176,9 +253,9 @@ export function MarketplaceScreen({ onBack }: Props) {
                 {listing.condition_label ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.condition_label}</Text></View> : null}
                 {listing.estimated_value_cents != null ? <View style={styles.metaChip}><Text style={styles.metaChipText}>Estimate {euro(listing.estimated_value_cents)}</Text></View> : null}
                 {listing.image_urls.length > 1 ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{listing.image_urls.length} photos</Text></View> : null}
-                {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>Interested</Text></View> : null}
+                {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{buyerConversation ? 'Conversation' : 'Interested'}</Text></View> : null}
               </View>
-              <View style={styles.cardFooter}><Text style={styles.footerLabel}>{listing.public_location ?? 'Location not shared'}</Text><Text style={styles.footerPrivacy}>Private seller ›</Text></View>
+              <View style={styles.cardFooter}><Text style={styles.footerLabel}>{listing.public_location ?? 'Location not shared'}</Text><Text style={styles.footerPrivacy}>{buyerConversation ? 'Open messages ›' : 'Private seller ›'}</Text></View>
             </TouchableOpacity>
           );
         })}
@@ -213,43 +290,47 @@ const styles = StyleSheet.create({
   detailGallery: { gap: 10, paddingRight: 4 },
   detailImage: { width: 280, height: 220, borderRadius: 20, backgroundColor: '#EEF0F3' },
   ownerCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 9, borderWidth: 1, borderColor: '#B7E4C7' },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  pill: { backgroundColor: '#F0F2F5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  pillText: { fontSize: 11, fontWeight: '800', color: '#475467' },
-  ownerPill: { backgroundColor: '#ECFDF3', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  ownerPillText: { fontSize: 11, fontWeight: '800', color: '#027A48' },
-  pillDark: { backgroundColor: '#263247', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  pillDarkText: { fontSize: 11, fontWeight: '800', color: '#E7EBF0' },
-  ask: { fontSize: 25, fontWeight: '800', color: '#0F1728' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  pill: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 6 },
+  pillText: { color: '#3448A5', fontSize: 10, fontWeight: '800' },
+  pillDark: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#243046', paddingHorizontal: 10, paddingVertical: 6 },
+  pillDarkText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  ownerPill: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 6 },
+  ownerPillText: { color: '#166534', fontSize: 10, fontWeight: '800' },
+  ask: { fontSize: 22, fontWeight: '800', color: '#0F1728' },
   itemTitle: { fontSize: 21, lineHeight: 27, fontWeight: '800', color: '#0F1728' },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  metaChip: { borderRadius: 999, backgroundColor: '#F8F9FB', paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: '#EEF0F3' },
-  metaChipText: { fontSize: 11, fontWeight: '700', color: '#667085', textTransform: 'capitalize' },
-  interestedChip: { borderRadius: 999, backgroundColor: '#ECFDF3', paddingHorizontal: 9, paddingVertical: 5 },
-  interestedChipText: { fontSize: 11, fontWeight: '800', color: '#027A48' },
-  cardFooter: { paddingTop: 10, borderTopWidth: 1, borderTopColor: '#EEF0F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  footerLabel: { fontSize: 12, color: '#7A8494' },
-  footerPrivacy: { fontSize: 11, fontWeight: '700', color: '#027A48' },
-  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 12, borderWidth: 1, borderColor: '#E5E8ED' },
+  metaChip: { borderRadius: 999, backgroundColor: '#F2F4F7', paddingHorizontal: 9, paddingVertical: 5 },
+  metaChipText: { fontSize: 10, fontWeight: '700', color: '#667085' },
+  interestedChip: { borderRadius: 999, backgroundColor: '#E8F5EE', paddingHorizontal: 9, paddingVertical: 5 },
+  interestedChipText: { fontSize: 10, fontWeight: '800', color: '#26734D' },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF0F3', paddingTop: 11 },
+  footerLabel: { fontSize: 11, color: '#667085' },
+  footerPrivacy: { fontSize: 11, fontWeight: '800', color: '#344054' },
+  detailCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 13, borderWidth: 1, borderColor: '#E5E8ED' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  detailKey: { flex: 1, fontSize: 13, color: '#667085' },
+  detailValue: { flexShrink: 1, fontSize: 14, fontWeight: '800', color: '#0F1728', textAlign: 'right' },
+  divider: { height: 1, backgroundColor: '#EEF0F3' },
   interestCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 11, borderWidth: 1, borderColor: '#E5E8ED' },
   interestTitle: { fontSize: 21, lineHeight: 27, fontWeight: '800', color: '#0F1728' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 20 },
-  detailKey: { fontSize: 14, color: '#7A8494' },
-  detailValue: { flex: 1, fontSize: 14, fontWeight: '800', color: '#0F1728', textAlign: 'right', textTransform: 'capitalize' },
-  divider: { height: 1, backgroundColor: '#EEF0F3' },
-  primaryButton: { minHeight: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  feedback: { fontSize: 12, lineHeight: 18, fontWeight: '700', color: '#344054' },
+  primaryButton: { backgroundColor: '#0F1728', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  secondaryButton: { borderRadius: 16, borderWidth: 1, borderColor: '#D0D5DD', paddingVertical: 12, alignItems: 'center' },
+  secondaryButtonText: { color: '#475467', fontSize: 13, fontWeight: '800' },
   disabled: { opacity: 0.45 },
-  loadingCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 24, gap: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E8ED' },
-  emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 24, gap: 8, borderWidth: 1, borderColor: '#E5E8ED' },
+  feedback: { fontSize: 12, lineHeight: 18, color: '#26734D' },
+  loadingCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, gap: 10, alignItems: 'center' },
+  errorCard: { backgroundColor: '#FEF3F2', borderRadius: 20, padding: 18, gap: 5 },
+  errorTitle: { fontSize: 15, fontWeight: '800', color: '#B42318' },
+  errorText: { fontSize: 12, lineHeight: 18, color: '#B42318' },
+  warningCard: { backgroundColor: '#FFF7ED', borderRadius: 18, padding: 15, gap: 5 },
+  warningTitle: { fontSize: 14, fontWeight: '800', color: '#9A3412' },
+  warningText: { fontSize: 12, lineHeight: 18, color: '#9A3412' },
+  emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, gap: 6, borderWidth: 1, borderColor: '#E5E8ED' },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
-  errorCard: { backgroundColor: '#FFF8F7', borderRadius: 18, padding: 16, gap: 6, borderWidth: 1, borderColor: '#FECDCA' },
-  errorTitle: { fontSize: 16, fontWeight: '800', color: '#B42318' },
-  errorText: { fontSize: 13, lineHeight: 19, color: '#B42318' },
-  warningCard: { backgroundColor: '#FFFAEB', borderRadius: 18, padding: 16, gap: 7, borderWidth: 1, borderColor: '#FEDF89' },
-  warningTitle: { fontSize: 15, fontWeight: '800', color: '#93370D' },
-  warningText: { fontSize: 12, lineHeight: 18, color: '#7A2E0E' },
-  retryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingHorizontal: 4 },
-  retryLink: { fontSize: 12, fontWeight: '800', color: '#B54708' },
+  messageRow: { marginTop: 4, padding: 13, borderRadius: 15, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E5E8ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  messageRowTitle: { fontSize: 13, fontWeight: '800', color: '#0F1728' },
+  messageRowMeta: { marginTop: 3, fontSize: 10, color: '#7A8494' },
+  messageRowAction: { fontSize: 12, fontWeight: '800', color: '#344054' },
 });

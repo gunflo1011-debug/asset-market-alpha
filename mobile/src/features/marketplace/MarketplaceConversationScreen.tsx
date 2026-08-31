@@ -9,6 +9,8 @@ type Props = {
   onBack: () => void;
 };
 
+const QUICK_MESSAGE = 'Hi, is this still available?';
+
 export function MarketplaceConversationScreen({ conversation, title, onBack }: Props) {
   const [messages, setMessages] = useState<MarketplaceMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -59,19 +61,32 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>{conversation.role === 'BUYER' ? 'BUYER CONVERSATION' : 'SELLER CONVERSATION'}</Text>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.copy}>Listing-bound private chat. Account identities and private inventory details are not exposed here.</Text>
+          <Text style={styles.heroCopy}>Listing-bound private chat. Account identities and private inventory details are not exposed here.</Text>
           <View style={styles.statusPill}><Text style={styles.statusText}>{conversation.status}</Text></View>
         </View>
 
         <ScrollView style={styles.messageList} contentContainerStyle={styles.messageContent}>
           {loading && messages.length === 0 ? <ActivityIndicator /> : null}
-          {!loading && messages.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No messages yet</Text><Text style={styles.copy}>Start with a simple question about this listing.</Text></View> : null}
-          {messages.map((message) => (
-            <View key={message.message_id} style={[styles.bubble, message.sender_role === 'ME' ? styles.mine : styles.theirs]}>
-              <Text style={styles.messageBody}>{message.body}</Text>
-              <Text style={styles.time}>{new Date(message.created_at).toLocaleString()}</Text>
+          {!loading && messages.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>No messages yet</Text>
+              <Text style={styles.copy}>Start with a simple question about this listing.</Text>
+              {conversation.role === 'BUYER' && !closed ? (
+                <TouchableOpacity style={styles.quickAction} onPress={() => setDraft(QUICK_MESSAGE)}>
+                  <Text style={styles.quickActionText}>Use “Is this still available?”</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          ))}
+          ) : null}
+          {messages.map((message) => {
+            const mine = message.sender_role === 'ME';
+            return (
+              <View key={message.message_id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
+                <Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text>
+                <Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.created_at).toLocaleString()}</Text>
+              </View>
+            );
+          })}
         </ScrollView>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -87,6 +102,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
               maxLength={1200}
               style={styles.input}
             />
+            <Text style={styles.counter}>{draft.length}/1200</Text>
             <TouchableOpacity disabled={sending || !draft.trim()} style={[styles.sendButton, (sending || !draft.trim()) && styles.disabled]} onPress={() => void send()}>
               <Text style={styles.sendText}>{sending ? 'Sending…' : 'Send'}</Text>
             </TouchableOpacity>
@@ -106,20 +122,26 @@ const styles = StyleSheet.create({
   hero: { backgroundColor: '#0F1728', borderRadius: 24, padding: 20, gap: 8 },
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, color: '#98A2B3' },
   title: { fontSize: 24, lineHeight: 30, fontWeight: '800', color: '#FFFFFF' },
+  heroCopy: { fontSize: 13, lineHeight: 19, color: '#C5CBD4' },
   copy: { fontSize: 13, lineHeight: 19, color: '#7A8494' },
   statusPill: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#243046', paddingHorizontal: 10, paddingVertical: 6 },
   statusText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   messageList: { flex: 1 },
   messageContent: { gap: 10, paddingVertical: 4 },
-  empty: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, gap: 5, borderWidth: 1, borderColor: '#E5E8ED' },
+  empty: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, gap: 8, borderWidth: 1, borderColor: '#E5E8ED' },
   emptyTitle: { fontSize: 16, fontWeight: '800', color: '#0F1728' },
+  quickAction: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 8, marginTop: 2 },
+  quickActionText: { fontSize: 12, fontWeight: '800', color: '#3448A5' },
   bubble: { maxWidth: '84%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, gap: 5 },
   mine: { alignSelf: 'flex-end', backgroundColor: '#0F1728' },
   theirs: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8ED' },
-  messageBody: { fontSize: 14, lineHeight: 20, color: '#667085' },
+  messageBody: { fontSize: 14, lineHeight: 20, color: '#475467' },
+  mineMessageBody: { color: '#FFFFFF' },
   time: { fontSize: 10, color: '#98A2B3' },
-  composer: { gap: 10 },
+  mineTime: { color: '#C5CBD4' },
+  composer: { gap: 8 },
   input: { minHeight: 58, maxHeight: 120, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#D0D5DD', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#0F1728' },
+  counter: { alignSelf: 'flex-end', fontSize: 10, color: '#98A2B3' },
   sendButton: { backgroundColor: '#0F1728', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   sendText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
   disabled: { opacity: 0.45 },
