@@ -22,6 +22,7 @@ const marketplaceImageDeliveryName = '20260830153000_marketplace_image_delivery_
 const coarseLocationName = '20260830193000_marketplace_coarse_location_v1.sql';
 const coarseLocationHardeningName = '20260831102500_harden_marketplace_coarse_location_v2.sql';
 const marketValueName = '20260831154000_market_value_median_v1.sql';
+const structuredGtinName = '20260831214500_structured_gtin_identity_v1.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -41,6 +42,7 @@ const marketplaceImageDeliveryMigration = read(`supabase/migrations/${marketplac
 const coarseLocationMigration = read(`supabase/migrations/${coarseLocationName}`);
 const coarseLocationHardeningMigration = read(`supabase/migrations/${coarseLocationHardeningName}`);
 const marketValueMigration = read(`supabase/migrations/${marketValueName}`);
+const structuredGtinMigration = read(`supabase/migrations/${structuredGtinName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -49,8 +51,8 @@ const inventory = [
   read('mobile/src/data/itemImages.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), marketValueName, 'release gate knows only reviewed migrations through Marketplace median market value v1; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName, marketValueName];
+assert.equal(migrationFiles.at(-1), structuredGtinName, 'release gate knows only reviewed migrations through private structured GTIN identity v1; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName, marketValueName, structuredGtinName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -178,6 +180,24 @@ const marketValueReturn = marketValueMigration.match(/returns table\(([\s\S]*?)\
 assert.ok(marketValueReturn, 'market value return contract missing');
 assert.doesNotMatch(marketValueReturn, /\b(?:seller_id|owner_id|email|notes|location|address)\b/i, 'market value aggregate must not expose seller identity or private metadata');
 
+assert.match(structuredGtinMigration, /create table if not exists private\.item_product_identifiers/i);
+assert.match(structuredGtinMigration, /alter table private\.item_product_identifiers enable row level security/i);
+assert.match(structuredGtinMigration, /revoke all on table private\.item_product_identifiers from public, anon, authenticated/i);
+assert.match(structuredGtinMigration, /constraint item_product_identifiers_gtin_format check/i);
+assert.match(structuredGtinMigration, /create or replace function public\.set_my_item_gtin_v1/i);
+assert.match(structuredGtinMigration, /security definer[\s\S]*set search_path = ''/i);
+assert.match(structuredGtinMigration, /where i\.id = p_item_id and i\.owner_id = v_owner/i);
+assert.match(structuredGtinMigration, /raise exception 'ITEM_NOT_OWNED'/i);
+assert.match(structuredGtinMigration, /revoke all on function public\.set_my_item_gtin_v1\(uuid, text, text\) from public, anon/i);
+assert.match(structuredGtinMigration, /grant execute on function public\.set_my_item_gtin_v1\(uuid, text, text\) to authenticated/i);
+assert.match(structuredGtinMigration, /from private\.item_product_identifiers pi[\s\S]*pi\.confirmed_by_user = true/i);
+assert.match(structuredGtinMigration, /i\.variant_id is null and pi\.gtin = v_gtin/i);
+assert.match(structuredGtinMigration, /percentile_disc\(0\.5\)/i);
+assert.match(structuredGtinMigration, /v_count >= 3/i);
+assert.match(structuredGtinMigration, /distinct on \(l\.seller_id\)/i);
+assert.match(structuredGtinMigration, /l\.seller_id <> v_owner/i);
+assert.doesNotMatch(structuredGtinMigration.match(/returns table\(([\s\S]*?)\)\s*language plpgsql/i)?.[1] ?? '', /\b(?:gtin|seller_id|owner_id|email|notes|location|address)\b/i, 'market value RPC must not expose GTIN, seller identity, or private metadata');
+
 for (const marker of [
   'load_my_inventory_market_states',
   'load_my_inventory_values',
@@ -202,4 +222,4 @@ for (const marker of [
   'SOLD',
 ]) assert.match(inventory, new RegExp(marker, 'i'), `mobile inventory missing ${marker}`);
 
-console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, coarse Marketplace location privacy hardening, and Marketplace median market value release gate: OK');
+console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, coarse Marketplace location privacy hardening, Marketplace median market value, and private structured GTIN identity release gate: OK');
