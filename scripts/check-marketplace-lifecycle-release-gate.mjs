@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
-const path = 'supabase/migrations/20260831024500_marketplace_reserve_sold_v1.sql';
+const path = 'supabase/migrations/20260830192500_marketplace_reserve_sold_v1.sql';
 const sql = fs.readFileSync(path, 'utf8');
 
 const block = sql.match(/create or replace function public\.set_my_marketplace_conversation_status[\s\S]*?\$\$;/i)?.[0] ?? '';
