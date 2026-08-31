@@ -20,6 +20,8 @@ jobs:
         run: node scripts/check-owner-market-state-release-gate.mjs
       - name: Verify Marketplace conversation privacy contract
         run: node scripts/check-marketplace-conversation-release-gate.mjs
+      - name: Verify Marketplace reserve/sold lifecycle contract
+        run: node scripts/check-marketplace-lifecycle-release-gate.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: 2.115.0

@@ -7,6 +7,7 @@ export {
   openMyMarketplaceConversation,
   saveMyMarketplaceListing,
   sendMyMarketplaceMessage,
+  setMyMarketplaceConversationStatus,
   setMyMarketplaceInterest,
   withdrawMyMarketplaceListing,
   updatePrivateDevice,

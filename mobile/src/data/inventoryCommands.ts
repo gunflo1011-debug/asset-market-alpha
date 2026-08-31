@@ -1,7 +1,7 @@
 import { trackAlphaEvent } from './analytics';
 import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
-import type { AddPrivateDeviceInput, ConditionInput, MarketplaceInterestStatus, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
+import type { AddPrivateDeviceInput, ConditionInput, MarketplaceConversationStatus, MarketplaceInterestStatus, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
 export async function addPrivateThing(input: PrivateThingInput): Promise<string> {
   const { data, error } = await requireSupabase().rpc('add_private_thing', thingArgs(input));
@@ -82,6 +82,16 @@ export async function sendMyMarketplaceMessage(conversationId: string, body: str
   });
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Message command returned no message id.');
+  return data;
+}
+
+export async function setMyMarketplaceConversationStatus(conversationId: string, status: 'RESERVED' | 'SOLD'): Promise<MarketplaceConversationStatus> {
+  const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status', {
+    p_conversation_id: conversationId,
+    p_status: status,
+  });
+  if (error) throw error;
+  if (data !== 'RESERVED' && data !== 'SOLD') throw new Error('Conversation lifecycle command returned an invalid state.');
   return data;
 }
 

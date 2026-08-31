@@ -38,6 +38,10 @@ export function MarketplaceScreen({ onBack }: Props) {
   const ownerListingIds = useMemo(() => new Set(myListings.filter((row) => row.status === 'PUBLISHED').map((row) => row.item_id)), [myListings]);
   const publishedMine = useMemo(() => myListings.filter((row) => row.status === 'PUBLISHED'), [myListings]);
   const browseListings = useMemo(() => listings.filter((row) => !ownerListingIds.has(row.item_id)), [listings, ownerListingIds]);
+  const transactionConversations = useMemo(
+    () => conversations.filter((row) => row.status === 'RESERVED' || row.status === 'SOLD' || row.status === 'CLOSED'),
+    [conversations],
+  );
   const conversationsByItem = useMemo(() => {
     const map = new Map<string, MarketplaceConversation[]>();
     for (const conversation of conversations) {
@@ -210,6 +214,17 @@ export function MarketplaceScreen({ onBack }: Props) {
         {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
         {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
         {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
+
+        {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
+        {transactionConversations.map((conversation) => (
+          <TouchableOpacity key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+            <View>
+              <Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text>
+              <Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text>
+            </View>
+            <Text style={styles.messageRowAction}>Open ›</Text>
+          </TouchableOpacity>
+        ))}
 
         {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
         {publishedMine.map((ownerListing) => {
