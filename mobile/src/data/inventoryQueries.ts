@@ -3,6 +3,12 @@ import { loadMarketplaceImageRefs } from './itemImages';
 import { requireSupabase } from './supabaseClient';
 import type { CatalogVariant, InventoryMarketState, InventoryValueEvidence, MarketplaceConversation, MarketplaceInterest, MarketplaceInterestSummary, MarketplaceListing, MarketplaceMessage, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
 
+export type MarketValueInsight = {
+  marketValueCents: number | null;
+  sampleCount: number;
+  source: 'SOLD_MEDIAN' | 'ACTIVE_MEDIAN' | 'INSUFFICIENT_DATA';
+};
+
 export async function loadCatalog(): Promise<CatalogVariant[]> {
   const { data, error } = await requireSupabase().from('product_variants').select('id, storage_gb, region, products(brand, family)').order('storage_gb', { ascending: true });
   if (error) throw error;
@@ -78,6 +84,20 @@ export async function loadMarketplace(): Promise<MarketplaceListing[]> {
       image_urls: imageUrls.get(itemId) ?? [],
     };
   });
+}
+
+export async function loadMarketValueForMyItem(itemId: string): Promise<MarketValueInsight> {
+  const { data, error } = await requireSupabase().rpc('load_my_market_value_v1', { p_item_id: itemId });
+  if (error) throw error;
+  const row = ((data ?? []) as Array<Record<string, unknown>>)[0];
+  if (!row) return { marketValueCents: null, sampleCount: 0, source: 'INSUFFICIENT_DATA' };
+  const source = row.source === 'SOLD_MEDIAN' || row.source === 'ACTIVE_MEDIAN' ? row.source : 'INSUFFICIENT_DATA';
+  const marketValueCents = row.market_value_cents == null ? null : Number(row.market_value_cents);
+  return {
+    marketValueCents: Number.isFinite(marketValueCents) ? marketValueCents : null,
+    sampleCount: Math.max(0, Number(row.sample_count ?? 0) || 0),
+    source,
+  };
 }
 
 export async function loadMyMarketplaceInterests(): Promise<MarketplaceInterest[]> {
