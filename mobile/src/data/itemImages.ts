@@ -110,11 +110,12 @@ export async function syncMyMarketplaceImageProjections(itemId: string): Promise
     const contentType = normalizeImageMime(response.headers.get('content-type'));
     const path = `${itemId}/${image.id}`;
 
-    const { error: removeError } = await client.storage.from('marketplace-images').remove([path]);
-    if (removeError) throw removeError;
+    // Marketplace image paths are deterministic so the same selected photo can be
+    // republished safely. Upsert avoids the delete-then-upload race that can return
+    // "The resource already exists" while preserving the existing owner-only RLS.
     const { error: uploadError } = await client.storage.from('marketplace-images').upload(path, bytes, {
       contentType,
-      upsert: false,
+      upsert: true,
     });
     if (uploadError) throw uploadError;
   }
