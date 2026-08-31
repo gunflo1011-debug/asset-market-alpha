@@ -31,14 +31,20 @@ if (!/const\s+saleOpen\s*=\s*props\.saleIntentItemId\s*===\s*selectedItem\.id/.t
 if (!/onPress=\{\(\)\s*=>\s*props\.onToggleSaleIntent\(selectedItem\.id\)\}/.test(screen)) {
   throw new Error('Selected-item detail must require an explicit owner action to toggle selling.');
 }
-if (!listingPanel.includes('Seller asking price (€)') || !listingPanel.includes('Reference only · never auto-published')) {
-  throw new Error('Authenticated sell convergence must keep seller asking price explicit and Things Estimate reference-only.');
+if (!listingPanel.includes("published ? 'New marketplace price (€)' : 'Seller asking price (€)'") || !listingPanel.includes('reference only · never auto-published')) {
+  throw new Error('Authenticated sell convergence must keep seller asking price explicit and personal estimate reference-only.');
+}
+if (!listingPanel.includes('THINGS MARKET VALUE') || !listingPanel.includes('Use price') || !listingPanel.includes('setPrice(String(suggestedMarketPrice / 100))')) {
+  throw new Error('Authenticated sell convergence must keep Market Value as an explicit seller-controlled suggestion.');
+}
+if (!listingPanel.includes('Market Value and Personal Estimate are references only and are never copied into the listing automatically.')) {
+  throw new Error('Authenticated sell convergence must not auto-copy market guidance into seller asking price.');
 }
 if (!listingPanel.includes('BUYERS CURRENTLY SEE') || !listingPanel.includes('listing?.asking_price_cents ?? null')) {
   throw new Error('Authenticated sell convergence must render the persisted buyer-visible Marketplace price separately.');
 }
 if (!listingPanel.includes("const [price, setPrice] = useState('')")) {
-  throw new Error('Authenticated sell convergence must not inherit Things Estimate into seller asking price.');
+  throw new Error('Authenticated sell convergence must not inherit any estimate or market suggestion into seller asking price.');
 }
 if (!listingPanel.includes('Nothing becomes visible to other users until you explicitly publish.')) {
   throw new Error('Marketplace convergence must preserve explicit owner consent before visibility.');
