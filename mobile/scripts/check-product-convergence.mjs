@@ -52,14 +52,23 @@ if (!marketplaceScreen.includes('loadMyMarketplaceConversations') || !marketplac
 if (!marketplaceScreen.includes("row.role === 'SELLER'") || !marketplaceScreen.includes('Reply ›')) {
   throw new Error('Seller listing surfaces must expose participant-safe reply entry points.');
 }
+if (!marketplaceScreen.includes('Your transactions') || !marketplaceScreen.includes("row.status === 'RESERVED'") || !marketplaceScreen.includes("row.status === 'SOLD'")) {
+  throw new Error('Reserved/sold Marketplace conversations must remain reachable after public listing withdrawal.');
+}
 if (!conversationScreen.includes('loadMyMarketplaceMessages') || !conversationScreen.includes('sendMyMarketplaceMessage')) {
   throw new Error('Conversation surface must load and send through authenticated Marketplace message RPCs.');
 }
 if (!conversationScreen.includes('Account identities and private inventory details are not exposed here.')) {
   throw new Error('Conversation surface must retain explicit privacy semantics.');
 }
-if (!conversationScreen.includes("conversation.status === 'SOLD'") || !conversationScreen.includes("conversation.status === 'CLOSED'")) {
+if (!conversationScreen.includes("status === 'SOLD'") || !conversationScreen.includes("status === 'CLOSED'")) {
   throw new Error('Conversation UI must disable messaging for sold/closed listing conversations.');
+}
+if (!conversationScreen.includes('Reserve for this buyer') || !conversationScreen.includes('Mark as sold') || !conversationScreen.includes("conversation.role === 'SELLER'")) {
+  throw new Error('Marketplace lifecycle controls must be explicit seller actions in the listing-bound conversation.');
+}
+if (!conversationScreen.includes('No payment or purchase happens automatically.')) {
+  throw new Error('Reservation UI must explicitly avoid implying an automatic payment or purchase.');
 }
 if (!/function\s+toggleSaleIntent\(itemId:\s*string\)[\s\S]*setSaleIntentItemId/s.test(app)) {
   throw new Error('App shell must own the selected sale-intent state transition.');
@@ -90,8 +99,8 @@ if (!hasListingWrite || !hasMarketplaceRead) {
 if (compactInventory.includes("rpc('save_my_marketplace_listing_v2'") && !compactInventory.includes('p_public_location:publicLocation?.trim()||null')) {
   throw new Error('Marketplace v2 listing writes must send only the explicit seller-entered public location.');
 }
-for (const rpc of ['open_my_marketplace_conversation', 'load_my_marketplace_conversations', 'load_my_marketplace_messages', 'send_my_marketplace_message']) {
-  if (!compactInventory.includes(`rpc('${rpc}'`)) throw new Error(`Missing Marketplace conversation RPC wiring: ${rpc}`);
+for (const rpc of ['open_my_marketplace_conversation', 'load_my_marketplace_conversations', 'load_my_marketplace_messages', 'send_my_marketplace_message', 'set_my_marketplace_conversation_status']) {
+  if (!compactInventory.includes(`rpc('${rpc}'`)) throw new Error(`Missing Marketplace conversation/lifecycle RPC wiring: ${rpc}`);
 }
 
 const fullFailClosedOnRpcError = /if\s*\(\s*marketStateResult\.error\s*\)\s*throw\b/s;
@@ -113,4 +122,4 @@ if (/buildSaleStartSurface\([^,]+,\s*0\)/.test(screen)) {
   throw new Error('Unknown value must never be converted to a zero-price estimate.');
 }
 
-console.log('authenticated ownership/value/sell/conversation convergence regression passed');
+console.log('authenticated ownership/value/sell/conversation/lifecycle convergence regression passed');
