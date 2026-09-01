@@ -83,6 +83,12 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <Text style={styles.title}>Get a first euro estimate</Text>
         <Text style={styles.copy}>Tell Things what you paid, when you bought it, and its condition. This is a transparent model estimate — not a verified market comparison.</Text>
 
+        <View style={styles.priceBoundaryCard}>
+          <Text style={styles.priceBoundaryLabel}>PRIVATE REFERENCE ONLY</Text>
+          <Text style={styles.priceBoundaryTitle}>Estimate and selling price stay separate</Text>
+          <Text style={styles.priceBoundaryCopy}>Updating this estimate never changes your seller Asking Price or a published Marketplace price. You choose the asking price separately when you list the Thing.</Text>
+        </View>
+
         {estimating ? (
           <View style={[styles.stateCard, styles.stateCardActive]}>
             <Text style={styles.stateLabel}>ESTIMATING NOW</Text>
@@ -118,7 +124,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <TouchableOpacity disabled={disabled} style={[styles.button, disabled && styles.buttonDisabled]} onPress={() => void runEstimate()}>
           <Text style={styles.buttonText}>{estimating ? 'Estimating…' : 'Estimate current value'}</Text>
         </TouchableOpacity>
-        {status ? <Text style={styles.status}>{status}</Text> : null}
+        {status ? <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text> : null}
         <Text style={styles.disclaimer}>Purchase price unknown? Skip this for now. Unknown value stays unknown and is never treated as €0.</Text>
       </View>
     </>
@@ -130,6 +136,10 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: '#667085' },
   title: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: '#101828' },
   copy: { fontSize: 14, lineHeight: 20, color: '#667085', marginBottom: 4 },
+  priceBoundaryCard: { borderRadius: 14, padding: 13, gap: 4, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBE6C7' },
+  priceBoundaryLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#477454' },
+  priceBoundaryTitle: { fontSize: 14, lineHeight: 19, fontWeight: '800', color: '#173D22' },
+  priceBoundaryCopy: { fontSize: 12, lineHeight: 18, color: '#477454' },
   stateCard: { borderRadius: 14, padding: 13, gap: 4, backgroundColor: '#F8F9FB', borderWidth: 1, borderColor: '#E4E7EC' },
   stateCardActive: { backgroundColor: '#EEF4FF', borderColor: '#C7D7FE' },
   stateLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#667085' },
