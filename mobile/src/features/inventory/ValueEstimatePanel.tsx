@@ -62,6 +62,20 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <Text style={styles.title}>Get a first euro estimate</Text>
         <Text style={styles.copy}>Tell Things what you paid, when you bought it, and its condition. This is a transparent model estimate — not a verified market comparison.</Text>
 
+        {estimating ? (
+          <View style={[styles.stateCard, styles.stateCardActive]}>
+            <Text style={styles.stateLabel}>ESTIMATING NOW</Text>
+            <Text style={styles.stateTitle}>Calculating your Things Estimate…</Text>
+            <Text style={styles.stateCopy}>Your Thing is already saved. This only updates its private reference value.</Text>
+          </View>
+        ) : !status ? (
+          <View style={styles.stateCard}>
+            <Text style={styles.stateLabel}>ESTIMATE PENDING</Text>
+            <Text style={styles.stateTitle}>No estimate has been calculated yet</Text>
+            <Text style={styles.stateCopy}>Nothing has failed. Add the purchase details below whenever you are ready; until then the value stays unknown rather than being treated as €0.</Text>
+          </View>
+        ) : null}
+
         <Text style={styles.label}>Purchase price (€)</Text>
         <TextInput value={purchasePrice} onChangeText={setPurchasePrice} keyboardType="decimal-pad" placeholder="e.g. 1200" style={styles.input} />
 
@@ -95,6 +109,11 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: '#667085' },
   title: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: '#101828' },
   copy: { fontSize: 14, lineHeight: 20, color: '#667085', marginBottom: 4 },
+  stateCard: { borderRadius: 14, padding: 13, gap: 4, backgroundColor: '#F8F9FB', borderWidth: 1, borderColor: '#E4E7EC' },
+  stateCardActive: { backgroundColor: '#EEF4FF', borderColor: '#C7D7FE' },
+  stateLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#667085' },
+  stateTitle: { fontSize: 14, lineHeight: 19, fontWeight: '800', color: '#101828' },
+  stateCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
   label: { fontSize: 14, fontWeight: '700', color: '#344054', marginTop: 4 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 14, paddingHorizontal: 14, fontSize: 16, fontWeight: '600', color: '#101828', backgroundColor: '#FFFFFF' },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
