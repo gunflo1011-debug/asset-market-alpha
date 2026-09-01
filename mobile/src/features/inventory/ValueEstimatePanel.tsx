@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { estimatePrivateItemValue } from '../../data/inventory';
+import { estimatePrivateItemValue, loadPrivateInventory } from '../../data/inventory';
 import { ItemImagesPanel } from './ItemImagesPanel';
 import type { ValuationConditionGrade } from './types';
 
@@ -23,6 +23,26 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   const [conditionGrade, setConditionGrade] = useState<ValuationConditionGrade>('GOOD');
   const [estimating, setEstimating] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [persistedEstimateState, setPersistedEstimateState] = useState<'loading' | 'present' | 'missing'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    setPersistedEstimateState('loading');
+
+    void loadPrivateInventory()
+      .then((items) => {
+        if (cancelled) return;
+        const item = items.find((candidate) => candidate.id === itemId);
+        setPersistedEstimateState(item?.value_evidence ? 'present' : 'missing');
+      })
+      .catch(() => {
+        if (!cancelled) setPersistedEstimateState('loading');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId]);
 
   const parsed = useMemo(() => {
     const normalized = purchasePrice.replace(',', '.').trim();
@@ -45,6 +65,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         purchaseYear: parsed.year,
         conditionGrade,
       });
+      setPersistedEstimateState('present');
       await onEstimated();
       setStatus(`Things estimate updated: ${(cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}`);
     } catch (error) {
@@ -68,7 +89,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
             <Text style={styles.stateTitle}>Calculating your Things Estimate…</Text>
             <Text style={styles.stateCopy}>Your Thing is already saved. This only updates its private reference value.</Text>
           </View>
-        ) : !status ? (
+        ) : persistedEstimateState === 'missing' && !status ? (
           <View style={styles.stateCard}>
             <Text style={styles.stateLabel}>ESTIMATE PENDING</Text>
             <Text style={styles.stateTitle}>No estimate has been calculated yet</Text>
