@@ -68,6 +68,14 @@ function matchesInventoryFilter(item: PrivateInventoryItem, filter: InventoryFil
   return item.market_state == null || item.market_state === 'PRIVATE';
 }
 
+function matchesInventorySearch(item: PrivateInventoryItem, query: string): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return true;
+  return [itemTitle(item), item.category, item.location_label]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+}
+
 function isSuccessfulCaptureMessage(message: string | null): boolean {
   if (!message) return false;
   return message === 'Thing added to your inventory.'
@@ -82,9 +90,11 @@ export function InventoryScreen(props: Props) {
   const [captureMode, setCaptureMode] = useState<CaptureMode>('scan');
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilter>('ALL');
+  const [inventorySearch, setInventorySearch] = useState('');
 
   const selectedItem = useMemo(() => props.items.find((item) => item.id === selectedItemId) ?? null, [props.items, selectedItemId]);
-  const visibleItems = useMemo(() => props.items.filter((item) => matchesInventoryFilter(item, inventoryFilter)), [props.items, inventoryFilter]);
+  const lifecycleItems = useMemo(() => props.items.filter((item) => matchesInventoryFilter(item, inventoryFilter)), [props.items, inventoryFilter]);
+  const visibleItems = useMemo(() => lifecycleItems.filter((item) => matchesInventorySearch(item, inventorySearch)), [lifecycleItems, inventorySearch]);
   const inventoryValue = useMemo(() => summarizeInventoryValue(props.items.map((item) => ({
     itemId: item.id,
     estimatedValueCents: item.value_evidence?.estimated_value_cents ?? null,
@@ -96,6 +106,7 @@ export function InventoryScreen(props: Props) {
     : inventoryValue.unvaluedItemCount === 0
       ? `All ${inventoryValue.totalItemCount} valued`
       : `${inventoryValue.valuedItemCount} of ${inventoryValue.totalItemCount} valued`;
+  const hasInventorySearch = inventorySearch.trim().length > 0;
 
   useEffect(() => {
     if (props.editingItemId) {
@@ -269,27 +280,41 @@ export function InventoryScreen(props: Props) {
         </View>
 
         {props.items.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {([
-              ['ALL', 'All'],
-              ['PRIVATE', 'My Things'],
-              ['FOR_SALE', 'For sale'],
-              ['RESERVED', 'Reserved'],
-            ] as Array<[InventoryFilter, string]>).map(([filter, label]) => {
-              const active = inventoryFilter === filter;
-              return (
-                <TouchableOpacity key={filter} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setInventoryFilter(filter)}>
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {([
+                ['ALL', 'All'],
+                ['PRIVATE', 'My Things'],
+                ['FOR_SALE', 'For sale'],
+                ['RESERVED', 'Reserved'],
+              ] as Array<[InventoryFilter, string]>).map(([filter, label]) => {
+                const active = inventoryFilter === filter;
+                return (
+                  <TouchableOpacity key={filter} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setInventoryFilter(filter)}>
+                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TextInput
+              accessibilityLabel="Search inventory"
+              value={inventorySearch}
+              onChangeText={setInventorySearch}
+              placeholder="Search name, category or location"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              style={styles.input}
+            />
+          </>
         ) : null}
 
         {props.inventoryLoading && props.items.length === 0 ? <ActivityIndicator /> : null}
         {props.inventoryError ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View> : null}
         {!props.inventoryLoading && !props.inventoryError && props.items.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Scan a barcode or add anything you own manually.</Text></View> : null}
-        {!props.inventoryLoading && !props.inventoryError && props.items.length > 0 && visibleItems.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing in this view</Text><Text style={styles.compactCopy}>Choose another inventory filter to see your other Things.</Text></View> : null}
+        {!props.inventoryLoading && !props.inventoryError && props.items.length > 0 && lifecycleItems.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing in this view</Text><Text style={styles.compactCopy}>Choose another inventory filter to see your other Things.</Text></View> : null}
+        {!props.inventoryLoading && !props.inventoryError && lifecycleItems.length > 0 && visibleItems.length === 0 && hasInventorySearch ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No matching Things</Text><Text style={styles.compactCopy}>Try another name, category or location, or clear the search.</Text></View> : null}
 
         {visibleItems.length > 0 ? <View style={styles.listCard}>
           {visibleItems.map((item, index) => {
