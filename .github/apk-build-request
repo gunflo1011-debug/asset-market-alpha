@@ -1,2 +1,2 @@
-2026-09-01T00:28:00+02:00
-Reason: Build a new installable Things APK from current main after fixing the device-confirmed Marketplace photo publish conflict (`The resource already exists`). The fix replaces delete-then-upload with owner-authorized upsert for deterministic Marketplace image projection paths, preserving existing private-image and owner-only storage RLS boundaries. This build is specifically for re-testing photo-selected Thing -> set asking price -> Publish -> listing appears in Marketplace.
+2026-09-01T06:46:00+02:00
+Reason: Build a new installable Things APK from current main after integrating explicit seller-confirmed final sale price, GTIN-backed Market Value display, and the earlier Marketplace image upsert publish fix. Device test target: selected Marketplace photo -> publish listing -> buyer interest/chat -> reserve -> seller enters actual final sale price -> mark sold -> buyer may adopt into My Things.
