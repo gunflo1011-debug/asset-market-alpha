@@ -24,6 +24,7 @@ const coarseLocationHardeningName = '20260831102500_harden_marketplace_coarse_lo
 const marketValueName = '20260831154000_market_value_median_v1.sql';
 const structuredGtinName = '20260831214500_structured_gtin_identity_v1.sql';
 const finalSaleName = '20260901043000_final_sale_price_v1.sql';
+const legacyLifecycleGuardName = '20260901045000_guard_legacy_marketplace_lifecycle_v1.sql';
 
 const marketStateMigration = read(`supabase/migrations/${marketStateName}`);
 const ownerCrudMigration = read(`supabase/migrations/${ownerCrudName}`);
@@ -45,6 +46,7 @@ const coarseLocationHardeningMigration = read(`supabase/migrations/${coarseLocat
 const marketValueMigration = read(`supabase/migrations/${marketValueName}`);
 const structuredGtinMigration = read(`supabase/migrations/${structuredGtinName}`);
 const finalSaleMigration = read(`supabase/migrations/${finalSaleName}`);
+const legacyLifecycleGuardMigration = read(`supabase/migrations/${legacyLifecycleGuardName}`);
 const runbook = read('supabase/OWNER_MARKET_STATE_DEPLOY.md');
 const inventory = [
   read('mobile/src/data/inventory.ts'),
@@ -53,8 +55,8 @@ const inventory = [
   read('mobile/src/data/itemImages.ts'),
 ].join('\n');
 
-assert.equal(migrationFiles.at(-1), finalSaleName, 'release gate knows only reviewed migrations through explicit final sale price v1; re-review any newer migration before release');
-const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName, marketValueName, structuredGtinName, finalSaleName];
+assert.equal(migrationFiles.at(-1), legacyLifecycleGuardName, 'release gate knows only reviewed migrations through legacy lifecycle final-price guard; re-review any newer migration before release');
+const reviewedOrder = [marketStateName, ownerCrudName, genericCrudName, itemMetadataName, valueEvidenceName, valueEstimateName, marketplaceName, interestName, metadataHardeningName, addThingHardeningName, updateThingHardeningName, deleteThingHardeningName, itemImagesName, marketplaceImageSelectionName, marketplaceImageDeliveryName, coarseLocationName, coarseLocationHardeningName, marketValueName, structuredGtinName, finalSaleName, legacyLifecycleGuardName];
 for (let i = 0; i < reviewedOrder.length; i += 1) {
   assert.ok(migrationFiles.includes(reviewedOrder[i]), `missing reviewed migration ${reviewedOrder[i]}`);
   if (i > 0) assert.ok(migrationFiles.indexOf(reviewedOrder[i - 1]) < migrationFiles.indexOf(reviewedOrder[i]), 'reviewed migration order changed');
@@ -200,6 +202,12 @@ assert.match(structuredGtinMigration, /distinct on \(l\.seller_id\)/i);
 assert.match(structuredGtinMigration, /l\.seller_id <> v_owner/i);
 assert.doesNotMatch(structuredGtinMigration.match(/returns table\(([\s\S]*?)\)\s*language plpgsql/i)?.[1] ?? '', /\b(?:gtin|seller_id|owner_id|email|notes|location|address)\b/i, 'market value RPC must not expose GTIN, seller identity, or private metadata');
 
+assert.match(legacyLifecycleGuardMigration, /create or replace function public\.set_my_marketplace_listing_lifecycle_v1/i);
+assert.match(legacyLifecycleGuardMigration, /FINAL_SALE_PRICE_REQUIRED_USE_V2/i);
+assert.match(legacyLifecycleGuardMigration, /set search_path = ''/i);
+assert.match(legacyLifecycleGuardMigration, /revoke all on function public\.set_my_marketplace_listing_lifecycle_v1\(uuid,text\) from public, anon;/i);
+assert.match(legacyLifecycleGuardMigration, /grant execute on function public\.set_my_marketplace_listing_lifecycle_v1\(uuid,text\) to authenticated;/i);
+
 assert.match(finalSaleMigration, /add column if not exists sold_price_cents bigint/i);
 assert.match(finalSaleMigration, /constraint marketplace_listings_sold_price_range/i);
 assert.match(finalSaleMigration, /create or replace function public\.set_my_marketplace_conversation_status_v2/i);
@@ -243,4 +251,4 @@ for (const marker of [
   'SOLD',
 ]) assert.match(inventory, new RegExp(marker, 'i'), `mobile inventory missing ${marker}`);
 
-console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, coarse Marketplace location privacy hardening, GTIN identity, explicit final sale price, and privacy-safe Market Value release gate: OK');
+console.log('owner, value, marketplace, interest, private Thing images, secure Marketplace image delivery, coarse Marketplace location privacy hardening, GTIN identity, explicit final sale price, legacy lifecycle final-price guard, and privacy-safe Market Value release gate: OK');
