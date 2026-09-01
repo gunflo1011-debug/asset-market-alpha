@@ -55,6 +55,8 @@ jobs:
         run: npm run test:sale-start-surface
       - name: Validate sale-start app integration regression
         run: npm run test:sale-start-app-integration
+      - name: Validate final sale price regression
+        run: npm run test:final-sale-price
       - name: Validate authenticated product convergence regression
         run: npm run test:product-convergence
       - name: Validate sold-state regression
