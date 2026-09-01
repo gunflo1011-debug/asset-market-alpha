@@ -94,8 +94,15 @@ export async function sendMyMarketplaceMessage(conversationId: string, body: str
   return data;
 }
 
-export async function setMyMarketplaceConversationStatus(conversationId: string, status: 'RESERVED' | 'SOLD'): Promise<MarketplaceConversationStatus> {
-  const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status', { p_conversation_id: conversationId, p_status: status });
+export async function setMyMarketplaceConversationStatus(conversationId: string, status: 'RESERVED' | 'SOLD', finalSalePriceCents?: number | null): Promise<MarketplaceConversationStatus> {
+  if (status === 'SOLD' && (!Number.isInteger(finalSalePriceCents) || (finalSalePriceCents ?? 0) <= 0 || (finalSalePriceCents ?? 0) > 1_000_000_000)) {
+    throw new Error('Enter a valid final sale price before marking this Thing sold.');
+  }
+  const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status_v2', {
+    p_conversation_id: conversationId,
+    p_status: status,
+    p_final_sale_price_cents: status === 'SOLD' ? finalSalePriceCents : null,
+  });
   if (error) throw error;
   if (data !== 'RESERVED' && data !== 'SOLD') throw new Error('Conversation lifecycle command returned an invalid state.');
   return data;
