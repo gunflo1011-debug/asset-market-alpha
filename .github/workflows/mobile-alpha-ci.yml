@@ -41,6 +41,8 @@ jobs:
         run: npm run test:capture-completion-surface
       - name: Validate structured GTIN persistence wiring
         run: npm run test:structured-gtin-wiring
+      - name: Validate GTIN Market Value source mapping
+        run: node scripts/check-market-value-source-mapping.mjs
       - name: Validate inventory CRUD surface regression
         run: npm run test:inventory-crud-surface
       - name: Validate inventory value regression
