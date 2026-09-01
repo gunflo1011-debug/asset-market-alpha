@@ -17,14 +17,21 @@ export async function loadCatalog(): Promise<CatalogVariant[]> {
 
 export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
   const inventoryRequest = requireSupabase().from('items').select(`id, custom_name, category, location_label, notes, color, created_at, product_variants(id, storage_gb, region, products(brand, family)), condition_snapshots(display_state, housing_state, cameras_working, biometrics_working, battery_health, network_locked, other_defect, captured_at)`).order('created_at', { ascending: false });
-  const [inventoryResult, marketStateResult, valueResult] = await Promise.all([
+  const [inventoryResult, marketStateResult, valueResult, listingResult] = await Promise.all([
     inventoryRequest,
     requireSupabase().rpc('load_my_inventory_market_states'),
     requireSupabase().rpc('load_my_inventory_values'),
+    requireSupabase().rpc('load_my_marketplace_listings_v2'),
   ]);
   if (inventoryResult.error) throw inventoryResult.error;
   const marketStates = new Map<string, InventoryMarketState>();
   if (!marketStateResult.error) for (const row of (marketStateResult.data ?? []) as Array<{ item_id: string; market_state: InventoryMarketState }>) marketStates.set(row.item_id, row.market_state);
+  // A published listing is buyer-visible truth. Treat it as FOR_SALE when the
+  // authoritative private lifecycle projection loaded successfully but has not
+  // yet caught up. Never use listing data to bypass fail-closed lifecycle reads.
+  if (!marketStateResult.error && !listingResult.error) for (const row of (listingResult.data ?? []) as Array<{ item_id: string; status: string }>) {
+    if (row.status === 'PUBLISHED' && marketStates.get(row.item_id) !== 'RESERVED' && marketStates.get(row.item_id) !== 'SOLD') marketStates.set(row.item_id, 'OFFERS_ENABLED');
+  }
   const values = new Map<string, InventoryValueEvidence>();
   if (!valueResult.error) for (const row of (valueResult.data ?? []) as Array<InventoryValueEvidence & { item_id: string }>) values.set(row.item_id, { estimated_value_cents: Number(row.estimated_value_cents), currency: row.currency, source_type: row.source_type, observed_at: row.observed_at });
   const items = (inventoryResult.data ?? []) as unknown as Array<Omit<PrivateInventoryItem, 'market_state' | 'value_evidence'>>;
