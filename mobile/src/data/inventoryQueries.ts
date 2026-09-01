@@ -91,7 +91,16 @@ export async function loadMarketValueForMyItem(itemId: string): Promise<MarketVa
   if (error) throw error;
   const row = ((data ?? []) as Array<Record<string, unknown>>)[0];
   if (!row) return { marketValueCents: null, sampleCount: 0, source: 'INSUFFICIENT_DATA' };
-  const source = row.source === 'SOLD_MEDIAN' || row.source === 'ACTIVE_MEDIAN' ? row.source : 'INSUFFICIENT_DATA';
+
+  // Backend keeps match strategy (catalog variant vs exact confirmed GTIN) in the
+  // source value, but the product surface only needs the evidence class: completed
+  // sale median vs active-listing median. Preserve that distinction instead of
+  // incorrectly downgrading GTIN-backed medians to INSUFFICIENT_DATA.
+  const source = row.source === 'SOLD_MEDIAN' || row.source === 'SOLD_GTIN_MEDIAN'
+    ? 'SOLD_MEDIAN'
+    : row.source === 'ACTIVE_MEDIAN' || row.source === 'ACTIVE_GTIN_MEDIAN'
+      ? 'ACTIVE_MEDIAN'
+      : 'INSUFFICIENT_DATA';
   const marketValueCents = row.market_value_cents == null ? null : Number(row.market_value_cents);
   return {
     marketValueCents: Number.isFinite(marketValueCents) ? marketValueCents : null,
