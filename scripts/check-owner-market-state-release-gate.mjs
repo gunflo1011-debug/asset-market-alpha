@@ -202,11 +202,11 @@ assert.match(structuredGtinMigration, /distinct on \(l\.seller_id\)/i);
 assert.match(structuredGtinMigration, /l\.seller_id <> v_owner/i);
 assert.doesNotMatch(structuredGtinMigration.match(/returns table\(([\s\S]*?)\)\s*language plpgsql/i)?.[1] ?? '', /\b(?:gtin|seller_id|owner_id|email|notes|location|address)\b/i, 'market value RPC must not expose GTIN, seller identity, or private metadata');
 
-assert.match(legacyLifecycleGuardMigration, /create or replace function public\.set_my_marketplace_listing_lifecycle_v1/i);
+assert.match(legacyLifecycleGuardMigration, /create or replace function public\.set_my_marketplace_conversation_status/i);
 assert.match(legacyLifecycleGuardMigration, /FINAL_SALE_PRICE_REQUIRED_USE_V2/i);
-assert.match(legacyLifecycleGuardMigration, /set search_path = ''/i);
-assert.match(legacyLifecycleGuardMigration, /revoke all on function public\.set_my_marketplace_listing_lifecycle_v1\(uuid,text\) from public, anon;/i);
-assert.match(legacyLifecycleGuardMigration, /grant execute on function public\.set_my_marketplace_listing_lifecycle_v1\(uuid,text\) to authenticated;/i);
+assert.match(legacyLifecycleGuardMigration, /security invoker[\s\S]*set search_path = ''/i);
+assert.match(legacyLifecycleGuardMigration, /revoke all on function public\.set_my_marketplace_conversation_status\(uuid,text\) from public, anon;/i);
+assert.match(legacyLifecycleGuardMigration, /grant execute on function public\.set_my_marketplace_conversation_status\(uuid,text\) to authenticated;/i);
 
 assert.match(finalSaleMigration, /add column if not exists sold_price_cents bigint/i);
 assert.match(finalSaleMigration, /constraint marketplace_listings_sold_price_range/i);
