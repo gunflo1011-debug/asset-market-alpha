@@ -111,7 +111,7 @@ if (!hasListingWrite || !hasMarketplaceRead) {
 if (compactInventory.includes("rpc('save_my_marketplace_listing_v2'") && !compactInventory.includes('p_public_location:publicLocation?.trim()||null')) {
   throw new Error('Marketplace v2 listing writes must send only the explicit seller-entered public location.');
 }
-for (const rpc of ['open_my_marketplace_conversation', 'load_my_marketplace_conversations', 'load_my_marketplace_messages', 'send_my_marketplace_message', 'set_my_marketplace_conversation_status']) {
+for (const rpc of ['open_my_marketplace_conversation', 'load_my_marketplace_conversations', 'load_my_marketplace_messages', 'send_my_marketplace_message', 'set_my_marketplace_conversation_status_v2']) {
   if (!compactInventory.includes(`rpc('${rpc}'`)) throw new Error(`Missing Marketplace conversation/lifecycle RPC wiring: ${rpc}`);
 }
 
