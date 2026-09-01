@@ -36,6 +36,7 @@ const allowed = new Set([
   'set_my_item_image_marketplace_visibility',
   'set_my_item_primary_image',
   'set_my_marketplace_conversation_status',
+  'set_my_marketplace_conversation_status_v2',
   'set_my_marketplace_interest',
   'track_alpha_event',
   'update_private_device',
