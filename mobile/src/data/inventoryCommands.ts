@@ -3,10 +3,31 @@ import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
 import type { AddPrivateDeviceInput, ConditionInput, MarketplaceConversationStatus, MarketplaceInterestStatus, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
+export function extractConfirmedGtinFromNotes(notes: string | null | undefined): string | null {
+  const match = notes?.match(/(?:^|\n)GTIN\/UPC:\s*(\d{8}|\d{12}|\d{13}|\d{14})(?=\n|$)/i);
+  return match?.[1] ?? null;
+}
+
 export async function addPrivateThing(input: PrivateThingInput): Promise<string> {
-  const { data, error } = await requireSupabase().rpc('add_private_thing', thingArgs(input));
+  const client = requireSupabase();
+  const { data, error } = await client.rpc('add_private_thing', thingArgs(input));
   if (error) throw error;
   if (typeof data !== 'string') throw new Error('Thing command returned no item id.');
+
+  // Scan suggestions are shown in the editable confirmation form first. Persist the
+  // structured identity only after the user confirms that form by saving the Thing.
+  // Keep the Thing save successful even if identity enrichment is temporarily
+  // unavailable, otherwise a post-save RPC failure could encourage a duplicate add.
+  const confirmedGtin = extractConfirmedGtinFromNotes(input.notes);
+  if (confirmedGtin) {
+    const { error: identityError } = await client.rpc('set_my_item_gtin_v1', {
+      p_item_id: data,
+      p_gtin: confirmedGtin,
+      p_source: 'BARCODE_SCAN',
+    });
+    if (identityError) console.warn('Thing saved, but structured GTIN enrichment is delayed.', identityError.message);
+  }
+
   return data;
 }
 
