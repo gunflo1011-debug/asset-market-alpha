@@ -17,7 +17,7 @@ jobs:
       - name: Verify owner market-state migration contract
         run: node scripts/check-owner-market-state-migration.mjs
       - name: Verify owner market-state release gate
-        run: node scripts/check-owner-market-state-release-gate.mjs
+        run: node scripts/check-owner-market-state-release-gate-v2.mjs
       - name: Verify Marketplace conversation privacy contract
         run: node scripts/check-marketplace-conversation-release-gate.mjs
       - name: Verify Marketplace reserve/sold lifecycle contract
