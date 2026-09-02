@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   loadMarketplace,
   loadMyMarketplaceConversations,
@@ -10,6 +10,7 @@ import {
 } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
+import { MARKETPLACE_DISCOVERY_ALL, filterMarketplaceListings, marketplaceDiscoveryCategories } from './marketplaceDiscovery';
 
 type Props = { onBack: () => void };
 
@@ -24,6 +25,8 @@ export function MarketplaceScreen({ onBack }: Props) {
   const [conversations, setConversations] = useState<MarketplaceConversation[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(MARKETPLACE_DISCOVERY_ALL);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +41,12 @@ export function MarketplaceScreen({ onBack }: Props) {
   const ownerListingIds = useMemo(() => new Set(myListings.filter((row) => row.status === 'PUBLISHED').map((row) => row.item_id)), [myListings]);
   const publishedMine = useMemo(() => myListings.filter((row) => row.status === 'PUBLISHED'), [myListings]);
   const browseListings = useMemo(() => listings.filter((row) => !ownerListingIds.has(row.item_id)), [listings, ownerListingIds]);
+  const discoveryCategories = useMemo(() => marketplaceDiscoveryCategories(browseListings), [browseListings]);
+  const filteredBrowseListings = useMemo(
+    () => filterMarketplaceListings(browseListings, { query: searchQuery, category: selectedCategory }),
+    [browseListings, searchQuery, selectedCategory],
+  );
+  const discoveryActive = searchQuery.trim().length > 0 || selectedCategory !== MARKETPLACE_DISCOVERY_ALL;
   const transactionConversations = useMemo(
     () => conversations.filter((row) => row.status === 'RESERVED' || row.status === 'SOLD' || row.status === 'CLOSED'),
     [conversations],
@@ -51,6 +60,11 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
     return map;
   }, [conversations]);
+
+  function resetDiscovery() {
+    setSearchQuery('');
+    setSelectedCategory(MARKETPLACE_DISCOVERY_ALL);
+  }
 
   function titleForConversation(conversation: MarketplaceConversation): string {
     return listings.find((row) => row.item_id === conversation.item_id)?.title
@@ -223,7 +237,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
           <TouchableOpacity style={styles.refreshButton} disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity>
@@ -241,6 +255,55 @@ export function MarketplaceScreen({ onBack }: Props) {
         {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
         {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
         {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
+
+        {!error && browseListings.length > 0 ? (
+          <View style={styles.discoveryCard}>
+            <View style={styles.discoveryHeader}>
+              <View style={styles.discoveryHeadingCopy}>
+                <Text style={styles.sectionTitle}>Find something</Text>
+                <Text style={styles.discoveryHint}>Search public listing details only — private inventory stays private.</Text>
+              </View>
+              {discoveryActive ? (
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.clearButton} onPress={resetDiscovery}>
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <TextInput
+              accessibilityLabel="Search Marketplace listings"
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              placeholder="Search title, category or area"
+              placeholderTextColor="#98A2B3"
+              returnKeyType="search"
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow} keyboardShouldPersistTaps="handled">
+              {[MARKETPLACE_DISCOVERY_ALL, ...discoveryCategories].map((category) => {
+                const selectedChip = selectedCategory === category;
+                const label = category === MARKETPLACE_DISCOVERY_ALL ? 'All' : category;
+                return (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedChip }}
+                    accessibilityLabel={`Filter Marketplace by ${label}`}
+                    key={category}
+                    style={[styles.categoryChip, selectedChip && styles.categoryChipSelected]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text style={[styles.categoryChipText, selectedChip && styles.categoryChipTextSelected]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <Text accessibilityLiveRegion="polite" style={styles.resultCount}>
+              {filteredBrowseListings.length} {filteredBrowseListings.length === 1 ? 'listing' : 'listings'} shown
+            </Text>
+          </View>
+        ) : null}
 
         {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
         {transactionConversations.map((conversation) => (
@@ -280,9 +343,18 @@ export function MarketplaceScreen({ onBack }: Props) {
         })}
 
         {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
-        {browseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>From other sellers</Text></View> : null}
+        {!loading && !error && browseListings.length > 0 && filteredBrowseListings.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No matching listings</Text>
+            <Text style={styles.copy}>Try a broader search or switch back to All categories.</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.secondaryButton} onPress={resetDiscovery}>
+              <Text style={styles.secondaryButtonText}>Clear search & filters</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
 
-        {browseListings.map((listing) => {
+        {filteredBrowseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
           const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
           return (
@@ -324,6 +396,19 @@ const styles = StyleSheet.create({
   heroStats: { flexDirection: 'row', alignItems: 'baseline', gap: 7, marginTop: 6 },
   heroStatValue: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
   heroStatLabel: { fontSize: 12, color: '#C5CBD4' },
+  discoveryCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 16, gap: 12, borderWidth: 1, borderColor: '#E5E8ED' },
+  discoveryHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  discoveryHeadingCopy: { flex: 1, gap: 4 },
+  discoveryHint: { fontSize: 11, lineHeight: 16, color: '#7A8494' },
+  searchInput: { minHeight: 48, borderRadius: 15, borderWidth: 1, borderColor: '#D0D5DD', backgroundColor: '#F8FAFC', paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: '#0F1728' },
+  categoryRow: { gap: 8, paddingRight: 4 },
+  categoryChip: { minHeight: 44, justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: '#E5E8ED', backgroundColor: '#FFFFFF', paddingHorizontal: 15, paddingVertical: 9 },
+  categoryChipSelected: { backgroundColor: '#0F1728', borderColor: '#0F1728' },
+  categoryChipText: { fontSize: 12, fontWeight: '800', color: '#475467' },
+  categoryChipTextSelected: { color: '#FFFFFF' },
+  clearButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10 },
+  clearButtonText: { fontSize: 12, fontWeight: '800', color: '#344054' },
+  resultCount: { fontSize: 11, fontWeight: '700', color: '#667085' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
   sectionMeta: { fontSize: 12, color: '#7A8494' },
@@ -369,7 +454,7 @@ const styles = StyleSheet.create({
   warningCard: { backgroundColor: '#FFF7ED', borderRadius: 18, padding: 15, gap: 5 },
   warningTitle: { fontSize: 14, fontWeight: '800', color: '#9A3412' },
   warningText: { fontSize: 12, lineHeight: 18, color: '#9A3412' },
-  emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, gap: 6, borderWidth: 1, borderColor: '#E5E8ED' },
+  emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: '#E5E8ED' },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
   messageRow: { marginTop: 4, padding: 13, borderRadius: 15, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E5E8ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   messageRowTitle: { fontSize: 13, fontWeight: '800', color: '#0F1728' },
