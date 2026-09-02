@@ -1,7 +1,7 @@
 import { requireSupabase } from './supabaseClient';
 import type { MarketplaceOffer, MarketplaceOfferResponseAction } from '../features/inventory/types';
 
-const MAX_OFFER_CENTS = 100_000_000_000;
+export const MAX_OFFER_CENTS = 100_000_000_000;
 const MAX_OFFER_MESSAGE_LENGTH = 500;
 
 function assertOfferAmount(amountCents: number): void {

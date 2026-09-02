@@ -5,6 +5,7 @@ export {
   deletePrivateDevice,
   deletePrivateThing,
   estimatePrivateItemValue,
+  MAX_FINAL_SALE_CENTS,
   openMyMarketplaceConversation,
   saveMyMarketplaceListing,
   sendMyMarketplaceMessage,
@@ -30,6 +31,7 @@ export {
 export {
   loadMyMarketplaceOffers,
   makeMyMarketplaceOffer,
+  MAX_OFFER_CENTS,
   respondToMyMarketplaceOffer,
 } from './marketplaceOffers';
 

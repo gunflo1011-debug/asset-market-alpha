@@ -3,6 +3,8 @@ import { requireSupabase } from './supabaseClient';
 import { conditionArgs, thingArgs } from '../features/inventory/input';
 import type { AddPrivateDeviceInput, ConditionInput, MarketplaceConversationStatus, MarketplaceInterestStatus, MarketplaceListingStatus, PrivateThingInput, ValuationInput } from '../features/inventory/types';
 
+export const MAX_FINAL_SALE_CENTS = 1_000_000_000;
+
 export function extractConfirmedGtinFromNotes(notes: string | null | undefined): string | null {
   const match = notes?.match(/(?:^|\n)GTIN\/UPC:\s*(\d{8}|\d{12}|\d{13}|\d{14})(?=\n|$)/i);
   return match?.[1] ?? null;
@@ -95,7 +97,7 @@ export async function sendMyMarketplaceMessage(conversationId: string, body: str
 }
 
 export async function setMyMarketplaceConversationStatus(conversationId: string, status: 'RESERVED' | 'SOLD', finalSalePriceCents?: number | null): Promise<MarketplaceConversationStatus> {
-  if (status === 'SOLD' && (!Number.isInteger(finalSalePriceCents) || (finalSalePriceCents ?? 0) <= 0 || (finalSalePriceCents ?? 0) > 1_000_000_000)) {
+  if (status === 'SOLD' && (!Number.isInteger(finalSalePriceCents) || (finalSalePriceCents ?? 0) <= 0 || (finalSalePriceCents ?? 0) > MAX_FINAL_SALE_CENTS)) {
     throw new Error('Enter a valid final sale price before marking this Thing sold.');
   }
   const { data, error } = await requireSupabase().rpc('set_my_marketplace_conversation_status_v2', {
