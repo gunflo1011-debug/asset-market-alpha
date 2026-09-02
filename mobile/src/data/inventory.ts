@@ -27,6 +27,12 @@ export {
   loadPrivateInventory,
 } from './inventoryQueries';
 
+export {
+  loadMyMarketplaceOffers,
+  makeMyMarketplaceOffer,
+  respondToMyMarketplaceOffer,
+} from './marketplaceOffers';
+
 export type {
   AddPrivateDeviceInput,
   CatalogVariant,
@@ -41,6 +47,10 @@ export type {
   MarketplaceListing,
   MarketplaceListingStatus,
   MarketplaceMessage,
+  MarketplaceOffer,
+  MarketplaceOfferProposerRole,
+  MarketplaceOfferResponseAction,
+  MarketplaceOfferStatus,
   OwnerMarketplaceListing,
   PrivateInventoryItem,
   PrivateThingInput,
