@@ -27,8 +27,9 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   const [conditionGrade, setConditionGrade] = useState<ValuationConditionGrade>('GOOD');
   const [estimating, setEstimating] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [persistedEstimateState, setPersistedEstimateState] = useState<'loading' | 'present' | 'missing'>('loading');
+  const [persistedEstimateState, setPersistedEstimateState] = useState<'loading' | 'present' | 'missing' | 'error'>('loading');
   const [purchasePricePrefilled, setPurchasePricePrefilled] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const purchasePriceDirtyRef = useRef(false);
 
   useEffect(() => {
@@ -50,13 +51,13 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         }
       })
       .catch(() => {
-        if (!cancelled) setPersistedEstimateState('loading');
+        if (!cancelled) setPersistedEstimateState('error');
       });
 
     return () => {
       cancelled = true;
     };
-  }, [itemId]);
+  }, [itemId, loadAttempt]);
 
   const parsed = useMemo(() => {
     const normalized = purchasePrice.replace(',', '.').trim();
@@ -104,10 +105,25 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         </View>
 
         {estimating ? (
-          <View style={[styles.stateCard, styles.stateCardActive]}>
+          <View accessibilityLiveRegion="polite" style={[styles.stateCard, styles.stateCardActive]}>
             <Text style={styles.stateLabel}>ESTIMATING NOW</Text>
             <Text style={styles.stateTitle}>Calculating your Things Estimate…</Text>
             <Text style={styles.stateCopy}>Your Thing is already saved. This only updates its private reference value.</Text>
+          </View>
+        ) : persistedEstimateState === 'loading' ? (
+          <View accessibilityLiveRegion="polite" style={[styles.stateCard, styles.stateCardActive]}>
+            <Text style={styles.stateLabel}>CHECKING ESTIMATE</Text>
+            <Text style={styles.stateTitle}>Loading your private estimate details…</Text>
+            <Text style={styles.stateCopy}>Your Thing stays available while Things checks for a saved estimate and purchase context.</Text>
+          </View>
+        ) : persistedEstimateState === 'error' ? (
+          <View accessibilityRole="alert" style={styles.stateCard}>
+            <Text style={styles.stateLabel}>ESTIMATE DETAILS UNAVAILABLE</Text>
+            <Text style={styles.stateTitle}>We couldn’t load your saved estimate details</Text>
+            <Text style={styles.stateCopy}>You can still enter the details below, or retry before estimating if you expect a saved purchase price.</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading estimate details" style={styles.retryButton} onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
+              <Text style={styles.retryButtonText}>Retry loading details</Text>
+            </TouchableOpacity>
           </View>
         ) : persistedEstimateState === 'missing' && !status ? (
           <View style={styles.stateCard}>
@@ -119,6 +135,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
 
         <Text style={styles.label}>Purchase price (€)</Text>
         <TextInput
+          accessibilityLabel="Purchase price in euros"
           value={purchasePrice}
           onChangeText={(value) => {
             purchasePriceDirtyRef.current = true;
@@ -132,21 +149,28 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         {purchasePricePrefilled ? <Text style={styles.prefillHint}>Prefilled from your completed Marketplace purchase. You can change it for this estimate.</Text> : null}
 
         <Text style={styles.label}>Purchase year</Text>
-        <TextInput value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={styles.input} />
+        <TextInput accessibilityLabel="Purchase year" value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={styles.input} />
 
         <Text style={styles.label}>Condition</Text>
-        <View style={styles.options}>
+        <View accessibilityRole="radiogroup" style={styles.options}>
           {CONDITION_OPTIONS.map((option) => {
             const active = option.grade === conditionGrade;
             return (
-              <TouchableOpacity key={option.grade} style={[styles.option, active && styles.optionActive]} onPress={() => setConditionGrade(option.grade)}>
+              <TouchableOpacity
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                accessibilityLabel={`Condition: ${option.label}`}
+                key={option.grade}
+                style={[styles.option, active && styles.optionActive]}
+                onPress={() => setConditionGrade(option.grade)}
+              >
                 <Text style={[styles.optionText, active && styles.optionTextActive]}>{option.label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <TouchableOpacity disabled={disabled} style={[styles.button, disabled && styles.buttonDisabled]} onPress={() => void runEstimate()}>
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled, busy: estimating }} disabled={disabled} style={[styles.button, disabled && styles.buttonDisabled]} onPress={() => void runEstimate()}>
           <Text style={styles.buttonText}>{estimating ? 'Estimating…' : 'Estimate current value'}</Text>
         </TouchableOpacity>
         {status ? <Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text> : null}
@@ -170,11 +194,13 @@ const styles = StyleSheet.create({
   stateLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, color: '#667085' },
   stateTitle: { fontSize: 14, lineHeight: 19, fontWeight: '800', color: '#101828' },
   stateCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
+  retryButton: { minHeight: 44, marginTop: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#D0D5DD', backgroundColor: '#FFFFFF', paddingHorizontal: 14 },
+  retryButtonText: { fontSize: 13, fontWeight: '800', color: '#344054' },
   label: { fontSize: 14, fontWeight: '700', color: '#344054', marginTop: 4 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 14, paddingHorizontal: 14, fontSize: 16, fontWeight: '600', color: '#101828', backgroundColor: '#FFFFFF' },
   prefillHint: { fontSize: 12, lineHeight: 18, color: '#667085', marginTop: -4 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#F2F4F7' },
+  option: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
   optionActive: { backgroundColor: '#101828' },
   optionText: { fontSize: 14, fontWeight: '700', color: '#475467' },
   optionTextActive: { color: '#FFFFFF' },
