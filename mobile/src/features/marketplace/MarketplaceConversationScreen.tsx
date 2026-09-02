@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
+import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage, MarketplaceOffer } from '../inventory/types';
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
@@ -10,10 +10,10 @@ function euro(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
-function parseEuroAmount(value: string): { cents: number; valid: boolean } {
+function parseEuroAmount(value: string, maxCents: number): { cents: number; valid: boolean } {
   const euros = Number(value.replace(',', '.').trim());
   const cents = Math.round(euros * 100);
-  return { cents, valid: Number.isFinite(euros) && euros > 0 && cents <= 100_000_000_000 };
+  return { cents, valid: Number.isFinite(euros) && euros > 0 && cents <= maxCents };
 }
 
 export function MarketplaceConversationScreen({ conversation, title, onBack }: Props) {
@@ -36,9 +36,9 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [status, setStatus] = useState<MarketplaceConversationStatus>(conversation.status);
   const [error, setError] = useState<string | null>(null);
 
-  const parsedFinalSalePrice = useMemo(() => parseEuroAmount(finalSalePrice), [finalSalePrice]);
-  const parsedOfferAmount = useMemo(() => parseEuroAmount(offerAmount), [offerAmount]);
-  const parsedCounterAmount = useMemo(() => parseEuroAmount(counterAmount), [counterAmount]);
+  const parsedFinalSalePrice = useMemo(() => parseEuroAmount(finalSalePrice, MAX_FINAL_SALE_CENTS), [finalSalePrice]);
+  const parsedOfferAmount = useMemo(() => parseEuroAmount(offerAmount, MAX_OFFER_CENTS), [offerAmount]);
+  const parsedCounterAmount = useMemo(() => parseEuroAmount(counterAmount, MAX_OFFER_CENTS), [counterAmount]);
   const pendingOffer = useMemo(() => offers.find((offer) => offer.status === 'PENDING') ?? null, [offers]);
   const acceptedOffer = useMemo(() => [...offers].reverse().find((offer) => offer.status === 'ACCEPTED') ?? null, [offers]);
 
