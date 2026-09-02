@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { estimatePrivateItemValue, loadPrivateInventory } from '../../data/inventory';
 import { ItemImagesPanel } from './ItemImagesPanel';
@@ -29,9 +29,11 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   const [status, setStatus] = useState<string | null>(null);
   const [persistedEstimateState, setPersistedEstimateState] = useState<'loading' | 'present' | 'missing'>('loading');
   const [purchasePricePrefilled, setPurchasePricePrefilled] = useState(false);
+  const purchasePriceDirtyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    purchasePriceDirtyRef.current = false;
     setPersistedEstimateState('loading');
     setPurchasePrice('');
     setPurchasePricePrefilled(false);
@@ -42,7 +44,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         const item = items.find((candidate) => candidate.id === itemId);
         setPersistedEstimateState(item?.value_evidence ? 'present' : 'missing');
         const paidPriceCents = item?.purchase_context?.purchase_price_cents ?? null;
-        if (paidPriceCents != null) {
+        if (paidPriceCents != null && !purchasePriceDirtyRef.current) {
           setPurchasePrice(formatPriceInput(paidPriceCents));
           setPurchasePricePrefilled(true);
         }
@@ -119,6 +121,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <TextInput
           value={purchasePrice}
           onChangeText={(value) => {
+            purchasePriceDirtyRef.current = true;
             setPurchasePrice(value);
             setPurchasePricePrefilled(false);
           }}
