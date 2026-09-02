@@ -32,6 +32,9 @@ export type MarketplaceListingStatus = 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
 export type MarketplaceInterestStatus = 'INTERESTED' | 'WITHDRAWN';
 export type MarketplaceConversationStatus = 'OPEN' | 'RESERVED' | 'SOLD' | 'CLOSED';
 export type MarketplaceConversationRole = 'BUYER' | 'SELLER';
+export type MarketplaceOfferStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'COUNTERED';
+export type MarketplaceOfferProposerRole = 'ME' | 'OTHER';
+export type MarketplaceOfferResponseAction = 'ACCEPT' | 'DECLINE' | 'COUNTER';
 
 export type OwnerMarketplaceListing = {
   item_id: string;
@@ -80,6 +83,17 @@ export type MarketplaceMessage = {
   sender_role: 'ME' | 'OTHER';
   body: string;
   created_at: string;
+};
+
+export type MarketplaceOffer = {
+  offer_id: string;
+  proposer_role: MarketplaceOfferProposerRole;
+  amount_cents: number;
+  message: string | null;
+  status: MarketplaceOfferStatus;
+  parent_offer_id: string | null;
+  created_at: string;
+  responded_at: string | null;
 };
 
 export type ConditionInput = {
