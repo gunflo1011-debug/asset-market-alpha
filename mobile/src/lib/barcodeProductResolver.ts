@@ -1,3 +1,5 @@
+import { isValidGtin, normalizeGtin } from './gtin';
+
 export type BarcodeKind = 'gtin' | 'qr' | 'unknown';
 
 export type ProductSuggestion = {
@@ -13,16 +15,14 @@ export type ProductSuggestion = {
   privateSerial: string | null;
 };
 
-const GTIN_LENGTHS = new Set([8, 12, 13, 14]);
 const OPEN_FACTS_FIELDS = 'code,product_name,product_name_en,generic_name,brands,model,mpn,categories,image_front_url,image_url';
 
 export function normalizeBarcode(value: string): string {
-  return value.trim().replace(/\s+/g, '');
+  return normalizeGtin(value);
 }
 
 export function isGtinLike(value: string): boolean {
-  const normalized = normalizeBarcode(value);
-  return /^\d+$/.test(normalized) && GTIN_LENGTHS.has(normalized.length);
+  return isValidGtin(value);
 }
 
 function gtinLookupCandidates(code: string): string[] {
