@@ -23,7 +23,7 @@ begin
   ) then
     alter table private.marketplace_buyer_adoptions
       add constraint marketplace_buyer_adoptions_source_gtin_format
-      check (source_gtin is null or source_gtin ~ '^[0-9]{8,14}$');
+      check (source_gtin is null or source_gtin ~ '^[0-9]{8}$|^[0-9]{12}$|^[0-9]{13}$|^[0-9]{14}$');
   end if;
 end;
 $$;
