@@ -15,5 +15,11 @@ assert.match(conversation, /parsedFinalSalePrice\.valid/);
 assert.match(conversation, /changeLifecycle\('SOLD', parsedFinalSalePrice\.cents\)/);
 assert.match(conversation, /may contribute anonymously to Things Market Value/i);
 assert.match(conversation, /Mark as sold at/);
+assert.match(conversation, /MAX_FINAL_SALE_CENTS/);
+assert.match(conversation, /MAX_OFFER_CENTS/);
+assert.match(conversation, /parseEuroAmount\(finalSalePrice, MAX_FINAL_SALE_CENTS\)/);
+assert.match(conversation, /parseEuroAmount\(offerAmount, MAX_OFFER_CENTS\)/);
+assert.match(conversation, /parseEuroAmount\(counterAmount, MAX_OFFER_CENTS\)/);
+assert.doesNotMatch(conversation, /cents <= 100_000_000_000/);
 
 console.log('final sale price mobile regression: OK');
