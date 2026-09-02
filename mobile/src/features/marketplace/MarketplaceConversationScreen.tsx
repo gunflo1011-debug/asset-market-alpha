@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
+import { viewPurchasedThingInInventory } from '../../lib/purchasedThingNavigation';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage, MarketplaceOffer } from '../inventory/types';
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
@@ -181,11 +182,11 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
             <Text style={adoptedItemId ? styles.successTitle : styles.lifecycleTitle}>{adoptedItemId ? 'Added to My Things' : 'Add your purchased Thing?'}</Text>
             <Text style={styles.copy}>{adoptedItemId ? 'Your purchased Thing is now saved privately. Seller notes, private location, serial data, photos and account details were not copied.' : 'Creates a new private Thing in My Things. Seller notes, private location, serial data, photos and account details are not copied.'}</Text>
             {adoptedItemId ? (
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Return to Marketplace after adding purchased Thing" style={styles.adoptionButton} onPress={onBack}><Text style={styles.adoptionButtonText}>Back to Marketplace</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="View purchased Thing in My Things" style={styles.adoptionButton} onPress={() => viewPurchasedThingInInventory(adoptedItemId)}><Text style={styles.adoptionButtonText}>View in My Things</Text></TouchableOpacity>
             ) : (
               <TouchableOpacity accessibilityRole="button" disabled={adoptionBusy} style={[styles.adoptionButton, adoptionBusy && styles.disabled]} onPress={() => void adoptPurchasedThing()}><Text style={styles.adoptionButtonText}>{adoptionBusy ? 'Adding…' : 'Add to My Things'}</Text></TouchableOpacity>
             )}
-            {adoptedItemId ? <Text accessibilityLiveRegion="polite" style={styles.success}>Saved privately. Your new Thing will appear in Inventory when you leave Marketplace.</Text> : null}
+            {adoptedItemId ? <Text accessibilityLiveRegion="polite" style={styles.success}>Saved privately. Open My Things to review your purchase.</Text> : null}
           </View> : null}
 
           <ScrollView style={styles.messageList} contentContainerStyle={styles.messageContent} keyboardShouldPersistTaps="handled">
