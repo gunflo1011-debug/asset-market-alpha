@@ -20,6 +20,7 @@
     "test:sale-start-app-integration": "node scripts/check-sale-start-app-integration.mjs",
     "test:final-sale-price": "node scripts/check-final-sale-price.mjs",
     "test:marketplace-offer-mobile-data": "node scripts/check-marketplace-offer-mobile-data.mjs",
+    "test:marketplace-discovery-contract": "node scripts/check-marketplace-discovery-contract.mjs",
     "test:product-convergence": "node scripts/check-product-convergence.mjs",
     "test:sold-state": "node scripts/check-sold-state.mjs",
     "test:sold-item-surface": "node scripts/check-sold-item-surface.mjs",
