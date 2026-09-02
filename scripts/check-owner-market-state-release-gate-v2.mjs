@@ -9,10 +9,14 @@ const gtinMigrationPath = 'supabase/migrations/20260902132000_gtin_checksum_hard
 const gtinParkedPath = `${gtinMigrationPath}.reviewed-by-gtin-gate`;
 const adoptionMigrationPath = 'supabase/migrations/20260902161500_buyer_adoption_enrichment_v2.sql';
 const adoptionParkedPath = `${adoptionMigrationPath}.reviewed-by-adoption-gate`;
+const purchaseContextMigrationPath = 'supabase/migrations/20260902201500_inventory_purchase_context_v1.sql';
+const purchaseContextParkedPath = `${purchaseContextMigrationPath}.reviewed-by-purchase-context-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const gtinMigration = fs.readFileSync(gtinMigrationPath, 'utf8');
 const adoptionMigration = fs.readFileSync(adoptionMigrationPath, 'utf8');
+const purchaseContextMigration = fs.readFileSync(purchaseContextMigrationPath, 'utf8');
 const adoptionExecutableSql = adoptionMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
+const purchaseContextExecutableSql = purchaseContextMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
 
 function assertAuthenticatedOnlySelectedReadPolicy(sql) {
   const policyMatch = sql.match(
@@ -74,11 +78,26 @@ for (const forbidden of ['notes', 'location_label', 'serial', 'item_images', 'st
   assert.doesNotMatch(adoptionExecutableSql, new RegExp(`\\b${forbidden.replace('.', '\\.')}\\b`, 'i'), `Buyer adoption must not copy ${forbidden}`);
 }
 
+assert.match(purchaseContextMigration, /create or replace function public\.load_my_inventory_purchase_context\(\)/i);
+assert.match(purchaseContextMigration, /security definer[\s\S]*set search_path = ''/i, 'Purchase context RPC must use an empty search_path');
+assert.match(purchaseContextMigration, /i\.owner_id = auth\.uid\(\)/i, 'Purchase context must require current item ownership');
+assert.match(purchaseContextMigration, /a\.buyer_id = auth\.uid\(\)/i, 'Purchase context must remain buyer-scoped');
+assert.match(purchaseContextMigration, /revoke all on function public\.load_my_inventory_purchase_context\(\) from public, anon;/i);
+assert.match(purchaseContextMigration, /grant execute on function public\.load_my_inventory_purchase_context\(\) to authenticated;/i);
+const purchaseContextReturn = purchaseContextMigration.match(/returns table\(([\s\S]*?)\)\s*language sql/i)?.[1] ?? '';
+assert.match(purchaseContextReturn, /item_id uuid[\s\S]*purchase_price_cents bigint[\s\S]*source_type text[\s\S]*source_gtin text/i);
+assert.doesNotMatch(purchaseContextReturn, /\b(?:seller_id|owner_id|location_label|notes|email|serial|storage_path)\b/i,
+  'Purchase context return contract must remain free of seller identity and private metadata');
+for (const forbidden of ['notes', 'location_label', 'serial', 'item_images', 'storage.objects', 'seller_email']) {
+  assert.doesNotMatch(purchaseContextExecutableSql, new RegExp(`\\b${forbidden.replace('.', '\\.')}\\b`, 'i'), `Purchase context RPC must not expose ${forbidden}`);
+}
+
 const parked = [
   [migrationPath, parkedPath],
   [offerMigrationPath, offerParkedPath],
   [gtinMigrationPath, gtinParkedPath],
   [adoptionMigrationPath, adoptionParkedPath],
+  [purchaseContextMigrationPath, purchaseContextParkedPath],
 ];
 for (const [source, destination] of parked) fs.renameSync(source, destination);
 try {
@@ -87,4 +106,4 @@ try {
   for (const [source, destination] of parked.reverse()) fs.renameSync(destination, source);
 }
 
-console.log('marketplace image + GTIN checksum + buyer adoption deltas + established owner market-state release gate: OK');
+console.log('marketplace image + GTIN checksum + buyer adoption + purchase-context deltas + established owner market-state release gate: OK');

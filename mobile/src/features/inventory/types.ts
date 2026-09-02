@@ -20,6 +20,12 @@ export type InventoryValueEvidence = {
   observed_at: string;
 };
 
+export type InventoryPurchaseContext = {
+  purchase_price_cents: number | null;
+  source_type: 'MARKETPLACE_ADOPTION';
+  source_gtin: string | null;
+};
+
 export type ValuationConditionGrade = 'LIKE_NEW' | 'GOOD' | 'FAIR' | 'POOR';
 
 export type ValuationInput = {
@@ -117,6 +123,7 @@ export type PrivateInventoryItem = {
   created_at: string;
   market_state: InventoryMarketState | null;
   value_evidence: InventoryValueEvidence | null;
+  purchase_context?: InventoryPurchaseContext | null;
   product_variants: {
     id: string;
     storage_gb: number | null;
