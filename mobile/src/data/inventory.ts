@@ -40,6 +40,7 @@ export type {
   CatalogVariant,
   ConditionInput,
   InventoryMarketState,
+  InventoryPurchaseContext,
   MarketplaceConversation,
   MarketplaceConversationRole,
   MarketplaceConversationStatus,
