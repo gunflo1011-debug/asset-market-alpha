@@ -59,6 +59,8 @@ jobs:
         run: npm run test:final-sale-price
       - name: Validate Marketplace offer mobile data contract
         run: npm run test:marketplace-offer-mobile-data
+      - name: Validate Marketplace discovery privacy/search contract
+        run: npm run test:marketplace-discovery-contract
       - name: Validate authenticated product convergence regression
         run: npm run test:product-convergence
       - name: Validate sold-state regression
