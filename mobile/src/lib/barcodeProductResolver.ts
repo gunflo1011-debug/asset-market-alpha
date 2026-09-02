@@ -1,4 +1,4 @@
-import { isValidGtin, normalizeGtin } from './gtin';
+import { isValidGtin, normalizeGtin, normalizeScannedGtin, type ProductBarcodeSymbology } from './gtin';
 
 export type BarcodeKind = 'gtin' | 'qr' | 'unknown';
 
@@ -23,6 +23,10 @@ export function normalizeBarcode(value: string): string {
 
 export function isGtinLike(value: string): boolean {
   return isValidGtin(value);
+}
+
+export function normalizeScannedProductCode(value: string, symbology?: ProductBarcodeSymbology): string {
+  return normalizeScannedGtin(value, symbology);
 }
 
 function gtinLookupCandidates(code: string): string[] {
@@ -171,8 +175,8 @@ async function resolveWithOpenFacts(originalCode: string): Promise<ProductSugges
   return null;
 }
 
-export async function resolveBarcodeProduct(rawCode: string): Promise<ProductSuggestion | null> {
-  const code = normalizeBarcode(rawCode);
+export async function resolveBarcodeProduct(rawCode: string, symbology?: ProductBarcodeSymbology): Promise<ProductSuggestion | null> {
+  const code = normalizeScannedProductCode(rawCode, symbology);
   if (!isGtinLike(code)) return parseQrProductData(rawCode);
 
   let providerResponded = false;
