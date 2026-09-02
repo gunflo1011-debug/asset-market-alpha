@@ -55,8 +55,8 @@ if (!listingPanel.includes('Marketplace location (optional)') || !listingPanel.i
 if (!marketplaceScreen.includes('location not shared') || !marketplaceScreen.includes('exact address hidden')) {
   throw new Error('Marketplace buyer surfaces must distinguish optional coarse location from hidden exact location.');
 }
-if (!marketplaceScreen.includes('Message seller') || !marketplaceScreen.includes('Open conversation')) {
-  throw new Error('Interested buyers must have an explicit private-conversation entry point.');
+if (!marketplaceScreen.includes('Make an offer') || !marketplaceScreen.includes('startOfferForBuyer')) {
+  throw new Error('Marketplace listing detail must expose a direct Make an offer entry into the private listing-bound conversation.');
 }
 if (!marketplaceScreen.includes('loadMyMarketplaceConversations') || !marketplaceScreen.includes('openMyMarketplaceConversation')) {
   throw new Error('Marketplace must load and open authenticated listing-bound conversations.');
