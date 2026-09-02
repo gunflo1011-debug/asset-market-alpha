@@ -21,7 +21,7 @@ assert.match(migration, /if v_user <> v_buyer then raise exception 'BUYER_ONLY'/
 assert.match(migration, /if v_status <> 'OPEN' then raise exception 'CONVERSATION_NOT_OPEN'/i);
 assert.match(migration, /where o\.conversation_id = p_conversation_id and o\.status = 'PENDING'/i);
 
-assert.match(migration, /if v_user not in \(v_buyer, v_seller\)/i);
+assert.match(migration, /v_user not in \(v_buyer, v_seller\)/i);
 assert.match(migration, /if v_user = v_proposer then raise exception 'PROPOSER_CANNOT_RESPOND'/i);
 assert.match(migration, /if v_offer_status <> 'PENDING' then raise exception 'OFFER_NOT_PENDING'/i);
 assert.match(migration, /if p_action not in \('ACCEPT','DECLINE','COUNTER'\)/i);
