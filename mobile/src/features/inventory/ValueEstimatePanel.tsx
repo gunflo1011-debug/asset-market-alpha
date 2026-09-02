@@ -17,6 +17,10 @@ const CONDITION_OPTIONS: Array<{ grade: ValuationConditionGrade; label: string }
   { grade: 'POOR', label: 'Poor' },
 ];
 
+function formatPriceInput(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
 export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props) {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseYear, setPurchaseYear] = useState(String(new Date().getFullYear()));
@@ -24,16 +28,24 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   const [estimating, setEstimating] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [persistedEstimateState, setPersistedEstimateState] = useState<'loading' | 'present' | 'missing'>('loading');
+  const [purchasePricePrefilled, setPurchasePricePrefilled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setPersistedEstimateState('loading');
+    setPurchasePrice('');
+    setPurchasePricePrefilled(false);
 
     void loadPrivateInventory()
       .then((items) => {
         if (cancelled) return;
         const item = items.find((candidate) => candidate.id === itemId);
         setPersistedEstimateState(item?.value_evidence ? 'present' : 'missing');
+        const paidPriceCents = item?.purchase_context?.purchase_price_cents ?? null;
+        if (paidPriceCents != null) {
+          setPurchasePrice(formatPriceInput(paidPriceCents));
+          setPurchasePricePrefilled(true);
+        }
       })
       .catch(() => {
         if (!cancelled) setPersistedEstimateState('loading');
@@ -104,7 +116,17 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         ) : null}
 
         <Text style={styles.label}>Purchase price (€)</Text>
-        <TextInput value={purchasePrice} onChangeText={setPurchasePrice} keyboardType="decimal-pad" placeholder="e.g. 1200" style={styles.input} />
+        <TextInput
+          value={purchasePrice}
+          onChangeText={(value) => {
+            setPurchasePrice(value);
+            setPurchasePricePrefilled(false);
+          }}
+          keyboardType="decimal-pad"
+          placeholder="e.g. 1200"
+          style={styles.input}
+        />
+        {purchasePricePrefilled ? <Text style={styles.prefillHint}>Prefilled from your completed Marketplace purchase. You can change it for this estimate.</Text> : null}
 
         <Text style={styles.label}>Purchase year</Text>
         <TextInput value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={styles.input} />
@@ -147,6 +169,7 @@ const styles = StyleSheet.create({
   stateCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
   label: { fontSize: 14, fontWeight: '700', color: '#344054', marginTop: 4 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 14, paddingHorizontal: 14, fontSize: 16, fontWeight: '600', color: '#101828', backgroundColor: '#FFFFFF' },
+  prefillHint: { fontSize: 12, lineHeight: 18, color: '#667085', marginTop: -4 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#F2F4F7' },
   optionActive: { backgroundColor: '#101828' },
