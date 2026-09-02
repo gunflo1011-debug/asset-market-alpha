@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { summarizeInventoryValue } from '../../lib/inventoryValue';
+import { subscribeToPurchasedThingNavigation } from '../../lib/purchasedThingNavigation';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import type { ProductSuggestion } from '../../lib/barcodeProductResolver';
 import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
@@ -89,6 +90,7 @@ export function InventoryScreen(props: Props) {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('scan');
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const [pendingMarketplaceItemId, setPendingMarketplaceItemId] = useState<string | null>(null);
   const [inventoryFilter, setInventoryFilter] = useState<InventoryFilter>('ALL');
   const [inventorySearch, setInventorySearch] = useState('');
 
@@ -124,6 +126,23 @@ export function InventoryScreen(props: Props) {
       Keyboard.dismiss();
     }
   }, [props.editingItemId, props.message]);
+
+  useEffect(() => subscribeToPurchasedThingNavigation((itemId) => {
+    setPendingMarketplaceItemId(itemId);
+    setSelectedItemId(null);
+    setMarketplaceOpen(false);
+    setInventoryFilter('ALL');
+    setInventorySearch('');
+    props.onRefreshInventory();
+  }), [props.onRefreshInventory]);
+
+  useEffect(() => {
+    if (!pendingMarketplaceItemId) return;
+    if (props.items.some((item) => item.id === pendingMarketplaceItemId)) {
+      setSelectedItemId(pendingMarketplaceItemId);
+      setPendingMarketplaceItemId(null);
+    }
+  }, [pendingMarketplaceItemId, props.items]);
 
   function useScannedSuggestion(suggestion: ProductSuggestion) {
     props.onThingNameChange(suggestion.title);
