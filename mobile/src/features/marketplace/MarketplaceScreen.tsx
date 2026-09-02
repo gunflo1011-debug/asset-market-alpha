@@ -122,29 +122,6 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
   }
 
-  async function openConversationForBuyer(itemId: string) {
-    if (busy) return;
-    const existing = (conversationsByItem.get(itemId) ?? []).find((row) => row.role === 'BUYER');
-    if (existing) {
-      setSelectedConversationId(existing.conversation_id);
-      return;
-    }
-    try {
-      setBusy(true);
-      setMessage(null);
-      const conversationId = await openMyMarketplaceConversation(itemId);
-      const refreshed = await loadMyMarketplaceConversations();
-      setConversations(refreshed);
-      const opened = refreshed.find((row) => row.conversation_id === conversationId);
-      if (!opened) throw new Error('Conversation was created but could not be opened yet. Refresh and try again.');
-      setSelectedConversationId(opened.conversation_id);
-    } catch (nextError) {
-      setMessage(nextError instanceof Error ? nextError.message : 'Could not open private conversation.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function startOfferForBuyer(itemId: string) {
     if (busy) return;
     const existing = (conversationsByItem.get(itemId) ?? []).find((row) => row.role === 'BUYER');
@@ -195,7 +172,7 @@ export function MarketplaceScreen({ onBack }: Props) {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => { setSelectedItemId(null); setMessage(null); }}><Text style={styles.back}>‹ Marketplace</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" onPress={() => { setSelectedItemId(null); setMessage(null); }}><Text style={styles.back}>‹ Marketplace</Text></TouchableOpacity>
           </View>
 
           <View style={styles.detailHero}>
@@ -227,8 +204,8 @@ export function MarketplaceScreen({ onBack }: Props) {
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={buyerConversation ? 'Open offer and chat' : 'Make an offer'} disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startOfferForBuyer(selected.item_id)}>
               <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : buyerConversation ? 'Open offer & chat' : 'Make an offer'}</Text>
             </TouchableOpacity>
-            {interested && !buyerConversation ? <TouchableOpacity disabled={busy} style={styles.secondaryButton} onPress={() => void changeInterest(selected.item_id, false)}><Text style={styles.secondaryButtonText}>Withdraw interest</Text></TouchableOpacity> : null}
-            {message ? <Text style={styles.feedback}>{message}</Text> : null}
+            {interested && !buyerConversation ? <TouchableOpacity accessibilityRole="button" disabled={busy} style={styles.secondaryButton} onPress={() => void changeInterest(selected.item_id, false)}><Text style={styles.secondaryButtonText}>Withdraw interest</Text></TouchableOpacity> : null}
+            {message ? <Text accessibilityRole="alert" style={styles.feedback}>{message}</Text> : null}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -239,19 +216,19 @@ export function MarketplaceScreen({ onBack }: Props) {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.refreshButton} disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Marketplace" style={styles.refreshButton} disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity>
         </View>
 
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>MARKETPLACE</Text>
           <Text style={styles.title}>Discover Things for sale</Text>
-          <Text style={styles.copy}>Browse published listings, make offers and continue in a listing-bound private conversation.</Text>
+          <Text style={styles.heroCopy}>Search public listings, compare asking prices and make an offer without exposing private inventory details.</Text>
           <View style={styles.heroStats}><Text style={styles.heroStatValue}>{browseListings.length}</Text><Text style={styles.heroStatLabel}>{browseListings.length === 1 ? 'listing from others' : 'listings from others'}</Text></View>
         </View>
 
         {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
-        {error ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
+        {error ? <View accessibilityRole="alert" style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
         {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
         {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
         {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
@@ -261,13 +238,9 @@ export function MarketplaceScreen({ onBack }: Props) {
             <View style={styles.discoveryHeader}>
               <View style={styles.discoveryHeadingCopy}>
                 <Text style={styles.sectionTitle}>Find something</Text>
-                <Text style={styles.discoveryHint}>Search public listing details only — private inventory stays private.</Text>
+                <Text style={styles.discoveryHint}>Search title, category or seller area. Only public listing details are searched.</Text>
               </View>
-              {discoveryActive ? (
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.clearButton} onPress={resetDiscovery}>
-                  <Text style={styles.clearButtonText}>Clear</Text>
-                </TouchableOpacity>
-              ) : null}
+              {discoveryActive ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.clearButton} onPress={resetDiscovery}><Text style={styles.clearButtonText}>Clear</Text></TouchableOpacity> : null}
             </View>
             <TextInput
               accessibilityLabel="Search Marketplace listings"
@@ -299,61 +272,20 @@ export function MarketplaceScreen({ onBack }: Props) {
                 );
               })}
             </ScrollView>
-            <Text accessibilityLiveRegion="polite" style={styles.resultCount}>
-              {filteredBrowseListings.length} {filteredBrowseListings.length === 1 ? 'listing' : 'listings'} shown
-            </Text>
+            <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{filteredBrowseListings.length} {filteredBrowseListings.length === 1 ? 'listing' : 'listings'} shown</Text>
           </View>
         ) : null}
-
-        {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
-        {transactionConversations.map((conversation) => (
-          <TouchableOpacity key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-            <View>
-              <Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text>
-              <Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text>
-            </View>
-            <Text style={styles.messageRowAction}>Open ›</Text>
-          </TouchableOpacity>
-        ))}
-
-        {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
-        {publishedMine.map((ownerListing) => {
-          const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
-          return (
-            <View key={ownerListing.item_id} style={styles.ownerCard}>
-              <View style={styles.cardTop}>
-                <View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View>
-                <Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text>
-              </View>
-              <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
-              <View style={styles.metaRow}>
-                {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
-                {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
-                {sellerConversations.length > 0 ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{sellerConversations.length} {sellerConversations.length === 1 ? 'conversation' : 'conversations'}</Text></View> : null}
-              </View>
-              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
-              {sellerConversations.map((conversation, index) => (
-                <TouchableOpacity key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-                  <View><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
-                  <Text style={styles.messageRowAction}>Reply ›</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          );
-        })}
 
         {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
         {!loading && !error && browseListings.length > 0 && filteredBrowseListings.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No matching listings</Text>
             <Text style={styles.copy}>Try a broader search or switch back to All categories.</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.secondaryButton} onPress={resetDiscovery}>
-              <Text style={styles.secondaryButtonText}>Clear search & filters</Text>
-            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.secondaryButton} onPress={resetDiscovery}><Text style={styles.secondaryButtonText}>Clear search & filters</Text></TouchableOpacity>
           </View>
         ) : null}
-        {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
 
+        {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
         {filteredBrowseListings.map((listing) => {
           const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
           const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
@@ -373,6 +305,39 @@ export function MarketplaceScreen({ onBack }: Props) {
             </TouchableOpacity>
           );
         })}
+
+        {(transactionConversations.length > 0 || publishedMine.length > 0) ? <View style={styles.manageDivider}><Text style={styles.manageEyebrow}>YOUR MARKETPLACE</Text><Text style={styles.manageTitle}>Manage your activity</Text><Text style={styles.copy}>Transactions and listings stay available below without interrupting browsing.</Text></View> : null}
+
+        {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
+        {transactionConversations.map((conversation) => (
+          <TouchableOpacity accessibilityRole="button" key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+            <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text><Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+            <Text style={styles.messageRowAction}>Open ›</Text>
+          </TouchableOpacity>
+        ))}
+
+        {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
+        {publishedMine.map((ownerListing) => {
+          const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
+          return (
+            <View key={ownerListing.item_id} style={styles.ownerCard}>
+              <View style={styles.cardTop}><View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View><Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text></View>
+              <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
+              <View style={styles.metaRow}>
+                {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
+                {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
+                {sellerConversations.length > 0 ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{sellerConversations.length} {sellerConversations.length === 1 ? 'conversation' : 'conversations'}</Text></View> : null}
+              </View>
+              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
+              {sellerConversations.map((conversation, index) => (
+                <TouchableOpacity accessibilityRole="button" key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+                  <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+                  <Text style={styles.messageRowAction}>Reply ›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -382,10 +347,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F6F7F9' },
   container: { padding: 20, paddingTop: 18, paddingBottom: 56, gap: 16 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { fontSize: 16, fontWeight: '800', color: '#344054', paddingVertical: 8 },
-  refreshButton: { width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8ED' },
+  back: { fontSize: 16, fontWeight: '800', color: '#344054', paddingVertical: 10 },
+  refreshButton: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8ED' },
   refresh: { fontSize: 19, fontWeight: '800', color: '#344054' },
   hero: { backgroundColor: '#0F1728', borderRadius: 28, padding: 22, gap: 9 },
+  heroCopy: { fontSize: 13, lineHeight: 19, color: '#C5CBD4' },
   detailHero: { backgroundColor: '#0F1728', borderRadius: 28, padding: 22, gap: 12 },
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.3, color: '#98A2B3' },
   title: { fontSize: 31, lineHeight: 37, fontWeight: '800', letterSpacing: -0.7, color: '#FFFFFF' },
@@ -443,7 +409,7 @@ const styles = StyleSheet.create({
   interestTitle: { fontSize: 21, lineHeight: 27, fontWeight: '800', color: '#0F1728' },
   primaryButton: { backgroundColor: '#0F1728', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  secondaryButton: { borderRadius: 16, borderWidth: 1, borderColor: '#D0D5DD', paddingVertical: 12, alignItems: 'center' },
+  secondaryButton: { minHeight: 44, justifyContent: 'center', borderRadius: 16, borderWidth: 1, borderColor: '#D0D5DD', paddingHorizontal: 14, alignItems: 'center' },
   secondaryButtonText: { color: '#475467', fontSize: 13, fontWeight: '800' },
   disabled: { opacity: 0.45 },
   feedback: { fontSize: 12, lineHeight: 18, color: '#26734D' },
@@ -456,7 +422,11 @@ const styles = StyleSheet.create({
   warningText: { fontSize: 12, lineHeight: 18, color: '#9A3412' },
   emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, gap: 10, borderWidth: 1, borderColor: '#E5E8ED' },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: '#0F1728' },
-  messageRow: { marginTop: 4, padding: 13, borderRadius: 15, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E5E8ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  manageDivider: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#DDE2E8', paddingTop: 24, gap: 5 },
+  manageEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, color: '#7A8494' },
+  manageTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: '#0F1728' },
+  messageRow: { marginTop: 4, minHeight: 54, padding: 13, borderRadius: 15, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E5E8ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  messageCopy: { flex: 1 },
   messageRowTitle: { fontSize: 13, fontWeight: '800', color: '#0F1728' },
   messageRowMeta: { marginTop: 3, fontSize: 10, color: '#7A8494' },
   messageRowAction: { fontSize: 12, fontWeight: '800', color: '#344054' },
