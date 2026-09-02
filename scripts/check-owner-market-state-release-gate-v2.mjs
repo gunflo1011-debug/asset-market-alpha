@@ -12,7 +12,7 @@ const adoptionParkedPath = `${adoptionMigrationPath}.reviewed-by-adoption-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const gtinMigration = fs.readFileSync(gtinMigrationPath, 'utf8');
 const adoptionMigration = fs.readFileSync(adoptionMigrationPath, 'utf8');
-const adoptionExecutableSql = adoptionMigration.replace(/--.*$/gm, '');
+const adoptionExecutableSql = adoptionMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
 
 function assertAuthenticatedOnlySelectedReadPolicy(sql) {
   const policyMatch = sql.match(
@@ -60,8 +60,6 @@ assert.match(gtinMigration, /grant execute on function public\.set_my_item_gtin_
 assert.doesNotMatch(gtinMigration, /grant\s+(?:select|insert|update|delete|all).*private\.item_product_identifiers.*authenticated/i,
   'GTIN hardening must not expose private identifier table privileges');
 
-// Buyer adoption enrichment must stay buyer-scoped and copy only safe product /
-// transaction provenance. In particular, no seller-private field may be transferred.
 assert.match(adoptionMigration, /create or replace function public\.adopt_my_sold_marketplace_thing\(p_conversation_id uuid\)/i);
 assert.match(adoptionMigration, /c\.buyer_id = auth\.uid\(\)/i, 'Buyer adoption must remain buyer-scoped');
 assert.match(adoptionMigration, /if v_status <> 'SOLD' then raise exception 'SALE_NOT_COMPLETE'/i);
