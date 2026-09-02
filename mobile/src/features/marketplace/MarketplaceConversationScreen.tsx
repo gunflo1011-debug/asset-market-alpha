@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { adoptMySoldMarketplaceThing, loadMyMarketplaceMessages, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
+import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage } from '../inventory/types';
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
@@ -28,9 +28,15 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     try {
       setLoading(true);
       setError(null);
-      setMessages(await loadMyMarketplaceMessages(conversation.conversation_id));
+      const [nextMessages, conversations] = await Promise.all([
+        loadMyMarketplaceMessages(conversation.conversation_id),
+        loadMyMarketplaceConversations(),
+      ]);
+      setMessages(nextMessages);
+      const currentConversation = conversations.find((entry) => entry.conversation_id === conversation.conversation_id);
+      if (currentConversation) setStatus(currentConversation.status);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Could not load messages.');
+      setError(nextError instanceof Error ? nextError.message : 'Could not load conversation.');
     } finally { setLoading(false); }
   }
 
