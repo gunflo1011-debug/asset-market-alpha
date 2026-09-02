@@ -3,9 +3,16 @@ import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { isGtinLike, normalizeScannedProductCode, resolveBarcodeProduct, type ProductSuggestion } from '../../lib/barcodeProductResolver';
 
- type Props = {
+type Props = {
   onUseSuggestion: (suggestion: ProductSuggestion) => void;
   onEnterManually: () => void;
+};
+
+type ScanErrorKind = 'invalid_barcode' | 'no_match' | 'unsupported_qr' | 'lookup_failed';
+
+type ScanError = {
+  kind: ScanErrorKind;
+  message: string;
 };
 
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr'] as const;
@@ -16,13 +23,20 @@ function looksLikeNumericProductCode(value: string): boolean {
   return /^\d+$/.test(normalized) && NUMERIC_PRODUCT_CODE_LENGTHS.has(normalized.length);
 }
 
+function scanErrorTitle(kind: ScanErrorKind): string {
+  if (kind === 'invalid_barcode') return 'Barcode could not be verified';
+  if (kind === 'no_match') return 'No product match found';
+  if (kind === 'unsupported_qr') return 'QR code not usable yet';
+  return 'Lookup did not work';
+}
+
 export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [suggestion, setSuggestion] = useState<ProductSuggestion | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScanError | null>(null);
   const [lastCode, setLastCode] = useState<string | null>(null);
 
   async function lookup(code: string, symbology?: string) {
@@ -36,16 +50,29 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
     setLastCode(normalized);
     try {
       const result = await resolveBarcodeProduct(normalized, symbology);
-      if (result) setSuggestion(result);
-      else if (isGtinLike(normalizedProductCode)) {
-        setError('Barcode read successfully, but no reliable product match was found. Enter the details manually.');
+      if (result) {
+        setSuggestion(result);
+      } else if (isGtinLike(normalizedProductCode)) {
+        setError({
+          kind: 'no_match',
+          message: 'The barcode is valid, but Things could not find a reliable product match. You can add the item manually instead.',
+        });
       } else if (symbology !== 'qr' && looksLikeNumericProductCode(normalized)) {
-        setError('Barcode read, but its check digit is invalid. Scan it again or enter the code manually.');
+        setError({
+          kind: 'invalid_barcode',
+          message: 'The barcode was read, but its check digit is invalid. Scan it again or enter the item manually.',
+        });
       } else {
-        setError('QR code read, but it does not contain product data Things can safely use yet.');
+        setError({
+          kind: 'unsupported_qr',
+          message: 'This QR code does not contain product data Things can safely use yet. Its contents were not sent to a product lookup provider.',
+        });
       }
     } catch (lookupError) {
-      setError(lookupError instanceof Error ? lookupError.message : 'Could not look up this product.');
+      setError({
+        kind: 'lookup_failed',
+        message: lookupError instanceof Error ? lookupError.message : 'Things could not look up this product right now.',
+      });
     } finally {
       setBusy(false);
     }
@@ -108,27 +135,38 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           <Text style={styles.meta}>Code: {suggestion.kind === 'gtin' ? suggestion.code : 'QR product data'}</Text>
           {suggestion.privateSerial ? <Text style={styles.privateNote}>Serial detected: kept private. It will not be published to Marketplace automatically.</Text> : null}
           <Text style={styles.disclaimer}>This is a lookup suggestion, not verified truth. Check the model before saving.</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)}><Text style={styles.primaryButtonText}>Use these details</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain}><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)} accessibilityRole="button"><Text style={styles.primaryButtonText}>Use these details</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
         </View>
       ) : null}
 
       {error ? (
-        <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain}><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
+        <View style={styles.errorCard} accessibilityRole="alert">
+          <Text style={styles.errorTitle}>{scanErrorTitle(error.kind)}</Text>
+          <Text style={styles.errorText}>{error.message}</Text>
+          {error.kind === 'invalid_barcode' ? (
+            <>
+              <TouchableOpacity style={styles.primaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.primaryButtonText}>Scan again</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={onEnterManually} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Enter item manually</Text></TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.primaryButton} onPress={onEnterManually} accessibilityRole="button"><Text style={styles.primaryButtonText}>Enter item manually</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.secondaryButtonText}>{error.kind === 'lookup_failed' ? 'Try scanning again' : 'Scan another code'}</Text></TouchableOpacity>
+            </>
+          )}
         </View>
       ) : null}
 
       <View style={styles.manualLookup}>
         <Text style={styles.manualLabel}>Or enter EAN / UPC</Text>
         <View style={styles.manualRow}>
-          <TextInput value={manualCode} onChangeText={setManualCode} keyboardType="number-pad" placeholder="e.g. 4006381333931" style={styles.input} />
-          <TouchableOpacity disabled={!manualCode.trim() || busy} style={[styles.lookupButton, (!manualCode.trim() || busy) && styles.disabled]} onPress={() => void lookup(manualCode)}><Text style={styles.lookupButtonText}>Look up</Text></TouchableOpacity>
+          <TextInput value={manualCode} onChangeText={setManualCode} keyboardType="number-pad" placeholder="e.g. 4006381333931" style={styles.input} accessibilityLabel="EAN or UPC code" />
+          <TouchableOpacity disabled={!manualCode.trim() || busy} style={[styles.lookupButton, (!manualCode.trim() || busy) && styles.disabled]} onPress={() => void lookup(manualCode)} accessibilityRole="button"><Text style={styles.lookupButtonText}>Look up</Text></TouchableOpacity>
         </View>
       </View>
 
-      <TouchableOpacity onPress={onEnterManually}><Text style={styles.manualLink}>Enter item manually</Text></TouchableOpacity>
+      <TouchableOpacity onPress={onEnterManually} accessibilityRole="button"><Text style={styles.manualLink}>Enter item manually</Text></TouchableOpacity>
     </View>
   );
 }
@@ -156,7 +194,8 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   secondaryButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#D0D5DD', backgroundColor: '#FFFFFF', paddingHorizontal: 14 },
   secondaryButtonText: { color: '#344054', fontSize: 14, fontWeight: '700' },
-  errorCard: { padding: 12, gap: 10, borderRadius: 14, backgroundColor: '#FFF6F5', borderWidth: 1, borderColor: '#FECDCA' },
+  errorCard: { padding: 14, gap: 10, borderRadius: 16, backgroundColor: '#FFF6F5', borderWidth: 1, borderColor: '#FECDCA' },
+  errorTitle: { fontSize: 16, lineHeight: 21, fontWeight: '800', color: '#912018' },
   errorText: { fontSize: 13, lineHeight: 19, color: '#B42318' },
   manualLookup: { gap: 7 },
   manualLabel: { fontSize: 12, fontWeight: '700', color: '#475467' },
@@ -164,6 +203,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 12, paddingHorizontal: 12, minHeight: 46, fontSize: 14, color: '#101828' },
   lookupButton: { minWidth: 86, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#344054' },
   lookupButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  manualLink: { textAlign: 'center', paddingVertical: 6, color: '#344054', fontSize: 13, fontWeight: '700' },
+  manualLink: { textAlign: 'center', paddingVertical: 8, minHeight: 44, color: '#344054', fontSize: 13, fontWeight: '700' },
   disabled: { opacity: 0.45 },
 });
