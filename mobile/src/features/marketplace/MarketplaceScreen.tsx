@@ -131,6 +131,39 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
   }
 
+  async function startOfferForBuyer(itemId: string) {
+    if (busy) return;
+    const existing = (conversationsByItem.get(itemId) ?? []).find((row) => row.role === 'BUYER');
+    if (existing) {
+      setSelectedConversationId(existing.conversation_id);
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setMessage(null);
+      if (interestByItem.get(itemId) !== 'INTERESTED') {
+        const status = await setMyMarketplaceInterest(itemId, true);
+        setInterests((current) => {
+          const rest = current.filter((row) => row.item_id !== itemId);
+          return [...rest, { item_id: itemId, status, updated_at: new Date().toISOString() }];
+        });
+        setInterestWarning(null);
+      }
+
+      const conversationId = await openMyMarketplaceConversation(itemId);
+      const refreshed = await loadMyMarketplaceConversations();
+      setConversations(refreshed);
+      const opened = refreshed.find((row) => row.conversation_id === conversationId);
+      if (!opened) throw new Error('Your offer conversation was created but is not available yet. Refresh and try again.');
+      setSelectedConversationId(opened.conversation_id);
+    } catch (nextError) {
+      setMessage(nextError instanceof Error ? nextError.message : 'Could not start your offer.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (selectedConversation) {
     return (
       <MarketplaceConversationScreen
@@ -172,21 +205,15 @@ export function MarketplaceScreen({ onBack }: Props) {
           </View>
 
           <View style={styles.interestCard}>
-            <Text style={styles.eyebrow}>{interested ? 'PRIVATE CONTACT' : 'INTERESTED?'}</Text>
-            <Text style={styles.interestTitle}>{interested ? 'Message the seller securely' : 'Interested in this Thing?'}</Text>
-            <Text style={styles.copy}>{interested ? 'Your conversation is bound to this listing. Things does not reveal either account email or private inventory details.' : 'Send a private interest signal first. Your email, account identity and exact location are not shared.'}</Text>
+            <Text style={styles.eyebrow}>MAKE AN OFFER</Text>
+            <Text style={styles.interestTitle}>{buyerConversation ? 'Continue your offer and chat' : 'Make an offer securely'}</Text>
+            <Text style={styles.copy}>{buyerConversation ? 'Your listing-bound conversation keeps offers and messages together. Account emails, exact addresses and private inventory details stay hidden.' : 'Start a private listing-bound conversation and enter the price you want to offer. Your email, exact address and private inventory stay hidden.'}</Text>
             {interestWarning ? <Text style={styles.warningText}>{interestWarning}</Text> : null}
             {conversationWarning ? <Text style={styles.warningText}>{conversationWarning}</Text> : null}
-            {interested ? (
-              <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void openConversationForBuyer(selected.item_id)}>
-                <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : buyerConversation ? 'Open conversation' : 'Message seller'}</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void changeInterest(selected.item_id, true)}>
-                <Text style={styles.primaryButtonText}>{busy ? 'Saving…' : 'I’m interested'}</Text>
-              </TouchableOpacity>
-            )}
-            {interested ? <TouchableOpacity disabled={busy} style={styles.secondaryButton} onPress={() => void changeInterest(selected.item_id, false)}><Text style={styles.secondaryButtonText}>Withdraw interest</Text></TouchableOpacity> : null}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={buyerConversation ? 'Open offer and chat' : 'Make an offer'} disabled={busy} style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void startOfferForBuyer(selected.item_id)}>
+              <Text style={styles.primaryButtonText}>{busy ? 'Opening…' : buyerConversation ? 'Open offer & chat' : 'Make an offer'}</Text>
+            </TouchableOpacity>
+            {interested && !buyerConversation ? <TouchableOpacity disabled={busy} style={styles.secondaryButton} onPress={() => void changeInterest(selected.item_id, false)}><Text style={styles.secondaryButtonText}>Withdraw interest</Text></TouchableOpacity> : null}
             {message ? <Text style={styles.feedback}>{message}</Text> : null}
           </View>
         </ScrollView>
@@ -205,7 +232,7 @@ export function MarketplaceScreen({ onBack }: Props) {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>MARKETPLACE</Text>
           <Text style={styles.title}>Discover Things for sale</Text>
-          <Text style={styles.copy}>Browse published listings, signal interest and continue in a listing-bound private conversation.</Text>
+          <Text style={styles.copy}>Browse published listings, make offers and continue in a listing-bound private conversation.</Text>
           <View style={styles.heroStats}><Text style={styles.heroStatValue}>{browseListings.length}</Text><Text style={styles.heroStatLabel}>{browseListings.length === 1 ? 'listing from others' : 'listings from others'}</Text></View>
         </View>
 
