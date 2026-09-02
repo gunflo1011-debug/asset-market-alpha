@@ -70,7 +70,11 @@ if (!marketplaceScreen.includes('Your transactions') || !marketplaceScreen.inclu
 if (!conversationScreen.includes('loadMyMarketplaceMessages') || !conversationScreen.includes('sendMyMarketplaceMessage')) {
   throw new Error('Conversation surface must load and send through authenticated Marketplace message RPCs.');
 }
-if (!conversationScreen.includes('Account identities and private inventory details are not exposed here.')) {
+const hasExplicitConversationPrivacy =
+  conversationScreen.includes('Account identities and private inventory details are not exposed here.') ||
+  (conversationScreen.includes('Exact addresses, account emails and private inventory details stay hidden.') &&
+    conversationScreen.includes('Do not include payment credentials, your exact address, phone number or private inventory details.'));
+if (!hasExplicitConversationPrivacy) {
   throw new Error('Conversation surface must retain explicit privacy semantics.');
 }
 if (!conversationScreen.includes("status === 'SOLD'") || !conversationScreen.includes("status === 'CLOSED'")) {
