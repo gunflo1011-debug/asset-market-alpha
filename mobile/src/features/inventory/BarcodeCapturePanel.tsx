@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { isGtinLike, resolveBarcodeProduct, type ProductSuggestion } from '../../lib/barcodeProductResolver';
+import { isGtinLike, normalizeScannedProductCode, resolveBarcodeProduct, type ProductSuggestion } from '../../lib/barcodeProductResolver';
 
-type Props = {
+ type Props = {
   onUseSuggestion: (suggestion: ProductSuggestion) => void;
   onEnterManually: () => void;
 };
 
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr'] as const;
+const NUMERIC_PRODUCT_CODE_LENGTHS = new Set([8, 12, 13, 14]);
+
+function looksLikeNumericProductCode(value: string): boolean {
+  const normalized = value.trim().replace(/\s+/g, '');
+  return /^\d+$/.test(normalized) && NUMERIC_PRODUCT_CODE_LENGTHS.has(normalized.length);
+}
 
 export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -19,20 +25,25 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
   const [error, setError] = useState<string | null>(null);
   const [lastCode, setLastCode] = useState<string | null>(null);
 
-  async function lookup(code: string) {
+  async function lookup(code: string, symbology?: string) {
     const normalized = code.trim();
     if (!normalized) return;
+    const normalizedProductCode = normalizeScannedProductCode(normalized, symbology);
     setScanned(true);
     setBusy(true);
     setError(null);
     setSuggestion(null);
     setLastCode(normalized);
     try {
-      const result = await resolveBarcodeProduct(normalized);
+      const result = await resolveBarcodeProduct(normalized, symbology);
       if (result) setSuggestion(result);
-      else setError(isGtinLike(normalized)
-        ? 'Barcode read successfully, but no reliable product match was found. Enter the details manually.'
-        : 'QR code read, but it does not contain product data Things can safely use yet.');
+      else if (isGtinLike(normalizedProductCode)) {
+        setError('Barcode read successfully, but no reliable product match was found. Enter the details manually.');
+      } else if (symbology !== 'qr' && looksLikeNumericProductCode(normalized)) {
+        setError('Barcode read, but its check digit is invalid. Scan it again or enter the code manually.');
+      } else {
+        setError('QR code read, but it does not contain product data Things can safely use yet.');
+      }
     } catch (lookupError) {
       setError(lookupError instanceof Error ? lookupError.message : 'Could not look up this product.');
     } finally {
@@ -42,7 +53,7 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
 
   function handleScan(result: BarcodeScanningResult) {
     if (scanned || busy) return;
-    void lookup(result.data);
+    void lookup(result.data, result.type);
   }
 
   function scanAgain() {

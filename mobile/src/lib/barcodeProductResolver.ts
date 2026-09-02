@@ -1,3 +1,5 @@
+import { isValidGtin, normalizeGtin, normalizeScannedGtin, type ProductBarcodeSymbology } from './gtin';
+
 export type BarcodeKind = 'gtin' | 'qr' | 'unknown';
 
 export type ProductSuggestion = {
@@ -13,16 +15,18 @@ export type ProductSuggestion = {
   privateSerial: string | null;
 };
 
-const GTIN_LENGTHS = new Set([8, 12, 13, 14]);
 const OPEN_FACTS_FIELDS = 'code,product_name,product_name_en,generic_name,brands,model,mpn,categories,image_front_url,image_url';
 
 export function normalizeBarcode(value: string): string {
-  return value.trim().replace(/\s+/g, '');
+  return normalizeGtin(value);
 }
 
 export function isGtinLike(value: string): boolean {
-  const normalized = normalizeBarcode(value);
-  return /^\d+$/.test(normalized) && GTIN_LENGTHS.has(normalized.length);
+  return isValidGtin(value);
+}
+
+export function normalizeScannedProductCode(value: string, symbology?: ProductBarcodeSymbology): string {
+  return normalizeScannedGtin(value, symbology);
 }
 
 function gtinLookupCandidates(code: string): string[] {
@@ -171,8 +175,8 @@ async function resolveWithOpenFacts(originalCode: string): Promise<ProductSugges
   return null;
 }
 
-export async function resolveBarcodeProduct(rawCode: string): Promise<ProductSuggestion | null> {
-  const code = normalizeBarcode(rawCode);
+export async function resolveBarcodeProduct(rawCode: string, symbology?: ProductBarcodeSymbology): Promise<ProductSuggestion | null> {
+  const code = normalizeScannedProductCode(rawCode, symbology);
   if (!isGtinLike(code)) return parseQrProductData(rawCode);
 
   let providerResponded = false;
