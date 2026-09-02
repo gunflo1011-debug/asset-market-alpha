@@ -31,8 +31,10 @@ assert.match(capturePanel, /lookup\(result\.data, result\.type\)/,
   'camera scans must preserve Expo barcode symbology through lookup');
 assert.match(resolver, /normalizeScannedProductCode\(rawCode, symbology\)/,
   'resolver must canonicalize scanner-specific product codes before lookup');
-assert.match(capturePanel, /check digit is invalid[\s\S]*Scan it again or enter the code manually/,
-  'checksum-invalid numeric product codes must not be mislabeled as QR payloads');
+assert.match(capturePanel, /kind: 'invalid_barcode'[\s\S]*check digit is invalid/,
+  'checksum-invalid numeric product codes must retain a dedicated invalid-barcode state instead of being mislabeled as QR payloads');
+assert.match(capturePanel, /error\.kind === 'invalid_barcode'[\s\S]*Scan again[\s\S]*Enter item manually/,
+  'checksum-invalid barcode recovery must expose both rescan and manual-entry actions');
 assert.match(resolver, /return isValidGtin\(value\)/,
   'lookup eligibility must require checksum-valid GTINs before any external provider call');
 assert.match(migration, /private\.is_valid_gtin_v1\(v_gtin\)/,
