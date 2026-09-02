@@ -123,7 +123,7 @@ export type PrivateInventoryItem = {
   created_at: string;
   market_state: InventoryMarketState | null;
   value_evidence: InventoryValueEvidence | null;
-  purchase_context: InventoryPurchaseContext | null;
+  purchase_context?: InventoryPurchaseContext | null;
   product_variants: {
     id: string;
     storage_gb: number | null;
