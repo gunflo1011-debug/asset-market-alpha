@@ -163,12 +163,13 @@ export function InventoryScreen(props: Props) {
     const saleOpen = props.saleIntentItemId === selectedItem.id;
     const modelEstimate = isModelEstimate(selectedItem);
     const lifecycleLabel = inventoryLifecycleLabel(selectedItem);
+    const purchasePriceCents = selectedItem.purchase_context?.purchase_price_cents ?? null;
 
     return (
       <SafeAreaView style={styles.safe}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContainer}>
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => setSelectedItemId(null)}><Text style={styles.topLink}>‹ Inventory</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to inventory" onPress={() => setSelectedItemId(null)}><Text style={styles.topLink}>‹ Inventory</Text></TouchableOpacity>
             <View style={styles.statePill}><Text style={styles.statePillText}>{lifecycleLabel}</Text></View>
           </View>
 
@@ -181,10 +182,24 @@ export function InventoryScreen(props: Props) {
             {!generic ? <Text style={styles.detailSubtitle}>{variantTitle(selectedItem.product_variants as CatalogVariant)}</Text> : null}
           </View>
 
+          {selectedItem.purchase_context ? (
+            <View style={styles.purchaseCard}>
+              <Text style={styles.purchaseEyebrow}>YOUR PURCHASE</Text>
+              <View style={styles.purchaseHeaderRow}>
+                <View style={styles.flex}>
+                  <Text style={styles.purchaseLabel}>{purchasePriceCents != null ? 'Paid price' : 'Marketplace purchase'}</Text>
+                  <Text style={styles.purchasePrice}>{purchasePriceCents != null ? formatEuroCents(purchasePriceCents) : 'Price not recorded'}</Text>
+                </View>
+                <View style={styles.purchaseBadge}><Text style={styles.purchaseBadgeText}>COMPLETED</Text></View>
+              </View>
+              <Text style={styles.purchaseCopy}>{purchasePriceCents != null ? 'Final price from your completed Marketplace purchase. This is what you paid, not a Things Estimate or asking price.' : 'This Thing came from a completed Marketplace purchase. No final paid price is available for this purchase.'}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.primaryValueCard}>
             <Text style={styles.cardEyebrow}>{modelEstimate ? 'THINGS ESTIMATE' : 'ESTIMATED VALUE'}</Text>
             <Text style={styles.primaryValue}>{sale.valueLabel.replace('Estimated value ', '')}</Text>
-            <Text style={styles.compactCopy}>{selectedItem.value_evidence ? 'Your current reference value.' : 'Add purchase details to calculate a first estimate.'}</Text>
+            <Text style={styles.compactCopy}>{selectedItem.value_evidence ? 'Things’ current reference value for this item. It can differ from what you paid or an asking price.' : 'No estimate yet. Add purchase details to calculate a first estimate.'}</Text>
           </View>
 
           <ValueEstimatePanel itemId={selectedItem.id} busy={props.actionBusy} onEstimated={props.onRefreshInventory} />
@@ -204,15 +219,15 @@ export function InventoryScreen(props: Props) {
               <View style={styles.flex}><Text style={styles.cardEyebrowLight}>SELL</Text><Text style={styles.saleTitle}>{saleOpen ? 'Selling options' : 'Ready to sell?'}</Text></View>
               <Text style={styles.saleValue}>{selectedItem.value_evidence ? formatEuroCents(selectedItem.value_evidence.estimated_value_cents) : '—'}</Text>
             </View>
-            <Text style={styles.saleCopy}>Choose your own asking price. Your item stays private until you publish it.</Text>
-            <TouchableOpacity style={styles.saleButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.saleButtonText}>{saleOpen ? 'Close selling' : 'Sell this Thing'}</Text></TouchableOpacity>
+            <Text style={styles.saleCopy}>Choose your own asking price. Your item stays private until you publish it. The asking price is separate from both your purchase price and Things Estimate.</Text>
+            <TouchableOpacity accessibilityRole="button" style={styles.saleButton} onPress={() => props.onToggleSaleIntent(selectedItem.id)}><Text style={styles.saleButtonText}>{saleOpen ? 'Close selling' : 'Sell this Thing'}</Text></TouchableOpacity>
           </View>
 
           {saleOpen ? <SellListingPanel itemId={selectedItem.id} estimatedValueCents={selectedItem.value_evidence?.estimated_value_cents ?? null} /> : null}
 
           <View style={styles.secondaryActions}>
-            <TouchableOpacity style={styles.secondaryButton} disabled={props.actionBusy} onPress={() => { props.onStartEditing(selectedItem); setSelectedItemId(null); }}><Text style={styles.secondaryButtonText}>Edit item</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.dangerButton} disabled={props.actionBusy} onPress={() => props.onDelete(selectedItem)}><Text style={styles.dangerButtonText}>Delete item</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} disabled={props.actionBusy} onPress={() => { props.onStartEditing(selectedItem); setSelectedItemId(null); }}><Text style={styles.secondaryButtonText}>Edit item</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={styles.dangerButton} disabled={props.actionBusy} onPress={() => props.onDelete(selectedItem)}><Text style={styles.dangerButtonText}>Delete item</Text></TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -451,6 +466,14 @@ const styles = StyleSheet.create({
   heroDate: { fontSize: 11, color: '#98A2B3' },
   detailTitle: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6, color: '#FFFFFF' },
   detailSubtitle: { fontSize: 14, lineHeight: 20, color: '#C5CBD4' },
+  purchaseCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 19, gap: 9, borderWidth: 1, borderColor: '#DCE4EA' },
+  purchaseEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#667085' },
+  purchaseHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  purchaseLabel: { fontSize: 13, lineHeight: 18, fontWeight: '700', color: '#667085' },
+  purchasePrice: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6, color: '#0F1728', marginTop: 2 },
+  purchaseBadge: { borderRadius: 999, backgroundColor: '#ECFDF3', paddingHorizontal: 9, paddingVertical: 6 },
+  purchaseBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#027A48' },
+  purchaseCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
   primaryValueCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 19, gap: 7, borderWidth: 1, borderColor: '#E5E8ED' },
   cardEyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#7A8494' },
   cardEyebrowLight: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#98A2B3' },
