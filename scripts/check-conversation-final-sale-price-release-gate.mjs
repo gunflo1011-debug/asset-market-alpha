@@ -5,8 +5,11 @@ const migrationPath = 'supabase/migrations/20260903091500_conversation_final_sal
 const parkedPath = `${migrationPath}.reviewed-by-conversation-final-sale-price-gate`;
 const itemOfferLockMigrationPath = 'supabase/migrations/20260903131000_serialize_marketplace_offer_accept_by_item.sql';
 const itemOfferLockParkedPath = `${itemOfferLockMigrationPath}.reviewed-by-item-offer-lock-gate`;
+const deterministicChatMigrationPath = 'supabase/migrations/20260903211500_deterministic_marketplace_message_order.sql';
+const deterministicChatParkedPath = `${deterministicChatMigrationPath}.reviewed-by-deterministic-chat-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const itemOfferLockMigration = fs.readFileSync(itemOfferLockMigrationPath, 'utf8');
+const deterministicChatMigration = fs.readFileSync(deterministicChatMigrationPath, 'utf8');
 
 assert.match(migration, /drop function if exists public\.load_my_marketplace_conversations\(\)/i);
 assert.match(migration, /create function public\.load_my_marketplace_conversations\(\)[\s\S]*security definer[\s\S]*set search_path = ''/i,
@@ -51,9 +54,27 @@ assert.doesNotMatch(itemOfferLockMigration,
   /grant\s+(?:select|insert|update|delete|all).*private\.(?:marketplace_offers|marketplace_conversations|marketplace_listings|item_market_state).*authenticated/i,
   'Concurrency hardening must not expose private marketplace tables');
 
+assert.match(deterministicChatMigration,
+  /create index if not exists marketplace_messages_conversation_created_id_idx[\s\S]*on private\.marketplace_messages\(conversation_id, created_at asc, id asc\)/i,
+  'Marketplace chat must have an index matching its deterministic read order');
+assert.match(deterministicChatMigration,
+  /create or replace function public\.load_my_marketplace_messages\(p_conversation_id uuid\)[\s\S]*security definer[\s\S]*set search_path = ''/i,
+  'Message loader must remain SECURITY DEFINER with empty search_path');
+assert.match(deterministicChatMigration,
+  /where c\.id=p_conversation_id and auth\.uid\(\) in \(c\.buyer_id,c\.seller_id\)[\s\S]*order by m\.created_at asc, m\.id asc/i,
+  'Message loader must remain participant-scoped and use an immutable tie-breaker');
+assert.match(deterministicChatMigration,
+  /revoke all on function public\.load_my_marketplace_messages\(uuid\) from public, anon;/i);
+assert.match(deterministicChatMigration,
+  /grant execute on function public\.load_my_marketplace_messages\(uuid\) to authenticated;/i);
+assert.doesNotMatch(deterministicChatMigration,
+  /grant\s+(?:select|insert|update|delete|all).*private\.marketplace_messages.*authenticated/i,
+  'Deterministic chat ordering must not expose the private messages table');
+
 for (const [source, destination] of [
   [migrationPath, parkedPath],
   [itemOfferLockMigrationPath, itemOfferLockParkedPath],
+  [deterministicChatMigrationPath, deterministicChatParkedPath],
 ]) fs.renameSync(source, destination);
 try {
   await import('./check-owner-market-state-release-gate-v2.mjs');
@@ -61,7 +82,8 @@ try {
   for (const [source, destination] of [
     [migrationPath, parkedPath],
     [itemOfferLockMigrationPath, itemOfferLockParkedPath],
+    [deterministicChatMigrationPath, deterministicChatParkedPath],
   ].reverse()) fs.renameSync(destination, source);
 }
 
-console.log('conversation final sale price + per-Thing offer serialization + established owner market-state release gate: OK');
+console.log('conversation final sale price + per-Thing offer serialization + deterministic marketplace chat order + established owner market-state release gate: OK');
