@@ -9,10 +9,13 @@ const deterministicChatMigrationPath = 'supabase/migrations/20260903211500_deter
 const deterministicChatParkedPath = `${deterministicChatMigrationPath}.reviewed-by-deterministic-chat-gate`;
 const attributeRlsMigrationPath = 'supabase/migrations/20260903222500_optimize_thing_attribute_rls_initplan.sql';
 const attributeRlsParkedPath = `${attributeRlsMigrationPath}.reviewed-by-attribute-rls-gate`;
+const ownerPathIndexMigrationPath = 'supabase/migrations/20260904001000_index_core_marketplace_owner_paths.sql';
+const ownerPathIndexParkedPath = `${ownerPathIndexMigrationPath}.reviewed-by-owner-path-index-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const itemOfferLockMigration = fs.readFileSync(itemOfferLockMigrationPath, 'utf8');
 const deterministicChatMigration = fs.readFileSync(deterministicChatMigrationPath, 'utf8');
 const attributeRlsMigration = fs.readFileSync(attributeRlsMigrationPath, 'utf8');
+const ownerPathIndexMigration = fs.readFileSync(ownerPathIndexMigrationPath, 'utf8');
 
 assert.match(migration, /drop function if exists public\.load_my_marketplace_conversations\(\)/i);
 assert.match(migration, /create function public\.load_my_marketplace_conversations\(\)[\s\S]*security definer[\s\S]*set search_path = ''/i,
@@ -94,11 +97,22 @@ assert.doesNotMatch(attributeRlsMigration, /\bi\.owner_id\s*=\s*auth\.uid\(\)/i,
 assert.doesNotMatch(attributeRlsMigration, /\b(?:grant|revoke|disable\s+row\s+level\s+security|drop\s+policy)\b/i,
   'RLS performance migration must not alter privileges, disable RLS, or drop policies');
 
+assert.match(ownerPathIndexMigration,
+  /create index if not exists marketplace_buyer_adoptions_buyer_idx\s+on private\.marketplace_buyer_adoptions \(buyer_id\);/i,
+  'Buyer adoption owner path must retain its buyer_id index');
+assert.match(ownerPathIndexMigration,
+  /create index if not exists marketplace_listings_seller_idx\s+on private\.marketplace_listings \(seller_id\);/i,
+  'Seller listing owner path must retain its seller_id index');
+assert.doesNotMatch(ownerPathIndexMigration,
+  /\b(?:grant|revoke|alter\s+policy|drop\s+policy|disable\s+row\s+level\s+security|create\s+(?:or\s+replace\s+)?function|insert|update|delete)\b/i,
+  'Owner-path index migration must remain additive and must not alter security, functions, or data');
+
 for (const [source, destination] of [
   [migrationPath, parkedPath],
   [itemOfferLockMigrationPath, itemOfferLockParkedPath],
   [deterministicChatMigrationPath, deterministicChatParkedPath],
   [attributeRlsMigrationPath, attributeRlsParkedPath],
+  [ownerPathIndexMigrationPath, ownerPathIndexParkedPath],
 ]) fs.renameSync(source, destination);
 try {
   await import('./check-owner-market-state-release-gate-v2.mjs');
@@ -108,7 +122,8 @@ try {
     [itemOfferLockMigrationPath, itemOfferLockParkedPath],
     [deterministicChatMigrationPath, deterministicChatParkedPath],
     [attributeRlsMigrationPath, attributeRlsParkedPath],
+    [ownerPathIndexMigrationPath, ownerPathIndexParkedPath],
   ].reverse()) fs.renameSync(destination, source);
 }
 
-console.log('conversation final sale price + per-Thing offer serialization + deterministic marketplace chat order + legacy attribute RLS optimization + established owner market-state release gate: OK');
+console.log('conversation final sale price + per-Thing offer serialization + deterministic marketplace chat order + legacy attribute RLS optimization + core Marketplace owner-path indexes + established owner market-state release gate: OK');
