@@ -13,15 +13,23 @@ select is(
   'offer response RPC keeps an empty search_path'
 );
 
-select unlike(
-  pg_get_functiondef('public.respond_to_my_marketplace_offer(uuid,text,bigint,text)'::regprocedure),
-  '%pg_advisory_lock(%',
+select ok(
+  strpos(
+    pg_get_functiondef('public.respond_to_my_marketplace_offer(uuid,text,bigint,text)'::regprocedure),
+    'pg_advisory_lock('
+  ) = 0,
   'RPC does not use session-scoped advisory locks'
 );
 
-select like(
-  pg_get_functiondef('public.respond_to_my_marketplace_offer(uuid,text,bigint,text)'::regprocedure),
-  '%pg_advisory_xact_lock%hashtextextended%v_item%',
+select ok(
+  strpos(
+    pg_get_functiondef('public.respond_to_my_marketplace_offer(uuid,text,bigint,text)'::regprocedure),
+    'pg_advisory_xact_lock'
+  ) > 0
+  and strpos(
+    pg_get_functiondef('public.respond_to_my_marketplace_offer(uuid,text,bigint,text)'::regprocedure),
+    'hashtextextended(v_item::text, 0)'
+  ) > 0,
   'offer responses serialize per Thing with a transaction-scoped advisory lock'
 );
 
