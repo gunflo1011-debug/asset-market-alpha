@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 const migrationPath = 'supabase/migrations/20260903091500_conversation_final_sale_price.sql';
 const parkedPath = `${migrationPath}.reviewed-by-conversation-final-sale-price-gate`;
+const itemOfferLockMigrationPath = 'supabase/migrations/20260903131000_serialize_marketplace_offer_accept_by_item.sql';
+const itemOfferLockParkedPath = `${itemOfferLockMigrationPath}.reviewed-by-item-offer-lock-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const itemOfferLockMigration = fs.readFileSync(itemOfferLockMigrationPath, 'utf8');
 
 assert.match(migration, /drop function if exists public\.load_my_marketplace_conversations\(\)/i);
 assert.match(migration, /create function public\.load_my_marketplace_conversations\(\)[\s\S]*security definer[\s\S]*set search_path = ''/i,
@@ -18,11 +21,47 @@ assert.match(migration, /grant execute on function public\.load_my_marketplace_c
 assert.doesNotMatch(migration, /\b(?:email|location_label|notes|serial|storage_path)\b/i,
   'Conversation final-sale-price contract must not expose seller-private metadata');
 
-fs.renameSync(migrationPath, parkedPath);
+assert.match(itemOfferLockMigration,
+  /create or replace function public\.respond_to_my_marketplace_offer\([\s\S]*security definer[\s\S]*set search_path = ''/i,
+  'Offer response RPC must remain SECURITY DEFINER with empty search_path');
+assert.match(itemOfferLockMigration,
+  /select c\.item_id[\s\S]*where o\.id = p_offer_id[\s\S]*pg_catalog\.pg_advisory_xact_lock\(pg_catalog\.hashtextextended\(v_item::text, 0\)\)/i,
+  'Offer response must resolve the Thing and take a transaction-scoped per-Thing lock before authoritative row locking');
+assert.match(itemOfferLockMigration,
+  /pg_advisory_xact_lock[\s\S]*select o\.conversation_id, o\.proposer_id, o\.status,[\s\S]*for update of o, c;/i,
+  'Offer/conversation state must be re-read under row locks after per-Thing serialization');
+assert.doesNotMatch(itemOfferLockMigration, /pg_advisory_lock\s*\(/i,
+  'Offer response must never use a session-scoped advisory lock');
+assert.match(itemOfferLockMigration, /v_user not in \(v_buyer, v_seller\)[\s\S]*raise exception 'NOT_ALLOWED'/i,
+  'Offer response must remain participant-scoped');
+assert.match(itemOfferLockMigration, /v_user = v_proposer[\s\S]*raise exception 'PROPOSER_CANNOT_RESPOND'/i);
+assert.match(itemOfferLockMigration, /v_offer_status <> 'PENDING'[\s\S]*raise exception 'OFFER_NOT_PENDING'/i);
+assert.match(itemOfferLockMigration, /v_conversation_status <> 'OPEN'[\s\S]*raise exception 'CONVERSATION_NOT_OPEN'/i);
+assert.match(itemOfferLockMigration,
+  /set status='CLOSED'[\s\S]*where item_id=v_item and id<>v_conversation and status in \('OPEN','RESERVED'\)/i,
+  'Accept must close competing conversations for the same Thing');
+assert.match(itemOfferLockMigration,
+  /insert into private\.item_market_state\(item_id, market_state, updated_at\)[\s\S]*values\(v_item,'RESERVED',now\(\)\)/i,
+  'Accept must keep the Thing market state RESERVED, not SOLD');
+assert.match(itemOfferLockMigration,
+  /revoke all on function public\.respond_to_my_marketplace_offer\(uuid,text,bigint,text\) from public, anon;/i);
+assert.match(itemOfferLockMigration,
+  /grant execute on function public\.respond_to_my_marketplace_offer\(uuid,text,bigint,text\) to authenticated;/i);
+assert.doesNotMatch(itemOfferLockMigration,
+  /grant\s+(?:select|insert|update|delete|all).*private\.(?:marketplace_offers|marketplace_conversations|marketplace_listings|item_market_state).*authenticated/i,
+  'Concurrency hardening must not expose private marketplace tables');
+
+for (const [source, destination] of [
+  [migrationPath, parkedPath],
+  [itemOfferLockMigrationPath, itemOfferLockParkedPath],
+]) fs.renameSync(source, destination);
 try {
   await import('./check-owner-market-state-release-gate-v2.mjs');
 } finally {
-  fs.renameSync(parkedPath, migrationPath);
+  for (const [source, destination] of [
+    [migrationPath, parkedPath],
+    [itemOfferLockMigrationPath, itemOfferLockParkedPath],
+  ].reverse()) fs.renameSync(destination, source);
 }
 
-console.log('conversation final sale price + established owner market-state release gate: OK');
+console.log('conversation final sale price + per-Thing offer serialization + established owner market-state release gate: OK');
