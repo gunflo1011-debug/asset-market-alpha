@@ -38,16 +38,19 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
   const [suggestion, setSuggestion] = useState<ProductSuggestion | null>(null);
   const [error, setError] = useState<ScanError | null>(null);
   const [lastCode, setLastCode] = useState<string | null>(null);
+  const [lastCaptureWasQr, setLastCaptureWasQr] = useState(false);
 
   async function lookup(code: string, symbology?: string) {
     const normalized = code.trim();
     if (!normalized) return;
     const normalizedProductCode = normalizeScannedProductCode(normalized, symbology);
+    const capturedQr = symbology === 'qr';
     setScanned(true);
     setBusy(true);
     setError(null);
     setSuggestion(null);
-    setLastCode(normalized);
+    setLastCaptureWasQr(capturedQr);
+    setLastCode(capturedQr ? null : normalizedProductCode);
     try {
       const result = await resolveBarcodeProduct(normalized, symbology);
       if (result) {
@@ -88,6 +91,7 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
     setSuggestion(null);
     setError(null);
     setLastCode(null);
+    setLastCaptureWasQr(false);
   }
 
   if (!permission) return <View style={styles.center}><ActivityIndicator /></View>;
@@ -117,7 +121,7 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           <View style={styles.scanPaused}>
             {busy ? <ActivityIndicator /> : null}
             <Text style={styles.scanPausedTitle}>{busy ? 'Looking up product…' : 'Code captured'}</Text>
-            {lastCode ? <Text numberOfLines={2} style={styles.codeText}>{lastCode}</Text> : null}
+            {lastCaptureWasQr ? <Text style={styles.codeText}>QR payload kept private</Text> : lastCode ? <Text numberOfLines={2} style={styles.codeText}>{lastCode}</Text> : null}
           </View>
         )}
       </View>
