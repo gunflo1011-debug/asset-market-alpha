@@ -11,12 +11,16 @@ const adoptionMigrationPath = 'supabase/migrations/20260902161500_buyer_adoption
 const adoptionParkedPath = `${adoptionMigrationPath}.reviewed-by-adoption-gate`;
 const purchaseContextMigrationPath = 'supabase/migrations/20260902201500_inventory_purchase_context_v1.sql';
 const purchaseContextParkedPath = `${purchaseContextMigrationPath}.reviewed-by-purchase-context-gate`;
+const snapshotMigrationPath = 'supabase/migrations/20260903042500_marketplace_public_snapshot_v1.sql';
+const snapshotParkedPath = `${snapshotMigrationPath}.reviewed-by-public-snapshot-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const gtinMigration = fs.readFileSync(gtinMigrationPath, 'utf8');
 const adoptionMigration = fs.readFileSync(adoptionMigrationPath, 'utf8');
 const purchaseContextMigration = fs.readFileSync(purchaseContextMigrationPath, 'utf8');
+const snapshotMigration = fs.readFileSync(snapshotMigrationPath, 'utf8');
 const adoptionExecutableSql = adoptionMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
 const purchaseContextExecutableSql = purchaseContextMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
+const snapshotExecutableSql = snapshotMigration.split(/comment on function/i)[0].replace(/--.*$/gm, '');
 
 function assertAuthenticatedOnlySelectedReadPolicy(sql) {
   const policyMatch = sql.match(
@@ -92,12 +96,45 @@ for (const forbidden of ['notes', 'location_label', 'serial', 'item_images', 'st
   assert.doesNotMatch(purchaseContextExecutableSql, new RegExp(`\\b${forbidden.replace('.', '\\.')}\\b`, 'i'), `Purchase context RPC must not expose ${forbidden}`);
 }
 
+// Review the new publish-snapshot migration before allowing the established gate to
+// treat it as known. Buyer reads must consume listing snapshots, never live private Thing rows.
+for (const column of ['public_title', 'public_category', 'public_estimated_value_cents', 'public_condition_label', 'source_variant_id', 'source_gtin']) {
+  assert.match(snapshotMigration, new RegExp(`add column if not exists ${column.replace('_', '\\_')}`, 'i'), `Snapshot migration must add ${column}`);
+}
+assert.match(snapshotMigration, /create or replace function public\.save_my_marketplace_listing_v2[\s\S]*security definer[\s\S]*set search_path = ''/i);
+assert.match(snapshotMigration, /where i\.id = p_item_id and i\.owner_id = v_owner/i, 'Snapshot publish must remain owner-scoped');
+assert.match(snapshotMigration, /public_title = case when p_publish then v_title/i, 'Public snapshot refresh must require explicit publish/update');
+assert.match(snapshotMigration, /create or replace function public\.load_marketplace_v2\(\)[\s\S]*select l\.item_id, l\.public_title, l\.public_category/i,
+  'Buyer Marketplace v2 must read frozen listing fields');
+const snapshotBuyerRead = snapshotMigration.match(/create or replace function public\.load_marketplace_v2\(\)([\s\S]*?)\$\$;/i)?.[1] ?? '';
+assert.ok(snapshotBuyerRead, 'Snapshot Marketplace v2 definition missing');
+for (const livePrivateSource of ['i.custom_name', 'item_value_evidence', 'condition_snapshots', 'item_product_identifiers']) {
+  assert.doesNotMatch(snapshotBuyerRead, new RegExp(livePrivateSource.replace('.', '\\.'), 'i'), `Buyer Marketplace read must not depend on live ${livePrivateSource}`);
+}
+assert.match(snapshotMigration, /create or replace function public\.adopt_my_sold_marketplace_thing[\s\S]*c\.buyer_id = auth\.uid\(\)/i,
+  'Snapshot adoption must remain buyer-scoped');
+assert.match(snapshotMigration, /if v_status <> 'SOLD' then raise exception 'SALE_NOT_COMPLETE'/i);
+assert.match(snapshotMigration, /select l\.public_title, l\.public_category, l\.source_variant_id, l\.source_gtin, l\.sold_price_cents/i,
+  'Buyer adoption must consume frozen transaction provenance');
+const snapshotAdoption = snapshotMigration.match(/create or replace function public\.adopt_my_sold_marketplace_thing\(p_conversation_id uuid\)([\s\S]*?)\$\$;/i)?.[1] ?? '';
+assert.ok(snapshotAdoption, 'Snapshot adoption definition missing');
+for (const liveSellerSource of ['i.custom_name', 'item_product_identifiers', 'condition_snapshots', 'item_images', 'storage.objects']) {
+  assert.doesNotMatch(snapshotAdoption, new RegExp(liveSellerSource.replace('.', '\\.'), 'i'), `Buyer adoption must not pull live seller source ${liveSellerSource}`);
+}
+assert.match(snapshotMigration, /revoke all on function public\.load_marketplace_v2\(\) from public, anon;/i);
+assert.match(snapshotMigration, /grant execute on function public\.load_marketplace_v2\(\) to authenticated;/i);
+assert.match(snapshotMigration, /revoke all on function public\.adopt_my_sold_marketplace_thing\(uuid\) from public, anon;/i);
+assert.match(snapshotMigration, /grant execute on function public\.adopt_my_sold_marketplace_thing\(uuid\) to authenticated;/i);
+assert.doesNotMatch(snapshotExecutableSql, /grant\s+(?:select|insert|update|delete|all).*private\.marketplace_listings.*authenticated/i,
+  'Snapshot hardening must not expose the private listing table');
+
 const parked = [
   [migrationPath, parkedPath],
   [offerMigrationPath, offerParkedPath],
   [gtinMigrationPath, gtinParkedPath],
   [adoptionMigrationPath, adoptionParkedPath],
   [purchaseContextMigrationPath, purchaseContextParkedPath],
+  [snapshotMigrationPath, snapshotParkedPath],
 ];
 for (const [source, destination] of parked) fs.renameSync(source, destination);
 try {
@@ -106,4 +143,4 @@ try {
   for (const [source, destination] of parked.reverse()) fs.renameSync(destination, source);
 }
 
-console.log('marketplace image + GTIN checksum + buyer adoption + purchase-context deltas + established owner market-state release gate: OK');
+console.log('marketplace image + GTIN checksum + buyer adoption + purchase-context + public listing snapshot deltas + established owner market-state release gate: OK');
