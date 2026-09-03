@@ -356,8 +356,18 @@ export function InventoryScreen(props: Props) {
             const generic = !item.product_variants;
             const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
             const lifecycleLabel = inventoryLifecycleLabel(item);
+            const estimateAccessibilityLabel = item.value_evidence
+              ? `Things Estimate ${formatEuroCents(item.value_evidence.estimated_value_cents)}`
+              : 'Estimate pending';
             return (
-              <TouchableOpacity key={item.id} style={[styles.compactItem, index < visibleItems.length - 1 && styles.compactItemBorder]} onPress={() => setSelectedItemId(item.id)}>
+              <TouchableOpacity
+                key={item.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${itemTitle(item)}. ${estimateAccessibilityLabel}. ${lifecycleLabel}.`}
+                accessibilityHint="Opens Thing details"
+                style={[styles.compactItem, index < visibleItems.length - 1 && styles.compactItemBorder]}
+                onPress={() => setSelectedItemId(item.id)}
+              >
                 <View style={styles.itemIcon}><Text style={styles.itemIconText}>{(generic ? (item.category || 'T') : 'D').slice(0, 1).toUpperCase()}</Text></View>
                 <View style={styles.flex}>
                   <View style={styles.itemTopLine}>
