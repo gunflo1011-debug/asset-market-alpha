@@ -7,9 +7,12 @@ const itemOfferLockMigrationPath = 'supabase/migrations/20260903131000_serialize
 const itemOfferLockParkedPath = `${itemOfferLockMigrationPath}.reviewed-by-item-offer-lock-gate`;
 const deterministicChatMigrationPath = 'supabase/migrations/20260903211500_deterministic_marketplace_message_order.sql';
 const deterministicChatParkedPath = `${deterministicChatMigrationPath}.reviewed-by-deterministic-chat-gate`;
+const attributeRlsMigrationPath = 'supabase/migrations/20260903222500_optimize_thing_attribute_rls_initplan.sql';
+const attributeRlsParkedPath = `${attributeRlsMigrationPath}.reviewed-by-attribute-rls-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const itemOfferLockMigration = fs.readFileSync(itemOfferLockMigrationPath, 'utf8');
 const deterministicChatMigration = fs.readFileSync(deterministicChatMigrationPath, 'utf8');
+const attributeRlsMigration = fs.readFileSync(attributeRlsMigrationPath, 'utf8');
 
 assert.match(migration, /drop function if exists public\.load_my_marketplace_conversations\(\)/i);
 assert.match(migration, /create function public\.load_my_marketplace_conversations\(\)[\s\S]*security definer[\s\S]*set search_path = ''/i,
@@ -71,10 +74,31 @@ assert.doesNotMatch(deterministicChatMigration,
   /grant\s+(?:select|insert|update|delete|all).*private\.marketplace_messages.*authenticated/i,
   'Deterministic chat ordering must not expose the private messages table');
 
+assert.match(attributeRlsMigration,
+  /if to_regclass\('public\.thing_attribute_values'\) is null then[\s\S]*return;/i,
+  'Legacy attribute RLS optimization must remain safe on clean rebuilds where the table is absent');
+for (const policyName of [
+  'owners read own thing attributes',
+  'owners add own thing attributes',
+  'owners update own thing attributes',
+  'owners delete own thing attributes',
+]) {
+  assert.match(attributeRlsMigration, new RegExp(`alter policy "${policyName}"`, 'i'), `Expected ${policyName} to remain explicitly reviewed`);
+}
+assert.match(attributeRlsMigration, /i\.owner_id = \(select auth\.uid\(\)\)/i,
+  'Legacy attribute policies must preserve owner isolation while using initplan-friendly auth lookup');
+assert.match(attributeRlsMigration, /d\.category_id = i\.category_id/i,
+  'Attribute writes must preserve category/definition consistency');
+assert.doesNotMatch(attributeRlsMigration, /\bi\.owner_id\s*=\s*auth\.uid\(\)/i,
+  'Legacy attribute policies must not regress to per-row auth.uid() evaluation');
+assert.doesNotMatch(attributeRlsMigration, /\b(?:grant|revoke|disable\s+row\s+level\s+security|drop\s+policy)\b/i,
+  'RLS performance migration must not alter privileges, disable RLS, or drop policies');
+
 for (const [source, destination] of [
   [migrationPath, parkedPath],
   [itemOfferLockMigrationPath, itemOfferLockParkedPath],
   [deterministicChatMigrationPath, deterministicChatParkedPath],
+  [attributeRlsMigrationPath, attributeRlsParkedPath],
 ]) fs.renameSync(source, destination);
 try {
   await import('./check-owner-market-state-release-gate-v2.mjs');
@@ -83,7 +107,8 @@ try {
     [migrationPath, parkedPath],
     [itemOfferLockMigrationPath, itemOfferLockParkedPath],
     [deterministicChatMigrationPath, deterministicChatParkedPath],
+    [attributeRlsMigrationPath, attributeRlsParkedPath],
   ].reverse()) fs.renameSync(destination, source);
 }
 
-console.log('conversation final sale price + per-Thing offer serialization + deterministic marketplace chat order + established owner market-state release gate: OK');
+console.log('conversation final sale price + per-Thing offer serialization + deterministic marketplace chat order + legacy attribute RLS optimization + established owner market-state release gate: OK');
