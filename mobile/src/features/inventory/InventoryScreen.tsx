@@ -242,12 +242,12 @@ export function InventoryScreen(props: Props) {
             <Text style={styles.eyebrow}>THINGS</Text>
             <Text style={styles.pageTitle}>Your inventory</Text>
           </View>
-          <TouchableOpacity style={styles.iconButton} onPress={props.onOpenAccount}><Text style={styles.iconButtonText}>•••</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open account" style={styles.iconButton} onPress={props.onOpenAccount}><Text style={styles.iconButtonText}>•••</Text></TouchableOpacity>
         </View>
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryPrimary}>
-            <Text style={styles.summaryLabel}>KNOWN VALUE</Text>
+            <Text style={styles.summaryLabel}>TOTAL ESTIMATE</Text>
             <Text style={styles.valueSummary}>{portfolioValueLabel}</Text>
             <Text style={styles.metricLabel}>{portfolioCoverageLabel}</Text>
           </View>
@@ -258,11 +258,11 @@ export function InventoryScreen(props: Props) {
         </View>
 
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.primaryQuickAction} onPress={() => { setCaptureOpen((open) => !open); if (!captureOpen) setCaptureMode('scan'); }}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={captureOpen ? 'Close Add Thing' : 'Add Thing'} accessibilityState={{ expanded: captureOpen }} style={styles.primaryQuickAction} onPress={() => { setCaptureOpen((open) => !open); if (!captureOpen) setCaptureMode('scan'); }}>
             <Text style={styles.primaryQuickIcon}>{captureOpen ? '×' : '+'}</Text>
             <Text style={styles.primaryQuickText}>{captureOpen ? 'Close' : 'Add Thing'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryQuickAction} onPress={() => setMarketplaceOpen(true)}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Marketplace" style={styles.secondaryQuickAction} onPress={() => setMarketplaceOpen(true)}>
             <Text style={styles.secondaryQuickText}>Marketplace</Text><Text style={styles.quickArrow}>›</Text>
           </TouchableOpacity>
         </View>
@@ -270,9 +270,9 @@ export function InventoryScreen(props: Props) {
         {captureOpen ? (
           <View style={styles.captureCard}>
             <View style={styles.segmentedControl}>
-              <TouchableOpacity style={[styles.segment, captureMode === 'scan' && styles.segmentActive]} onPress={() => setCaptureMode('scan')}><Text style={[styles.segmentText, captureMode === 'scan' && styles.segmentTextActive]}>Scan</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Manual</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Catalog</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Scan a barcode or QR code" accessibilityState={{ selected: captureMode === 'scan' }} style={[styles.segment, captureMode === 'scan' && styles.segmentActive]} onPress={() => setCaptureMode('scan')}><Text style={[styles.segmentText, captureMode === 'scan' && styles.segmentTextActive]}>Scan</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter Thing details manually" accessibilityState={{ selected: captureMode === 'manual' }} style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Manual</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose a known device from the catalog" accessibilityState={{ selected: captureMode === 'catalog' }} style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Catalog</Text></TouchableOpacity>
             </View>
 
             {captureMode === 'scan' ? (
