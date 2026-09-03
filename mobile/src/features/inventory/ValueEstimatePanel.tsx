@@ -95,7 +95,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
       <ItemImagesPanel itemId={itemId} />
       <View style={styles.card}>
         <Text style={styles.eyebrow}>THINGS ESTIMATE</Text>
-        <Text style={styles.title}>Get a first euro estimate</Text>
+        <Text style={styles.title}>{persistedEstimateState === 'present' ? 'Update your Things Estimate' : 'Get a first euro estimate'}</Text>
         <Text style={styles.copy}>Tell Things what you paid, when you bought it, and its condition. This is a transparent model estimate — not a verified market comparison.</Text>
 
         <View style={styles.priceBoundaryCard}>
@@ -124,6 +124,12 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading estimate details" style={styles.retryButton} onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
               <Text style={styles.retryButtonText}>Retry loading details</Text>
             </TouchableOpacity>
+          </View>
+        ) : persistedEstimateState === 'present' && !status ? (
+          <View style={styles.stateCard}>
+            <Text style={styles.stateLabel}>ESTIMATE AVAILABLE</Text>
+            <Text style={styles.stateTitle}>You already have a saved Things Estimate</Text>
+            <Text style={styles.stateCopy}>Recalculate only when the purchase details or condition have changed. Your current estimate remains available above.</Text>
           </View>
         ) : persistedEstimateState === 'missing' && !status ? (
           <View style={styles.stateCard}>
