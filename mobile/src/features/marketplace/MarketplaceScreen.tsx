@@ -182,10 +182,16 @@ export function MarketplaceScreen({ onBack }: Props) {
           </View>
 
           {selected.image_urls.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery}>
-              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery} accessibilityLabel="Public listing photos">
+              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessible accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
             </ScrollView>
-          ) : null}
+          ) : (
+            <View accessible accessibilityLabel="No public photos. The seller did not share photos for this listing." style={styles.noPhotoDetail}>
+              <View style={styles.noPhotoIcon}><Text style={styles.noPhotoIconText}>PHOTO</Text></View>
+              <Text style={styles.noPhotoTitle}>No public photos</Text>
+              <Text style={styles.noPhotoCopy}>The seller did not share any photos with this listing. Private Thing photos are not shown here.</Text>
+            </View>
+          )}
 
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
@@ -291,7 +297,14 @@ export function MarketplaceScreen({ onBack }: Props) {
           const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
           return (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
-              {listing.image_urls[0] ? <Image accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" /> : null}
+              {listing.image_urls[0] ? (
+                <Image accessible accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" />
+              ) : (
+                <View accessible accessibilityLabel={`No public photo for ${listing.title}`} style={styles.listingImagePlaceholder}>
+                  <Text style={styles.listingImagePlaceholderLabel}>NO PUBLIC PHOTO</Text>
+                  <Text style={styles.listingImagePlaceholderText}>Seller chose not to share a photo</Text>
+                </View>
+              )}
               <View style={styles.cardTop}><View style={styles.pill}><Text style={styles.pillText}>{listing.category}</Text></View><Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text></View>
               <Text style={styles.itemTitle}>{listing.title}</Text>
               <View style={styles.metaRow}>
@@ -380,8 +393,16 @@ const styles = StyleSheet.create({
   sectionMeta: { fontSize: 12, color: '#7A8494' },
   card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 11, borderWidth: 1, borderColor: '#E5E8ED' },
   listingImage: { width: '100%', height: 190, borderRadius: 16, backgroundColor: '#EEF0F3' },
+  listingImagePlaceholder: { width: '100%', height: 190, borderRadius: 16, backgroundColor: '#F4F6F8', borderWidth: 1, borderColor: '#E5E8ED', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 6 },
+  listingImagePlaceholderLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.1, color: '#98A2B3' },
+  listingImagePlaceholderText: { fontSize: 12, lineHeight: 18, fontWeight: '700', textAlign: 'center', color: '#667085' },
   detailGallery: { gap: 10, paddingRight: 4 },
   detailImage: { width: 280, height: 220, borderRadius: 20, backgroundColor: '#EEF0F3' },
+  noPhotoDetail: { minHeight: 220, borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8ED', alignItems: 'center', justifyContent: 'center', padding: 28, gap: 9 },
+  noPhotoIcon: { minWidth: 76, minHeight: 44, borderRadius: 999, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  noPhotoIconText: { fontSize: 9, fontWeight: '800', letterSpacing: 1.1, color: '#667085' },
+  noPhotoTitle: { fontSize: 18, lineHeight: 24, fontWeight: '800', color: '#0F1728' },
+  noPhotoCopy: { maxWidth: 300, fontSize: 12, lineHeight: 18, textAlign: 'center', color: '#667085' },
   ownerCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, gap: 9, borderWidth: 1, borderColor: '#B7E4C7' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   pill: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 6 },
