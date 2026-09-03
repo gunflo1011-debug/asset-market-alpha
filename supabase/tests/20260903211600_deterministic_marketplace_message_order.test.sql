@@ -15,7 +15,7 @@ select is(
 
 select ok(
   strpos(
-    regexp_replace(pg_get_functiondef('public.load_my_marketplace_messages(uuid)'::regprocedure), '\\s+', ' ', 'g'),
+    regexp_replace(pg_get_functiondef('public.load_my_marketplace_messages(uuid)'::regprocedure), E'\\s+', ' ', 'g'),
     'order by m.created_at asc, m.id asc'
   ) > 0,
   'message loader uses message id as deterministic timestamp tie-breaker'
