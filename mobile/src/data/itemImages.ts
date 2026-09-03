@@ -98,9 +98,27 @@ export async function setMyItemMarketplaceVisibility(itemId: string, imageId: st
   if (error) throw error;
 }
 
+async function removeStaleMarketplaceImageProjections(itemId: string, selectedImageIds: Set<string>): Promise<void> {
+  const bucket = requireSupabase().storage.from('marketplace-images');
+  const { data, error } = await bucket.list(itemId, { limit: 100 });
+  if (error) throw new Error('Could not verify existing Marketplace photo projections.');
+
+  const stalePaths = (data ?? [])
+    .filter((entry) => entry.name && !selectedImageIds.has(entry.name))
+    .map((entry) => `${itemId}/${entry.name}`);
+
+  if (stalePaths.length === 0) return;
+
+  const { error: removeError } = await bucket.remove(stalePaths);
+  if (removeError) throw new Error('Could not remove an outdated Marketplace photo projection.');
+}
+
 export async function syncMyMarketplaceImageProjections(itemId: string): Promise<number> {
   const client = requireSupabase();
   const selected = (await loadMyItemImages(itemId)).filter((image) => image.marketplaceVisible).slice(0, 6);
+  const selectedImageIds = new Set(selected.map((image) => image.id));
+
+  await removeStaleMarketplaceImageProjections(itemId, selectedImageIds);
 
   for (const image of selected) {
     const response = await fetch(image.signedUrl);
