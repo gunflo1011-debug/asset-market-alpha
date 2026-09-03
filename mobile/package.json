@@ -10,6 +10,7 @@
     "pretypecheck": "node scripts/normalize-font-weights.mjs",
     "typecheck": "tsc --noEmit",
     "test:capture-flow": "node scripts/check-capture-flow.mjs",
+    "test:barcode-capture-privacy": "node scripts/check-barcode-capture-privacy.mjs",
     "test:capture-completion-surface": "node scripts/check-capture-completion-surface.mjs",
     "test:structured-gtin-wiring": "node scripts/check-structured-gtin-wiring.mjs",
     "test:inventory-crud-surface": "node scripts/check-inventory-crud-surface.mjs",

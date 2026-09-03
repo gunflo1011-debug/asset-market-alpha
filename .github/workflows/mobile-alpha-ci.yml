@@ -37,6 +37,8 @@ jobs:
         run: npm run typecheck
       - name: Validate capture flow regression
         run: npm run test:capture-flow
+      - name: Validate barcode/QR capture privacy regression
+        run: npm run test:barcode-capture-privacy
       - name: Validate capture completion surface regression
         run: npm run test:capture-completion-surface
       - name: Validate structured GTIN persistence wiring
