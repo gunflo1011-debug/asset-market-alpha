@@ -27,9 +27,6 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
   if (inventoryResult.error) throw inventoryResult.error;
   const marketStates = new Map<string, InventoryMarketState>();
   if (!marketStateResult.error) for (const row of (marketStateResult.data ?? []) as Array<{ item_id: string; market_state: InventoryMarketState }>) marketStates.set(row.item_id, row.market_state);
-  // A published listing is buyer-visible truth. Treat it as FOR_SALE when the
-  // authoritative private lifecycle projection loaded successfully but has not
-  // yet caught up. Never use listing data to bypass fail-closed lifecycle reads.
   if (!marketStateResult.error && !listingResult.error) for (const row of (listingResult.data ?? []) as Array<{ item_id: string; status: string }>) {
     if (row.status === 'PUBLISHED' && marketStates.get(row.item_id) !== 'RESERVED' && marketStates.get(row.item_id) !== 'SOLD') marketStates.set(row.item_id, 'OFFERS_ENABLED');
   }
@@ -83,7 +80,6 @@ export async function loadMarketplace(): Promise<MarketplaceListing[]> {
       imageUrls.set(ref.itemId, current);
     }
   } catch {
-    // Listings remain usable when optional photo delivery is temporarily unavailable.
   }
 
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
@@ -107,11 +103,6 @@ export async function loadMarketValueForMyItem(itemId: string): Promise<MarketVa
   if (error) throw error;
   const row = ((data ?? []) as Array<Record<string, unknown>>)[0];
   if (!row) return { marketValueCents: null, sampleCount: 0, source: 'INSUFFICIENT_DATA' };
-
-  // Backend keeps match strategy (catalog variant vs exact confirmed GTIN) in the
-  // source value, but the product surface only needs the evidence class: completed
-  // sale median vs active-listing median. Preserve that distinction instead of
-  // incorrectly downgrading GTIN-backed medians to INSUFFICIENT_DATA.
   const source = row.source === 'SOLD_MEDIAN' || row.source === 'SOLD_GTIN_MEDIAN'
     ? 'SOLD_MEDIAN'
     : row.source === 'ACTIVE_MEDIAN' || row.source === 'ACTIVE_GTIN_MEDIAN'
@@ -145,6 +136,7 @@ export async function loadMyMarketplaceConversations(): Promise<MarketplaceConve
     item_id: String(row.item_id),
     role: row.role as MarketplaceConversation['role'],
     status: row.status as MarketplaceConversation['status'],
+    final_sale_price_cents: row.final_sale_price_cents == null ? null : Number(row.final_sale_price_cents),
     updated_at: String(row.updated_at),
   }));
 }
