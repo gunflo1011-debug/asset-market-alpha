@@ -26,7 +26,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [offerMessage, setOfferMessage] = useState('');
   const [counterAmount, setCounterAmount] = useState('');
   const [counterMessage, setCounterMessage] = useState('');
-  const [showOfferComposer, setShowOfferComposer] = useState(false);
+  const [showOfferComposer, setShowOfferComposer] = useState(conversation.role === 'BUYER' && conversation.status === 'OPEN');
   const [showCounterComposer, setShowCounterComposer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -69,7 +69,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     setOfferMessage('');
     setCounterAmount('');
     setCounterMessage('');
-    setShowOfferComposer(false);
+    setShowOfferComposer(conversation.role === 'BUYER' && conversation.status === 'OPEN');
     setShowCounterComposer(false);
     void refresh();
   }, [conversation.conversation_id, conversation.status]);
@@ -165,7 +165,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
 
           {status === 'OPEN' ? <View style={styles.offerCard}>
             <View style={styles.offerHeader}><View><Text style={styles.offerEyebrow}>OFFERS</Text><Text style={styles.offerTitle}>{pendingOffer ? (pendingOffer.proposer_role === 'ME' ? 'Offer sent' : 'Offer received') : 'Agree on a price'}</Text></View>{pendingOffer ? <Text style={styles.offerAmount}>{euro(pendingOffer.amount_cents)}</Text> : null}</View>
-            {pendingOffer ? <>
+            {loading ? <><ActivityIndicator /><Text accessibilityLiveRegion="polite" style={styles.copy}>Checking current offer status…</Text></> : pendingOffer ? <>
               <Text style={styles.copy}>{pendingOffer.proposer_role === 'ME' ? 'Waiting for the other person to respond. You cannot send another offer while this one is pending.' : 'Review the amount carefully. Accepting reserves the Thing; it does not mark the sale as completed.'}</Text>
               {pendingOffer.message ? <View style={styles.offerNote}><Text style={styles.offerNoteLabel}>Message</Text><Text style={styles.offerNoteText}>{pendingOffer.message}</Text></View> : null}
               {pendingOffer.proposer_role === 'OTHER' ? <>
