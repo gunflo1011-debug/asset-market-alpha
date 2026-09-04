@@ -10,6 +10,7 @@ const inventory = [
 ].join('\n');
 const auth = read('src/data/auth.ts');
 const app = read('App.tsx');
+const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
@@ -37,4 +38,27 @@ assert.match(auth, /auth\.resend\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_RED
 assert.match(auth, /resetPasswordForEmail\([\s\S]*redirectTo\s*:\s*PASSWORD_RESET_REDIRECT/, 'password reset must preserve the app deep link');
 assert.match(app, /url\.startsWith\(['"]thingsalpha:\/\/auth\/reset-password['"]\)/, 'app must handle password-reset deep links');
 
-console.log('release-critical ownership + auth redirect regression: ok');
+for (const [internalStatus, consumerLabel] of [['OPEN', 'Open'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['CLOSED', 'Closed']]) {
+  assert.match(
+    marketplaceConversation,
+    new RegExp(`${internalStatus}: ['\"]${consumerLabel}['\"]`),
+    `Marketplace chat must present ${internalStatus} as consumer label ${consumerLabel}`,
+  );
+}
+assert.match(
+  marketplaceConversation,
+  /STATUS_LABELS\[status\]/,
+  'Marketplace chat status pill must render the presentation label rather than the backend enum',
+);
+assert.match(
+  marketplaceConversation,
+  /status === ['"]SOLD['"][\s\S]*Sale complete\.[\s\S]*confirmed final price is the amount actually paid\./,
+  'SOLD accepted-offer copy must treat final price as authoritative and accepted offer as history',
+);
+assert.doesNotMatch(
+  marketplaceConversation,
+  /status === ['"]SOLD['"][\s\S]{0,220}not the final sale price until the seller confirms/,
+  'SOLD copy must never say final sale confirmation is still pending',
+);
+
+console.log('release-critical ownership + auth + Marketplace conversation regression: ok');

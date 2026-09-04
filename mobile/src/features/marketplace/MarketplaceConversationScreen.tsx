@@ -6,9 +6,30 @@ import type { MarketplaceConversation, MarketplaceConversationStatus, Marketplac
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
 const QUICK_MESSAGE = 'Hi, is this still available?';
+const STATUS_LABELS: Record<MarketplaceConversationStatus, string> = {
+  OPEN: 'Open',
+  RESERVED: 'Reserved',
+  SOLD: 'Sold',
+  CLOSED: 'Closed',
+};
 
 function euro(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+}
+
+function acceptedOfferCopy(status: MarketplaceConversationStatus, buyer: boolean): string {
+  if (status === 'RESERVED') {
+    return buyer
+      ? 'Reserved for you. Keep using this chat to coordinate the handover. The Thing is not sold yet.'
+      : 'Reserved for this buyer. Complete the handover first; only then confirm the actual final sale price.';
+  }
+  if (status === 'SOLD') {
+    return 'Sale complete. This accepted offer is shown as offer history; the confirmed final price is the amount actually paid.';
+  }
+  if (status === 'CLOSED') {
+    return 'This accepted offer is kept as conversation history. No completed sale is being recorded here.';
+  }
+  return 'Offer accepted. The Thing is reserved once acceptance completes; this is not yet a confirmed final sale price.';
 }
 
 function parseEuroAmount(value: string, maxCents: number): { cents: number; valid: boolean } {
@@ -167,9 +188,9 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.container}>
           <View style={styles.header}><TouchableOpacity accessibilityRole="button" onPress={onBack}><Text style={styles.back}>‹ Marketplace</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity></View>
-          <View style={styles.hero}><Text style={styles.eyebrow}>{buyer ? 'BUYING' : 'SELLING'}</Text><Text style={styles.title}>{title}</Text><Text style={styles.heroCopy}>Private listing chat. Exact addresses, account emails and private inventory details stay hidden.</Text><View style={styles.statusPill}><Text style={styles.statusText}>{status}</Text></View></View>
+          <View style={styles.hero}><Text style={styles.eyebrow}>{buyer ? 'BUYING' : 'SELLING'}</Text><Text style={styles.title}>{title}</Text><Text style={styles.heroCopy}>Private listing chat. Exact addresses, account emails and private inventory details stay hidden.</Text><View style={styles.statusPill} accessibilityLabel={`Conversation status ${STATUS_LABELS[status]}`}><Text style={styles.statusText}>{STATUS_LABELS[status]}</Text></View></View>
 
-          {acceptedOffer ? <View style={styles.acceptedCard}><Text style={styles.acceptedEyebrow}>OFFER ACCEPTED</Text><Text style={styles.acceptedAmount}>{euro(acceptedOffer.amount_cents)}</Text><Text style={styles.acceptedCopy}>{status === 'RESERVED' ? (buyer ? 'Reserved for you. Keep using this chat to coordinate the handover. The Thing is not sold yet.' : 'Reserved for this buyer. Complete the handover first; only then confirm the actual final sale price.') : 'This accepted offer reserved the Thing. It is not the final sale price until the seller confirms the completed sale.'}</Text></View> : null}
+          {acceptedOffer ? <View style={styles.acceptedCard}><Text style={styles.acceptedEyebrow}>OFFER ACCEPTED</Text><Text style={styles.acceptedAmount}>{euro(acceptedOffer.amount_cents)}</Text><Text style={styles.acceptedCopy}>{acceptedOfferCopy(status, buyer)}</Text></View> : null}
 
           {status === 'OPEN' ? <View style={[styles.offerCard, incomingOffer && styles.incomingOfferCard]}>
             <View style={styles.offerHeader}><View><Text style={[styles.offerEyebrow, incomingOffer && styles.incomingOfferEyebrow]}>{incomingOffer ? 'OFFER RECEIVED' : 'OFFERS'}</Text><Text style={[styles.offerTitle, incomingOffer && styles.incomingOfferTitle]}>{pendingOffer ? (pendingOffer.proposer_role === 'ME' ? 'Offer sent' : 'Buyer offer') : 'Agree on a price'}</Text></View>{pendingOffer ? <Text accessibilityLabel={`${incomingOffer ? 'Buyer offer' : 'Offer'} ${euro(pendingOffer.amount_cents)}`} style={[styles.offerAmount, incomingOffer && styles.incomingOfferAmount]}>{euro(pendingOffer.amount_cents)}</Text> : null}</View>
@@ -206,7 +227,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
             {messages.map((message) => { const mine = message.sender_role === 'ME'; return <View key={message.message_id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}><Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text><Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.created_at).toLocaleString()}</Text></View>; })}
           </ScrollView>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-          {closed ? <View style={styles.closed}><Text style={styles.closedTitle}>Conversation closed</Text><Text style={styles.copy}>New messages are disabled because this transaction is {status.toLowerCase()}.</Text></View> : <View style={styles.composer}><TextInput accessibilityLabel="Message about this Thing" value={draft} onChangeText={setDraft} placeholder="Message about this Thing" multiline maxLength={1200} style={styles.input} /><Text style={styles.counter}>{draft.length}/1200</Text><TouchableOpacity accessibilityRole="button" disabled={sending || !draft.trim()} style={[styles.sendButton, (sending || !draft.trim()) && styles.disabled]} onPress={() => void send()}><Text style={styles.sendText}>{sending ? 'Sending…' : 'Send'}</Text></TouchableOpacity></View>}
+          {closed ? <View style={styles.closed}><Text style={styles.closedTitle}>Conversation closed</Text><Text style={styles.copy}>New messages are disabled because this transaction is {STATUS_LABELS[status].toLowerCase()}.</Text></View> : <View style={styles.composer}><TextInput accessibilityLabel="Message about this Thing" value={draft} onChangeText={setDraft} placeholder="Message about this Thing" multiline maxLength={1200} style={styles.input} /><Text style={styles.counter}>{draft.length}/1200</Text><TouchableOpacity accessibilityRole="button" disabled={sending || !draft.trim()} style={[styles.sendButton, (sending || !draft.trim()) && styles.disabled]} onPress={() => void send()}><Text style={styles.sendText}>{sending ? 'Sending…' : 'Send'}</Text></TouchableOpacity></View>}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
