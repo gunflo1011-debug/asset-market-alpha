@@ -14,14 +14,27 @@ set custom_name='Seller iPhone',
 where id='00000000-0000-0000-0000-000000000401'::uuid
   and owner_id='00000000-0000-0000-0000-000000000101'::uuid;
 
-insert into private.marketplace_listings(item_id, seller_id, asking_price_cents, status, published_at, updated_at)
+-- Seed the immutable buyer-visible listing snapshot as a published listing.
+-- Adoption intentionally reads this snapshot instead of live seller-private fields.
+insert into private.marketplace_listings(
+  item_id,
+  seller_id,
+  asking_price_cents,
+  status,
+  published_at,
+  updated_at,
+  public_title,
+  public_category
+)
 values (
   '00000000-0000-0000-0000-000000000401'::uuid,
   '00000000-0000-0000-0000-000000000101'::uuid,
   65000,
   'PUBLISHED',
   now(),
-  now()
+  now(),
+  'Seller iPhone',
+  'Phone'
 )
 on conflict (item_id) do update set
   seller_id=excluded.seller_id,
@@ -29,7 +42,9 @@ on conflict (item_id) do update set
   sold_price_cents=null,
   status='PUBLISHED',
   published_at=now(),
-  updated_at=now();
+  updated_at=now(),
+  public_title=excluded.public_title,
+  public_category=excluded.public_category;
 
 insert into private.marketplace_interests(item_id, buyer_id, seller_id, status, updated_at)
 values (
