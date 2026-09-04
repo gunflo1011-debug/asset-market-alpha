@@ -101,8 +101,8 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
       <View style={styles.permissionCard}>
         <Text style={styles.title}>Scan a barcode</Text>
         <Text style={styles.copy}>Use the camera to read EAN, UPC or QR codes. Things only sends normal product barcodes to the lookup provider; arbitrary QR contents stay on your device.</Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
       </View>
     );
   }
@@ -126,7 +126,7 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
         )}
       </View>
 
-      <Text style={styles.hint}>Point the camera at the product barcode. You always confirm the result before anything is saved.</Text>
+      <Text style={styles.hint}>Point the camera at the product barcode. You always review the suggested details before anything is saved.</Text>
 
       {suggestion ? (
         <View style={styles.resultCard}>
@@ -138,8 +138,8 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           {suggestion.category ? <Text style={styles.meta}>Category: {suggestion.category}</Text> : null}
           <Text style={styles.meta}>Code: {suggestion.kind === 'gtin' ? suggestion.code : 'QR product data'}</Text>
           {suggestion.privateSerial ? <Text style={styles.privateNote}>Serial detected: kept private. It will not be published to Marketplace automatically.</Text> : null}
-          <Text style={styles.disclaimer}>This is a lookup suggestion, not verified truth. Check the model before saving.</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)} accessibilityRole="button"><Text style={styles.primaryButtonText}>Use these details</Text></TouchableOpacity>
+          <Text style={styles.disclaimer}>This is a lookup suggestion, not verified truth. Next, review and correct the prefilled fields before adding this Thing to your inventory.</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)} accessibilityRole="button" accessibilityLabel="Review suggested Thing details"><Text style={styles.primaryButtonText}>Review suggested details</Text></TouchableOpacity>
           <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
         </View>
       ) : null}
