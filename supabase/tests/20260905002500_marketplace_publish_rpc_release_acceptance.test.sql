@@ -85,11 +85,14 @@ select is(
 select ok(
   not exists(
     select 1
-    from public.load_marketplace_v2()
-    where item_id='00000000-0000-0000-0000-000000000401'::uuid
-      and (title like '%cupboard%' or title like '%Seller-private%')
+    from public.load_marketplace_v2() discovery_row
+    where discovery_row.item_id='00000000-0000-0000-0000-000000000401'::uuid
+      and (
+        row_to_json(discovery_row)::text like '%Exact seller cupboard%'
+        or row_to_json(discovery_row)::text like '%Seller-private note that must never enter Marketplace discovery%'
+      )
   ),
-  'Marketplace discovery does not expose seller exact inventory location or private notes'
+  'Marketplace discovery row contains neither seller exact inventory location nor private notes in any returned field'
 );
 select throws_ok(
   $$select public.save_my_marketplace_listing_v2('00000000-0000-0000-0000-000000000401'::uuid, 66000, true, 'Bruchsal')$$,
