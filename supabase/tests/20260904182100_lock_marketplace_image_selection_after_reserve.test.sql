@@ -1,5 +1,5 @@
 begin;
-select plan(6);
+select plan(7);
 
 insert into private.marketplace_listings(
   item_id, seller_id, asking_price_cents, status, published_at, updated_at, public_title, public_category
