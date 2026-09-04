@@ -10,7 +10,8 @@ assert.match(commands, /status === 'SOLD'[\s\S]*Enter a valid final sale price/)
 
 assert.match(conversation, /Actual final sale price \(€\)/);
 assert.match(conversation, /stored separately from (?:your|the|the original seller) asking price/i);
-assert.match(conversation, /accepted offer[\s\S]*not the final sale price/i);
+assert.match(conversation, /status === 'RESERVED'[\s\S]*actual final sale price/i);
+assert.match(conversation, /status === 'SOLD'[\s\S]*accepted offer[\s\S]*offer history[\s\S]*confirmed final price[\s\S]*amount actually paid/i);
 assert.match(conversation, /parsedFinalSalePrice\.valid/);
 assert.match(conversation, /changeLifecycle\('SOLD', parsedFinalSalePrice\.cents\)/);
 assert.match(conversation, /may contribute anonymously to Things Market Value/i);
