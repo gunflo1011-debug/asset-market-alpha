@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(26);
 
 -- Release acceptance identities from disposable seed data:
 -- seller/owner       ...0101
@@ -109,6 +109,8 @@ select lives_ok($$select public.set_my_marketplace_conversation_status_v2(curren
 reset role;
 
 select is((select status from private.marketplace_offers where id=current_setting('test.release_offer_id')::uuid), 'ACCEPTED', 'accepted offer remains recorded as offer history');
+select is((select asking_price_cents from private.marketplace_listings where item_id='00000000-0000-0000-0000-000000000401'::uuid), 65000::bigint, 'asking price remains the original seller listing price after sale');
+select is((select amount_cents from private.marketplace_offers where id=current_setting('test.release_offer_id')::uuid), 62000::bigint, 'accepted offer amount remains preserved after sale');
 select is((select sold_price_cents from private.marketplace_listings where item_id='00000000-0000-0000-0000-000000000401'::uuid), 61000::bigint, 'final sold price is stored independently from Asking Price and Accepted Offer');
 
 set local role authenticated;
