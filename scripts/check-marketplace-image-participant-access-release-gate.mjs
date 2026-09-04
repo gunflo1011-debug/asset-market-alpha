@@ -44,9 +44,9 @@ assert.doesNotMatch(
 
 fs.renameSync(migrationPath, parkedPath);
 try {
-  await import('./check-legacy-marketplace-search-path-hardening-release-gate.mjs');
+  await import('./check-marketplace-image-selection-lock-release-gate.mjs');
 } finally {
   fs.renameSync(parkedPath, migrationPath);
 }
 
-console.log('Marketplace image participant access + established hardening release gate: OK');
+console.log('Marketplace image participant access + image selection transaction lock + established hardening release gate: OK');
