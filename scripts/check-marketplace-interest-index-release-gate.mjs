@@ -29,7 +29,7 @@ if (hasOwnerRlsMigration) {
 
 fs.renameSync(migrationPath, parkedPath);
 try {
-  await import('./check-legacy-marketplace-search-path-hardening-release-gate.mjs');
+  await import('./check-marketplace-image-participant-access-release-gate.mjs');
 } finally {
   fs.renameSync(parkedPath, migrationPath);
   if (hasOwnerRlsMigration) {
@@ -37,4 +37,4 @@ try {
   }
 }
 
-console.log('Marketplace interest buyer/recency index + product identifier owner RLS + established release gate: OK');
+console.log('Marketplace interest buyer/recency index + product identifier owner RLS + Marketplace image participant access + established release gate: OK');
