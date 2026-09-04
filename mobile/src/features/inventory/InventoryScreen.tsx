@@ -281,14 +281,26 @@ export function InventoryScreen(props: Props) {
               <>
                 <Text style={styles.sectionTitle}>{props.editingItemId ? 'Edit Thing' : 'Confirm Thing details'}</Text>
                 {!props.editingItemId ? <Text style={styles.compactCopy}>Review or correct every suggestion before saving. Scanned data is never treated as verified truth.</Text> : null}
-                <TextInput value={props.thingName} onChangeText={props.onThingNameChange} placeholder="Name" maxLength={120} style={styles.input} />
-                <View style={styles.twoColumnInputs}>
-                  <TextInput value={props.thingCategory} onChangeText={props.onThingCategoryChange} placeholder="Category" maxLength={80} style={[styles.input, styles.flexInput]} />
-                  <TextInput value={props.thingLocation} onChangeText={props.onThingLocationChange} placeholder="Location" maxLength={120} style={[styles.input, styles.flexInput]} />
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Name <Text style={styles.fieldMeta}>· Required</Text></Text>
+                  <TextInput accessibilityLabel="Thing name, required" value={props.thingName} onChangeText={props.onThingNameChange} placeholder="e.g. Road bike" maxLength={120} returnKeyType="next" style={styles.input} />
                 </View>
-                <TextInput value={props.thingNotes} onChangeText={props.onThingNotesChange} placeholder="Notes (optional)" maxLength={2000} multiline style={[styles.input, styles.notesInput]} />
-                <TouchableOpacity style={[styles.primaryButton, (!props.thingName.trim() || props.actionBusy) && styles.disabled]} disabled={!props.thingName.trim() || props.actionBusy} onPress={props.onSaveThing}><Text style={styles.primaryButtonText}>{props.actionBusy ? 'Saving…' : props.editingItemId ? 'Save changes' : 'Add to inventory'}</Text></TouchableOpacity>
-                {props.editingItemId ? <TouchableOpacity style={styles.secondaryButton} onPress={props.onCancelEditing}><Text style={styles.secondaryButtonText}>Cancel</Text></TouchableOpacity> : null}
+                <View style={styles.twoColumnInputs}>
+                  <View style={[styles.formField, styles.flexInput]}>
+                    <Text style={styles.fieldLabel}>Category <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                    <TextInput accessibilityLabel="Category, optional" value={props.thingCategory} onChangeText={props.onThingCategoryChange} placeholder="e.g. Sports" maxLength={80} returnKeyType="next" style={styles.input} />
+                  </View>
+                  <View style={[styles.formField, styles.flexInput]}>
+                    <Text style={styles.fieldLabel}>Location <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                    <TextInput accessibilityLabel="Private location, optional" value={props.thingLocation} onChangeText={props.onThingLocationChange} placeholder="e.g. Garage" maxLength={120} returnKeyType="next" style={styles.input} />
+                  </View>
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Notes <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                  <TextInput accessibilityLabel="Private notes, optional" value={props.thingNotes} onChangeText={props.onThingNotesChange} placeholder="Anything useful to remember" maxLength={2000} multiline style={[styles.input, styles.notesInput]} />
+                </View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.editingItemId ? 'Save Thing changes' : 'Add Thing to inventory'} style={[styles.primaryButton, (!props.thingName.trim() || props.actionBusy) && styles.disabled]} disabled={!props.thingName.trim() || props.actionBusy} onPress={props.onSaveThing}><Text style={styles.primaryButtonText}>{props.actionBusy ? 'Saving…' : props.editingItemId ? 'Save changes' : 'Add to inventory'}</Text></TouchableOpacity>
+                {props.editingItemId ? <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={props.onCancelEditing}><Text style={styles.secondaryButtonText}>Cancel</Text></TouchableOpacity> : null}
               </>
             ) : (
               <>
@@ -421,6 +433,9 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: '#0F1728' },
   sectionTitle: { fontSize: 19, lineHeight: 24, fontWeight: '800', color: '#0F1728' },
   compactCopy: { fontSize: 13, lineHeight: 19, color: '#7A8494' },
+  formField: { gap: 6 },
+  fieldLabel: { fontSize: 12, lineHeight: 16, fontWeight: '800', color: '#344054' },
+  fieldMeta: { fontWeight: '600', color: '#98A2B3' },
   input: { borderWidth: 1, borderColor: '#D9DEE6', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: '#0F1728', backgroundColor: '#FFFFFF' },
   flexInput: { flex: 1 },
   twoColumnInputs: { flexDirection: 'row', gap: 10 },
