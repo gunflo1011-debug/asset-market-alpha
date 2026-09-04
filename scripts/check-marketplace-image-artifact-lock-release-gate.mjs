@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const migrationPath = 'supabase/migrations/20260904201000_lock_marketplace_image_artifacts_after_reserve.sql';
 const parkedPath = `${migrationPath}.reviewed-by-marketplace-image-artifact-lock-gate`;
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const deliveryMigration = fs.readFileSync('supabase/migrations/20260830153000_marketplace_image_delivery_v1.sql', 'utf8');
 const executable = migration.replace(/--.*$/gm, '');
 
 assert.match(
@@ -21,6 +22,18 @@ assert.match(
   /create or replace function public\.delete_my_item_image\([\s\S]*pg_catalog\.pg_advisory_xact_lock\(pg_catalog\.hashtextextended\(p_item_id::text, 0\)\)[\s\S]*MARKETPLACE_IMAGES_LOCKED_FOR_TRANSACTION/i,
   'Source image deletion must share the per-Thing lock and reject reserved/sold transactions',
 );
+
+for (const policyName of [
+  'marketplace_images_owner_insert',
+  'marketplace_images_owner_update',
+  'marketplace_images_owner_delete',
+]) {
+  assert.match(
+    deliveryMigration,
+    new RegExp(`create policy ${policyName}[\\s\\S]*marketplace_image_object_access\\(name, true\\)`, 'i'),
+    `${policyName} must remain wired through the manage=true access helper`,
+  );
+}
 
 for (const signature of [
   'marketplace_image_object_access\\(text,boolean\\)',
@@ -48,4 +61,4 @@ try {
   fs.renameSync(parkedPath, migrationPath);
 }
 
-console.log('Marketplace image artifact immutability + selection/reservation lock + established hardening release gate: OK');
+console.log('Marketplace image artifact immutability + storage policy wiring + selection/reservation lock + established hardening release gate: OK');
