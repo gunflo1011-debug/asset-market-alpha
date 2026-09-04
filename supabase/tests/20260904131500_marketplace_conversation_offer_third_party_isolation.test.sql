@@ -58,28 +58,38 @@ select lives_ok(
 
 reset role;
 
+-- Capture fixture ids in the trusted test setup context before switching to the
+-- unrelated authenticated account. The outsider assertions below must exercise
+-- only public RPCs; they must not depend on direct reads from private tables.
+select set_config(
+  'test.marketplace_conversation_id',
+  (select id::text from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1),
+  true
+);
+select set_config(
+  'test.marketplace_offer_id',
+  (select id::text from private.marketplace_offers where conversation_id=current_setting('test.marketplace_conversation_id')::uuid and status='PENDING' limit 1),
+  true
+);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000202', true);
 
 select is(
-  (select count(*)::integer from public.load_my_marketplace_messages(
-    (select id from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1)
-  )),
+  (select count(*)::integer from public.load_my_marketplace_messages(current_setting('test.marketplace_conversation_id')::uuid)),
   0,
   'unrelated authenticated account cannot read conversation messages'
 );
 
 select is(
-  (select count(*)::integer from public.load_my_marketplace_offers(
-    (select id from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1)
-  )),
+  (select count(*)::integer from public.load_my_marketplace_offers(current_setting('test.marketplace_conversation_id')::uuid)),
   0,
   'unrelated authenticated account cannot read offers'
 );
 
 select throws_ok(
   $$select public.send_my_marketplace_message(
-    (select id from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1),
+    current_setting('test.marketplace_conversation_id')::uuid,
     'outsider message'
   )$$,
   'P0001',
@@ -89,7 +99,7 @@ select throws_ok(
 
 select throws_ok(
   $$select public.make_my_marketplace_offer(
-    (select id from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1),
+    current_setting('test.marketplace_conversation_id')::uuid,
     62000,
     'outsider offer'
   )$$,
@@ -100,7 +110,7 @@ select throws_ok(
 
 select throws_ok(
   $$select public.respond_to_my_marketplace_offer(
-    (select id from private.marketplace_offers where conversation_id=(select id from private.marketplace_conversations where item_id='00000000-0000-0000-0000-000000000401'::uuid and buyer_id='00000000-0000-0000-0000-000000000201'::uuid limit 1) and status='PENDING' limit 1),
+    current_setting('test.marketplace_offer_id')::uuid,
     'ACCEPT',
     null,
     null
