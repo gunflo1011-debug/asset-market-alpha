@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { loadPrivateInventory } from '../../data/inventory';
 import { deleteMyItemImage, loadMyItemImages, setMyItemMarketplaceVisibility, setMyItemPrimaryImage, uploadMyItemImage, type ItemImage } from '../../data/itemImages';
 
 type Props = { itemId: string };
 
 type Notice = { tone: 'info' | 'error'; text: string } | null;
+type TransactionPhotoState = 'checking' | 'editable' | 'locked' | 'unknown';
 
 export function ItemImagesPanel({ itemId }: Props) {
   const [images, setImages] = useState<ItemImage[]>([]);
@@ -13,14 +15,29 @@ export function ItemImagesPanel({ itemId }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const [transactionPhotoState, setTransactionPhotoState] = useState<TransactionPhotoState>('checking');
 
   async function refresh() {
     try {
       setLoading(true);
       setLoadFailed(false);
+      setTransactionPhotoState('checking');
       setImages(await loadMyItemImages(itemId));
+
+      try {
+        const inventory = await loadPrivateInventory();
+        const item = inventory.find((candidate) => candidate.id === itemId);
+        if (!item) {
+          setTransactionPhotoState('unknown');
+        } else {
+          setTransactionPhotoState(item.market_state === 'RESERVED' || item.market_state === 'SOLD' ? 'locked' : 'editable');
+        }
+      } catch {
+        setTransactionPhotoState('unknown');
+      }
     } catch {
       setLoadFailed(true);
+      setTransactionPhotoState('unknown');
       setNotice({ tone: 'error', text: 'We couldn’t load this Thing’s photos. Your private images have not been changed.' });
     } finally {
       setLoading(false);
@@ -73,7 +90,7 @@ export function ItemImagesPanel({ itemId }: Props) {
   }
 
   async function toggleMarketplace(image: ItemImage) {
-    if (busy) return;
+    if (busy || transactionPhotoState !== 'editable') return;
     try {
       setBusy(true);
       setNotice(null);
@@ -90,6 +107,7 @@ export function ItemImagesPanel({ itemId }: Props) {
   }
 
   function confirmDelete(image: ItemImage) {
+    if (transactionPhotoState !== 'editable') return;
     Alert.alert('Delete photo?', 'This permanently removes the photo from this Thing. If it was selected for Marketplace, that selection is removed too.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => void remove(image) },
@@ -97,7 +115,7 @@ export function ItemImagesPanel({ itemId }: Props) {
   }
 
   async function remove(image: ItemImage) {
-    if (busy) return;
+    if (busy || transactionPhotoState !== 'editable') return;
     try {
       setBusy(true);
       setNotice(null);
@@ -112,6 +130,11 @@ export function ItemImagesPanel({ itemId }: Props) {
   }
 
   const marketplaceCount = images.filter((image) => image.marketplaceVisible).length;
+  const transactionLocked = transactionPhotoState === 'locked';
+  const transactionActionsDisabled = transactionPhotoState !== 'editable';
+  const transactionStatusCopy = transactionLocked
+    ? 'These Marketplace photos are kept unchanged after reservation so both sides retain the same transaction context.'
+    : 'Photo editing is temporarily unavailable while Things verifies this sale’s status. Your photos are unchanged.';
 
   return (
     <View style={styles.card}>
@@ -133,10 +156,17 @@ export function ItemImagesPanel({ itemId }: Props) {
         </TouchableOpacity>
       </View>
 
+      {transactionPhotoState === 'locked' || transactionPhotoState === 'unknown' ? (
+        <View accessibilityRole={transactionPhotoState === 'unknown' ? 'alert' : undefined} style={[styles.lockState, transactionPhotoState === 'unknown' && styles.lockStateUnknown]}>
+          <Text style={styles.lockTitle}>{transactionLocked ? 'Photos locked for this sale' : 'Checking sale status'}</Text>
+          <Text style={styles.lockCopy}>{transactionStatusCopy}</Text>
+        </View>
+      ) : null}
+
       {marketplaceCount > 0 ? (
         <View style={styles.marketSummary}>
           <Text style={styles.marketSummaryTitle}>{marketplaceCount} selected for Marketplace</Text>
-          <Text style={styles.copy}>Selected does not mean public. Photos are only exposed through the listing flow.</Text>
+          <Text style={styles.copy}>{transactionLocked ? 'This selected set is now frozen for the reserved or completed sale.' : 'Selected does not mean public. Photos are only exposed through the listing flow.'}</Text>
         </View>
       ) : null}
 
@@ -166,45 +196,56 @@ export function ItemImagesPanel({ itemId }: Props) {
 
       {!loadFailed && images.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery} accessibilityLabel="Thing photo gallery">
-          {images.map((image, index) => (
-            <View key={image.id} style={styles.photoCard}>
-              <Image
-                accessible
-                accessibilityLabel={`Thing photo ${index + 1}${image.isPrimary ? ', cover photo' : ''}${image.marketplaceVisible ? ', selected for Marketplace' : ', private only'}`}
-                source={{ uri: image.signedUrl }}
-                style={styles.photo}
-                resizeMode="cover"
-              />
-              {image.isPrimary ? <View style={styles.coverPill}><Text style={styles.coverPillText}>COVER</Text></View> : null}
-              {image.marketplaceVisible ? <View style={styles.marketPill}><Text style={styles.marketPillText}>MARKETPLACE</Text></View> : null}
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel={image.marketplaceVisible ? `Remove photo ${index + 1} from Marketplace selection` : `Select photo ${index + 1} for Marketplace`}
-                accessibilityHint="Selection alone does not publish the photo"
-                accessibilityState={{ disabled: busy || (!image.marketplaceVisible && marketplaceCount >= 6), busy }}
-                disabled={busy || (!image.marketplaceVisible && marketplaceCount >= 6)}
-                style={[styles.marketButton, (!image.marketplaceVisible && marketplaceCount >= 6) && styles.disabled]}
-                onPress={() => void toggleMarketplace(image)}
-              >
-                <Text style={styles.marketButtonText}>{image.marketplaceVisible ? 'Remove from listing' : 'Use in listing'}</Text>
-              </TouchableOpacity>
-              <View style={styles.actions}>
-                {!image.isPrimary ? (
-                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Make photo ${index + 1} the cover photo`} disabled={busy} style={styles.textAction} onPress={() => void makePrimary(image.id)}>
-                    <Text style={styles.actionText}>Make cover</Text>
-                  </TouchableOpacity>
-                ) : <Text style={styles.coverText}>Cover photo</Text>}
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete photo ${index + 1}`} disabled={busy} style={styles.textAction} onPress={() => confirmDelete(image)}>
-                  <Text style={styles.deleteText}>Delete</Text>
+          {images.map((image, index) => {
+            const marketplaceDisabled = busy || transactionActionsDisabled || (!image.marketplaceVisible && marketplaceCount >= 6);
+            return (
+              <View key={image.id} style={styles.photoCard}>
+                <Image
+                  accessible
+                  accessibilityLabel={`Thing photo ${index + 1}${image.isPrimary ? ', cover photo' : ''}${image.marketplaceVisible ? ', selected for Marketplace' : ', private only'}`}
+                  source={{ uri: image.signedUrl }}
+                  style={styles.photo}
+                  resizeMode="cover"
+                />
+                {image.isPrimary ? <View style={styles.coverPill}><Text style={styles.coverPillText}>COVER</Text></View> : null}
+                {image.marketplaceVisible ? <View style={styles.marketPill}><Text style={styles.marketPillText}>MARKETPLACE</Text></View> : null}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={image.marketplaceVisible ? `Remove photo ${index + 1} from Marketplace selection` : `Select photo ${index + 1} for Marketplace`}
+                  accessibilityHint={transactionActionsDisabled ? transactionStatusCopy : 'Selection alone does not publish the photo'}
+                  accessibilityState={{ disabled: marketplaceDisabled, busy }}
+                  disabled={marketplaceDisabled}
+                  style={[styles.marketButton, marketplaceDisabled && styles.disabled]}
+                  onPress={() => void toggleMarketplace(image)}
+                >
+                  <Text style={styles.marketButtonText}>{image.marketplaceVisible ? 'Remove from listing' : 'Use in listing'}</Text>
                 </TouchableOpacity>
+                <View style={styles.actions}>
+                  {!image.isPrimary ? (
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Make photo ${index + 1} the cover photo`} disabled={busy} style={styles.textAction} onPress={() => void makePrimary(image.id)}>
+                      <Text style={styles.actionText}>Make cover</Text>
+                    </TouchableOpacity>
+                  ) : <Text style={styles.coverText}>Cover photo</Text>}
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete photo ${index + 1}`}
+                    accessibilityHint={transactionActionsDisabled ? transactionStatusCopy : 'Permanently removes this photo from the Thing'}
+                    accessibilityState={{ disabled: busy || transactionActionsDisabled, busy }}
+                    disabled={busy || transactionActionsDisabled}
+                    style={[styles.textAction, transactionActionsDisabled && styles.disabled]}
+                    onPress={() => confirmDelete(image)}
+                  >
+                    <Text style={[styles.deleteText, transactionActionsDisabled && styles.disabledActionText]}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       ) : null}
 
       {images.length >= 8 ? <Text style={styles.limit}>8-photo limit reached. Delete a photo before adding another.</Text> : null}
-      {marketplaceCount >= 6 ? <Text style={styles.limit}>6 Marketplace photos selected. Remove one before selecting another.</Text> : null}
+      {marketplaceCount >= 6 && !transactionActionsDisabled ? <Text style={styles.limit}>6 Marketplace photos selected. Remove one before selecting another.</Text> : null}
       {notice ? <Text accessibilityRole={notice.tone === 'error' ? 'alert' : undefined} accessibilityLiveRegion="polite" style={[styles.message, notice.tone === 'error' && styles.errorMessage]}>{notice.text}</Text> : null}
     </View>
   );
@@ -220,6 +261,11 @@ const styles = StyleSheet.create({
   addButton: { minHeight: 44, borderRadius: 13, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
   addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   disabled: { opacity: 0.45 },
+  disabledActionText: { color: '#98A2B3' },
+  lockState: { backgroundColor: '#F2F4F7', borderRadius: 14, padding: 13, gap: 4, borderWidth: 1, borderColor: '#D0D5DD' },
+  lockStateUnknown: { backgroundColor: '#FFFAEB', borderColor: '#FEDF89' },
+  lockTitle: { fontSize: 13, fontWeight: '800', color: '#0F1728' },
+  lockCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
   marketSummary: { backgroundColor: '#ECFDF3', borderRadius: 14, padding: 12, gap: 2 },
   marketSummaryTitle: { fontSize: 13, fontWeight: '800', color: '#027A48' },
   loadingState: { minHeight: 72, alignItems: 'center', justifyContent: 'center', gap: 8 },
