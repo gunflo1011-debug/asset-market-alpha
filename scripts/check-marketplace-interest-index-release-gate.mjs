@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { validateItemProductIdentifiersOwnerRlsMigration } from './check-item-product-identifiers-owner-rls-release-gate.mjs';
 
 const migrationPath = 'supabase/migrations/20260904081500_index_marketplace_interests_buyer_updated.sql';
 const parkedPath = `${migrationPath}.reviewed-by-marketplace-interest-index-gate`;
@@ -17,11 +18,23 @@ assert.doesNotMatch(
   'Marketplace interest index migration must not change data, privileges, functions, policies, RLS, or existing schema objects',
 );
 
+const ownerRlsMigrationPath = 'supabase/migrations/20260904102000_item_product_identifiers_owner_rls.sql';
+const ownerRlsParkedPath = `${ownerRlsMigrationPath}.reviewed-by-item-product-identifiers-owner-rls-gate`;
+const hasOwnerRlsMigration = fs.existsSync(ownerRlsMigrationPath);
+
+if (hasOwnerRlsMigration) {
+  validateItemProductIdentifiersOwnerRlsMigration(fs.readFileSync(ownerRlsMigrationPath, 'utf8'));
+  fs.renameSync(ownerRlsMigrationPath, ownerRlsParkedPath);
+}
+
 fs.renameSync(migrationPath, parkedPath);
 try {
   await import('./check-legacy-marketplace-search-path-hardening-release-gate.mjs');
 } finally {
   fs.renameSync(parkedPath, migrationPath);
+  if (hasOwnerRlsMigration) {
+    fs.renameSync(ownerRlsParkedPath, ownerRlsMigrationPath);
+  }
 }
 
-console.log('Marketplace interest buyer/recency index + established release gate: OK');
+console.log('Marketplace interest buyer/recency index + product identifier owner RLS + established release gate: OK');
