@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(24);
 
 -- Release acceptance identities from disposable seed data:
 -- seller/owner       ...0101
@@ -82,7 +82,14 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101', true);
 select lives_ok($$select public.respond_to_my_marketplace_offer(current_setting('test.release_offer_id')::uuid, 'ACCEPT', null, null)$$, 'seller can accept intended buyer offer');
-select lives_ok($$select public.set_my_marketplace_conversation_status_v2(current_setting('test.release_conversation_id')::uuid, 'RESERVED', null)$$, 'seller can reserve intended buyer after offer acceptance');
+reset role;
+
+select is((select status from private.marketplace_conversations where id=current_setting('test.release_conversation_id')::uuid), 'RESERVED', 'accepting the offer reserves the intended buyer conversation');
+select is((select status from private.marketplace_listings where item_id='00000000-0000-0000-0000-000000000401'::uuid), 'WITHDRAWN', 'accepting the offer removes the Thing from public listing discovery');
+select is((select market_state from private.item_market_state where item_id='00000000-0000-0000-0000-000000000401'::uuid), 'RESERVED', 'accepting the offer moves the Thing market state to RESERVED');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101', true);
 select throws_ok($$select public.delete_my_item_image('00000000-0000-0000-0000-000000000401'::uuid, '00000000-0000-0000-0000-000000000b04'::uuid)$$, 'P0001', 'MARKETPLACE_IMAGES_LOCKED_FOR_TRANSACTION', 'seller cannot delete frozen transaction image after reservation');
 reset role;
 
