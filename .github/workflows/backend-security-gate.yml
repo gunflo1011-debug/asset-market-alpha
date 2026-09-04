@@ -36,4 +36,6 @@ jobs:
       - name: Lint database
         run: supabase db lint --level warning
       - name: Run real concurrency gate
-        run: bash scripts/concurrency_gate.sh
+        run: |
+          bash scripts/concurrency_gate.sh
+          bash scripts/marketplace_image_reservation_concurrency_gate.sh
