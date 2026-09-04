@@ -11,6 +11,7 @@ const inventory = [
 const auth = read('src/data/auth.ts');
 const app = read('App.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
+const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
 
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
@@ -61,4 +62,26 @@ assert.doesNotMatch(
   'SOLD copy must never say final sale confirmation is still pending',
 );
 
-console.log('release-critical ownership + auth + Marketplace conversation regression: ok');
+assert.match(
+  itemImages,
+  /loadPrivateInventory\(\)[\s\S]*item\.market_state === ['"]RESERVED['"] \|\| item\.market_state === ['"]SOLD['"]/,
+  'Thing photo controls must derive the transaction lock from authoritative inventory market state',
+);
+assert.match(itemImages, /Photos locked for this sale/, 'Reserved/Sold photo UI must explain why transaction photos are locked');
+assert.match(
+  itemImages,
+  /const transactionActionsDisabled = transactionPhotoState !== ['"]editable['"];/,
+  'Marketplace photo mutations must fail closed until transaction state is known editable',
+);
+assert.match(
+  itemImages,
+  /disabled=\{busy \|\| transactionActionsDisabled\}[\s\S]*onPress=\{\(\) => confirmDelete\(image\)\}/,
+  'Delete controls must be visibly disabled when transaction photos are locked or sale state cannot be verified',
+);
+assert.match(
+  itemImages,
+  /accessibilityHint=\{transactionActionsDisabled \? transactionStatusCopy : ['"]Selection alone does not publish the photo['"]\}/,
+  'Disabled Marketplace photo controls must expose the lock reason to assistive technology',
+);
+
+console.log('release-critical ownership + auth + Marketplace conversation + transaction photo regression: ok');
