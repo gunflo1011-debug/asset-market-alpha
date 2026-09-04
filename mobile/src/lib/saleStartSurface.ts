@@ -27,7 +27,7 @@ export function buildSaleStartSurface(itemId: string, estimatedValueCents: numbe
   return {
     intent,
     valueLabel: intent.valueEvidence === 'KNOWN' && intent.referenceValueCents != null
-      ? `Estimated value ${formatEuroCents(intent.referenceValueCents)}`
+      ? `Estimate ${formatEuroCents(intent.referenceValueCents)}`
       : 'Estimate pending',
     actionLabel: 'Start selling',
     privacyNotice: 'Nothing is listed or sold until you explicitly continue.',

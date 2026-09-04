@@ -21,7 +21,7 @@ const known = buildSaleStartSurface('item-1', 12345.4);
 assert.equal(known.intent.itemId, 'item-1');
 assert.equal(known.intent.referenceValueCents, 12345);
 assert.equal(known.intent.valueEvidence, 'KNOWN');
-assert.match(known.valueLabel, /^Estimated value 123,45\s€$/u);
+assert.match(known.valueLabel, /^Estimate 123,45\s€$/u);
 assert.equal(known.actionLabel, 'Start selling');
 assert.match(known.privacyNotice, /Nothing is listed or sold/);
 
