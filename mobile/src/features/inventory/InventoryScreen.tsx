@@ -123,6 +123,8 @@ export function InventoryScreen(props: Props) {
     if (!props.editingItemId && isSuccessfulCaptureMessage(props.message)) {
       setCaptureOpen(false);
       setCaptureMode('scan');
+      setInventoryFilter('ALL');
+      setInventorySearch('');
       Keyboard.dismiss();
     }
   }, [props.editingItemId, props.message]);
