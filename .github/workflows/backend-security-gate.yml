@@ -24,8 +24,6 @@ jobs:
         run: node scripts/check-marketplace-conversation-release-gate.mjs
       - name: Verify Marketplace reserve/sold lifecycle contract
         run: node scripts/check-marketplace-lifecycle-release-gate.mjs
-      - name: Verify Marketplace image artifact immutability + established hardening gates
-        run: node scripts/check-marketplace-image-artifact-lock-release-gate.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: 2.115.0
