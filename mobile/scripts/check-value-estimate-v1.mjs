@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const migration = fs.readFileSync('supabase/migrations/20260827232500_owner_value_estimate_v1.sql', 'utf8');
 const commands = fs.readFileSync('mobile/src/data/inventoryCommands.ts', 'utf8');
+const estimateContext = fs.readFileSync('mobile/src/data/inventoryEstimateContext.ts', 'utf8');
 const panel = fs.readFileSync('mobile/src/features/inventory/ValueEstimatePanel.tsx', 'utf8');
 
 assert.match(migration, /estimate_my_item_value_v1/i);
@@ -14,6 +15,12 @@ assert.match(commands, /estimate_my_item_value_v1/i);
 assert.match(commands, /p_purchase_price_cents/i);
 assert.match(commands, /p_purchase_year/i);
 assert.match(commands, /p_condition_grade/i);
+assert.match(estimateContext, /load_my_inventory_values/i);
+assert.match(estimateContext, /load_my_inventory_purchase_context/i);
+assert.match(estimateContext, /if \(valueResult\.error\) throw valueResult\.error/i);
+assert.match(estimateContext, /if \(purchaseContextResult\.error\) throw purchaseContextResult\.error/i);
+assert.match(panel, /loadMyInventoryEstimateContext\(itemId\)/i);
+assert.doesNotMatch(panel, /loadPrivateInventory/i, 'estimate panel must not trigger full inventory reads or INVENTORY_VIEWED telemetry');
 assert.match(panel, /Purchase price \(€\)/i);
 assert.match(panel, /Purchase year/i);
 assert.match(panel, /Like new/i);
