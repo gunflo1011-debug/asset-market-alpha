@@ -25,7 +25,7 @@ export async function loadMyInventoryEstimateContext(itemId: string): Promise<In
     valueEvidence: valueRow && estimatedValueCents != null && Number.isFinite(estimatedValueCents)
       ? {
           estimated_value_cents: estimatedValueCents,
-          currency: String(valueRow.currency ?? 'EUR'),
+          currency: 'EUR',
           source_type: String(valueRow.source_type ?? ''),
           observed_at: String(valueRow.observed_at ?? ''),
         }
