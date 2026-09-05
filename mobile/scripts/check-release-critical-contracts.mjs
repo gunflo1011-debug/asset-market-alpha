@@ -9,6 +9,7 @@ const inventory = [
   read('src/data/inventoryCommands.ts'),
 ].join('\n');
 const auth = read('src/data/auth.ts');
+const authScreen = read('src/features/auth/AuthScreen.tsx');
 const app = read('App.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
@@ -39,6 +40,21 @@ assert.match(auth, /auth\.signUp\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_RED
 assert.match(auth, /auth\.resend\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'resend confirmation must preserve the app deep link');
 assert.match(auth, /resetPasswordForEmail\([\s\S]*redirectTo\s*:\s*PASSWORD_RESET_REDIRECT/, 'password reset must preserve the app deep link');
 assert.match(app, /url\.startsWith\(['"]thingsalpha:\/\/auth\/reset-password['"]\)/, 'app must handle password-reset deep links');
+assert.match(
+  app,
+  /setMessage\(['"]If an account exists for this email, a reset link has been sent\.['"]\)/,
+  'password-reset success copy must not reveal whether an account exists',
+);
+assert.match(
+  authScreen,
+  /const disabled = busy \|\| password\.length < 8 \|\| password !== confirmPassword;/,
+  'password recovery UI must block short or mismatched passwords before submit',
+);
+assert.match(
+  app,
+  /if \(password\.length < 8\)[\s\S]*if \(password !== confirmPassword\)[\s\S]*await updateRecoveredPassword\(password\)/,
+  'password recovery handler must enforce length and match before updating credentials',
+);
 
 for (const [internalStatus, consumerLabel] of [['OPEN', 'Open'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['CLOSED', 'Closed']]) {
   assert.match(
