@@ -21,6 +21,8 @@ const allowed = new Set([
   'load_my_inventory_purchase_context',
   'load_my_inventory_values',
   'load_my_item_images',
+  'load_my_item_purchase_context',
+  'load_my_item_value',
   'load_my_market_value_v1',
   'load_my_marketplace_conversations',
   'load_my_marketplace_interests',
