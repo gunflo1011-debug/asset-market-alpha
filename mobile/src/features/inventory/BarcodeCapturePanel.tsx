@@ -17,6 +17,7 @@ type ScanError = {
 
 const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'qr'] as const;
 const NUMERIC_PRODUCT_CODE_LENGTHS = new Set([8, 12, 13, 14]);
+const LOOKUP_FAILED_MESSAGE = "Things couldn't look up this product right now. Check your connection and try again, or enter the item manually.";
 
 function looksLikeNumericProductCode(value: string): boolean {
   const normalized = value.trim().replace(/\s+/g, '');
@@ -71,10 +72,10 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           message: 'This QR code does not contain product data Things can safely use yet. Its contents were not sent to a product lookup provider.',
         });
       }
-    } catch (lookupError) {
+    } catch {
       setError({
         kind: 'lookup_failed',
-        message: lookupError instanceof Error ? lookupError.message : 'Things could not look up this product right now.',
+        message: LOOKUP_FAILED_MESSAGE,
       });
     } finally {
       setBusy(false);
