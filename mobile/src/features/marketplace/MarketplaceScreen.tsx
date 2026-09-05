@@ -18,6 +18,15 @@ function euro(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 }
 
+function conversationStatusLabel(status: MarketplaceConversation['status']): string {
+  switch (status) {
+    case 'OPEN': return 'Open';
+    case 'RESERVED': return 'Reserved';
+    case 'SOLD': return 'Sold';
+    case 'CLOSED': return 'Closed';
+  }
+}
+
 export function MarketplaceScreen({ onBack }: Props) {
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [myListings, setMyListings] = useState<OwnerMarketplaceListing[]>([]);
@@ -175,12 +184,6 @@ export function MarketplaceScreen({ onBack }: Props) {
             <TouchableOpacity accessibilityRole="button" onPress={() => { setSelectedItemId(null); setMessage(null); }}><Text style={styles.back}>‹ Marketplace</Text></TouchableOpacity>
           </View>
 
-          <View style={styles.detailHero}>
-            <View style={styles.cardTop}><View style={styles.pillDark}><Text style={styles.pillDarkText}>{selected.category}</Text></View><Text style={styles.detailPrice}>{euro(selected.asking_price_cents)}</Text></View>
-            <Text style={styles.detailTitle}>{selected.title}</Text>
-            <Text style={styles.detailSubtitle}>{selected.public_location ? `Private seller · ${selected.public_location} · exact address hidden` : 'Private seller · location not shared'}</Text>
-          </View>
-
           {selected.image_urls.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery} accessibilityLabel="Public listing photos">
               {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessible accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
@@ -192,6 +195,12 @@ export function MarketplaceScreen({ onBack }: Props) {
               <Text style={styles.noPhotoCopy}>The seller did not share any photos with this listing. Private Thing photos are not shown here.</Text>
             </View>
           )}
+
+          <View style={styles.detailHero}>
+            <View style={styles.cardTop}><View style={styles.pillDark}><Text style={styles.pillDarkText}>{selected.category}</Text></View><Text style={styles.detailPrice}>{euro(selected.asking_price_cents)}</Text></View>
+            <Text style={styles.detailTitle}>{selected.title}</Text>
+            <Text style={styles.detailSubtitle}>{selected.public_location ? `Private seller · ${selected.public_location} · exact address hidden` : 'Private seller · location not shared'}</Text>
+          </View>
 
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
@@ -323,8 +332,8 @@ export function MarketplaceScreen({ onBack }: Props) {
 
         {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
         {transactionConversations.map((conversation) => (
-          <TouchableOpacity accessibilityRole="button" key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-            <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text><Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open ${conversation.role === 'BUYER' ? 'buying' : 'selling'} transaction, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+            <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text><Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
             <Text style={styles.messageRowAction}>Open ›</Text>
           </TouchableOpacity>
         ))}
@@ -343,8 +352,8 @@ export function MarketplaceScreen({ onBack }: Props) {
               </View>
               <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
               {sellerConversations.map((conversation, index) => (
-                <TouchableOpacity accessibilityRole="button" key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-                  <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversation.status} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open conversation with interested buyer ${index + 1}, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+                  <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
                   <Text style={styles.messageRowAction}>Reply ›</Text>
                 </TouchableOpacity>
               ))}
