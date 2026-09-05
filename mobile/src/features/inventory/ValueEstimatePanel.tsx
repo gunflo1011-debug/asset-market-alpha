@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { estimatePrivateItemValue, loadPrivateInventory } from '../../data/inventory';
+import { estimatePrivateItemValue } from '../../data/inventory';
+import { loadMyInventoryEstimateContext } from '../../data/inventoryEstimateContext';
 import { ItemImagesPanel } from './ItemImagesPanel';
 import type { ValuationConditionGrade } from './types';
 
@@ -39,12 +40,11 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
     setPurchasePrice('');
     setPurchasePricePrefilled(false);
 
-    void loadPrivateInventory()
-      .then((items) => {
+    void loadMyInventoryEstimateContext(itemId)
+      .then((context) => {
         if (cancelled) return;
-        const item = items.find((candidate) => candidate.id === itemId);
-        setPersistedEstimateState(item?.value_evidence ? 'present' : 'missing');
-        const paidPriceCents = item?.purchase_context?.purchase_price_cents ?? null;
+        setPersistedEstimateState(context.valueEvidence ? 'present' : 'missing');
+        const paidPriceCents = context.purchaseContext?.purchase_price_cents ?? null;
         if (paidPriceCents != null && !purchasePriceDirtyRef.current) {
           setPurchasePrice(formatPriceInput(paidPriceCents));
           setPurchasePricePrefilled(true);
