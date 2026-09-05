@@ -8,15 +8,15 @@ export type InventoryEstimateContext = {
 
 export async function loadMyInventoryEstimateContext(itemId: string): Promise<InventoryEstimateContext> {
   const [valueResult, purchaseContextResult] = await Promise.all([
-    requireSupabase().rpc('load_my_inventory_values'),
-    requireSupabase().rpc('load_my_inventory_purchase_context'),
+    requireSupabase().rpc('load_my_item_value', { p_item_id: itemId }),
+    requireSupabase().rpc('load_my_item_purchase_context', { p_item_id: itemId }),
   ]);
 
   if (valueResult.error) throw valueResult.error;
   if (purchaseContextResult.error) throw purchaseContextResult.error;
 
-  const valueRow = ((valueResult.data ?? []) as Array<Record<string, unknown>>).find((row) => String(row.item_id) === itemId);
-  const purchaseRow = ((purchaseContextResult.data ?? []) as Array<Record<string, unknown>>).find((row) => String(row.item_id) === itemId);
+  const valueRow = ((valueResult.data ?? []) as Array<Record<string, unknown>>)[0];
+  const purchaseRow = ((purchaseContextResult.data ?? []) as Array<Record<string, unknown>>)[0];
 
   const estimatedValueCents = valueRow?.estimated_value_cents == null ? null : Number(valueRow.estimated_value_cents);
   const purchasePriceCents = purchaseRow?.purchase_price_cents == null ? null : Number(purchaseRow.purchase_price_cents);
