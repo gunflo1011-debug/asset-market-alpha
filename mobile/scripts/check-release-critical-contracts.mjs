@@ -12,6 +12,7 @@ const auth = read('src/data/auth.ts');
 const app = read('App.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
+const inventoryMarketState = read('src/data/inventoryMarketState.ts');
 
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
@@ -63,9 +64,24 @@ assert.doesNotMatch(
 );
 
 assert.match(
+  inventoryMarketState,
+  /rpc\(['"]load_my_inventory_market_states['"]\)/,
+  'photo transaction state must come from the authoritative owner-scoped market-state RPC',
+);
+assert.match(
+  inventoryMarketState,
+  /if\s*\(error\)\s*throw\s+error/,
+  'photo transaction state lookup must surface verification failures so the UI fails closed',
+);
+assert.doesNotMatch(
   itemImages,
-  /loadPrivateInventory\(\)[\s\S]*item\.market_state === ['"]RESERVED['"] \|\| item\.market_state === ['"]SOLD['"]/,
-  'Thing photo controls must derive the transaction lock from authoritative inventory market state',
+  /loadPrivateInventory\(/,
+  'photo refreshes must not call the full inventory loader or emit duplicate INVENTORY_VIEWED telemetry',
+);
+assert.match(
+  itemImages,
+  /loadMyInventoryMarketState\(itemId\)[\s\S]*marketState === ['"]RESERVED['"] \|\| marketState === ['"]SOLD['"]/,
+  'Thing photo controls must lock from authoritative RESERVED/SOLD state without filtering SOLD items out first',
 );
 assert.match(itemImages, /Photos locked for this sale/, 'Reserved/Sold photo UI must explain why transaction photos are locked');
 assert.match(
