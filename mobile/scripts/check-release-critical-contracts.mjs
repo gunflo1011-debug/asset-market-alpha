@@ -11,6 +11,7 @@ const inventory = [
 const auth = read('src/data/auth.ts');
 const authScreen = read('src/features/auth/AuthScreen.tsx');
 const app = read('App.tsx');
+const marketplaceScreen = read('src/features/marketplace/MarketplaceScreen.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
 const inventoryMarketState = read('src/data/inventoryMarketState.ts');
@@ -62,11 +63,31 @@ for (const [internalStatus, consumerLabel] of [['OPEN', 'Open'], ['RESERVED', 'R
     new RegExp(`${internalStatus}: ['\"]${consumerLabel}['\"]`),
     `Marketplace chat must present ${internalStatus} as consumer label ${consumerLabel}`,
   );
+  assert.match(
+    marketplaceScreen,
+    new RegExp(`case ['\"]${internalStatus}['\"]: return ['\"]${consumerLabel}['\"]`),
+    `Marketplace activity must present ${internalStatus} as consumer label ${consumerLabel}`,
+  );
 }
 assert.match(
   marketplaceConversation,
   /STATUS_LABELS\[status\]/,
   'Marketplace chat status pill must render the presentation label rather than the backend enum',
+);
+assert.match(
+  marketplaceScreen,
+  /conversationStatusLabel\(conversation\.status\)/,
+  'Marketplace transaction rows must render the presentation label rather than the backend enum',
+);
+assert.match(
+  marketplaceScreen,
+  /selected\.image_urls\.length > 0[\s\S]*No public photos[\s\S]*<View style=\{styles\.detailHero\}>/,
+  'Marketplace listing detail must lead with public photos or the explicit no-photo state before listing metadata',
+);
+assert.match(
+  marketplaceScreen,
+  /selected\.image_urls\.map\(/,
+  'Marketplace detail must keep seller-selected public image URLs as its image source',
 );
 assert.match(
   marketplaceConversation,
