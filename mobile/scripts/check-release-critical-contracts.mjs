@@ -15,6 +15,7 @@ const marketplaceScreen = read('src/features/marketplace/MarketplaceScreen.tsx')
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
 const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
 const inventoryMarketState = read('src/data/inventoryMarketState.ts');
+const barcodeCapture = read('src/features/inventory/BarcodeCapturePanel.tsx');
 
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
@@ -55,6 +56,29 @@ assert.match(
   app,
   /if \(password\.length < 8\)[\s\S]*if \(password !== confirmPassword\)[\s\S]*await updateRecoveredPassword\(password\)/,
   'password recovery handler must enforce length and match before updating credentials',
+);
+
+assert.match(
+  barcodeCapture,
+  /const LOOKUP_FAILED_MESSAGE = ["']Things couldn't look up this product right now\. Check your connection and try again, or enter the item manually\.["'];/,
+  'barcode provider/runtime failures must use stable consumer copy',
+);
+assert.match(
+  barcodeCapture,
+  /catch\s*\{[\s\S]*kind:\s*['"]lookup_failed['"][\s\S]*message:\s*LOOKUP_FAILED_MESSAGE/,
+  'barcode lookup failures must not render the caught provider/runtime error',
+);
+assert.doesNotMatch(
+  barcodeCapture,
+  /lookupError\.message/,
+  'raw barcode lookup error messages must never be rendered to users',
+);
+assert.match(barcodeCapture, /Try scanning again/, 'barcode lookup failure must keep a retry route');
+assert.match(barcodeCapture, /Enter item manually/, 'barcode lookup failure must keep a manual-entry escape route');
+assert.match(
+  barcodeCapture,
+  /capturedQr \? null : normalizedProductCode/,
+  'arbitrary QR payloads must remain excluded from visible retained product-code state',
 );
 
 for (const [internalStatus, consumerLabel] of [['OPEN', 'Open'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['CLOSED', 'Closed']]) {
@@ -137,4 +161,4 @@ assert.match(
   'Disabled Marketplace photo controls must expose the lock reason to assistive technology',
 );
 
-console.log('release-critical ownership + auth + Marketplace conversation + transaction photo regression: ok');
+console.log('release-critical ownership + auth + barcode capture + Marketplace conversation + transaction photo regression: ok');
