@@ -11,6 +11,8 @@ const inventory = [
 const auth = read('src/data/auth.ts');
 const app = read('App.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
+const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
+const inventoryMarketState = read('src/data/inventoryMarketState.ts');
 
 assert.match(inventory, /rpc\(['"]load_my_inventory_market_states['"]\)/, 'inventory must load authoritative ownership/market state');
 assert.match(
@@ -61,4 +63,41 @@ assert.doesNotMatch(
   'SOLD copy must never say final sale confirmation is still pending',
 );
 
-console.log('release-critical ownership + auth + Marketplace conversation regression: ok');
+assert.match(
+  inventoryMarketState,
+  /rpc\(['"]load_my_inventory_market_states['"]\)/,
+  'photo transaction state must come from the authoritative owner-scoped market-state RPC',
+);
+assert.match(
+  inventoryMarketState,
+  /if\s*\(error\)\s*throw\s+error/,
+  'photo transaction state lookup must surface verification failures so the UI fails closed',
+);
+assert.doesNotMatch(
+  itemImages,
+  /loadPrivateInventory\(/,
+  'photo refreshes must not call the full inventory loader or emit duplicate INVENTORY_VIEWED telemetry',
+);
+assert.match(
+  itemImages,
+  /loadMyInventoryMarketState\(itemId\)[\s\S]*marketState === ['"]RESERVED['"] \|\| marketState === ['"]SOLD['"]/,
+  'Thing photo controls must lock from authoritative RESERVED/SOLD state without filtering SOLD items out first',
+);
+assert.match(itemImages, /Photos locked for this sale/, 'Reserved/Sold photo UI must explain why transaction photos are locked');
+assert.match(
+  itemImages,
+  /const transactionActionsDisabled = transactionPhotoState !== ['"]editable['"];/,
+  'Marketplace photo mutations must fail closed until transaction state is known editable',
+);
+assert.match(
+  itemImages,
+  /disabled=\{busy \|\| transactionActionsDisabled\}[\s\S]*onPress=\{\(\) => confirmDelete\(image\)\}/,
+  'Delete controls must be visibly disabled when transaction photos are locked or sale state cannot be verified',
+);
+assert.match(
+  itemImages,
+  /accessibilityHint=\{transactionActionsDisabled \? transactionStatusCopy : ['"]Selection alone does not publish the photo['"]\}/,
+  'Disabled Marketplace photo controls must expose the lock reason to assistive technology',
+);
+
+console.log('release-critical ownership + auth + Marketplace conversation + transaction photo regression: ok');
