@@ -24,6 +24,32 @@ assert.match(
   /v_public_location\s+~\s+'\^\[\[:space:\]\]\*\[\+\-\]\?\[0-9\]\{1,3\}/i,
   'Marketplace location must keep the bare coordinate-pair guard',
 );
+
+for (const snapshotField of [
+  'public_title',
+  'public_category',
+  'public_estimated_value_cents',
+  'public_condition_label',
+  'source_variant_id',
+  'source_gtin',
+]) {
+  assert.match(
+    migration,
+    new RegExp(`\\b${snapshotField}\\b`, 'i'),
+    `Numeric location fix must preserve ${snapshotField} snapshot handling`,
+  );
+}
+assert.match(
+  migration,
+  /public_title\s*=\s*case when p_publish then v_title else private\.marketplace_listings\.public_title end/i,
+  'Explicit publish/update must continue refreshing the buyer-visible title snapshot',
+);
+assert.match(
+  migration,
+  /public_category\s*=\s*case when p_publish then v_category else private\.marketplace_listings\.public_category end/i,
+  'Explicit publish/update must continue refreshing the buyer-visible category snapshot',
+);
+
 assert.match(migration, /revoke all on function public\.save_my_marketplace_listing_v2\(uuid,bigint,boolean,text\) from public, anon;/i);
 assert.match(migration, /grant execute on function public\.save_my_marketplace_listing_v2\(uuid,bigint,boolean,text\) to authenticated;/i);
 
@@ -40,4 +66,4 @@ try {
   fs.renameSync(parkedPath, migrationPath);
 }
 
-console.log('Marketplace numeric location + established hardening release gate: OK');
+console.log('Marketplace numeric location + public snapshot preservation + established hardening release gate: OK');
