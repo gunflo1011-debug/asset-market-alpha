@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { loadPrivateInventory } from '../../data/inventory';
+import { loadMyInventoryMarketState } from '../../data/inventoryMarketState';
 import { deleteMyItemImage, loadMyItemImages, setMyItemMarketplaceVisibility, setMyItemPrimaryImage, uploadMyItemImage, type ItemImage } from '../../data/itemImages';
 
 type Props = { itemId: string };
@@ -25,13 +25,8 @@ export function ItemImagesPanel({ itemId }: Props) {
       setImages(await loadMyItemImages(itemId));
 
       try {
-        const inventory = await loadPrivateInventory();
-        const item = inventory.find((candidate) => candidate.id === itemId);
-        if (!item) {
-          setTransactionPhotoState('unknown');
-        } else {
-          setTransactionPhotoState(item.market_state === 'RESERVED' || item.market_state === 'SOLD' ? 'locked' : 'editable');
-        }
+        const marketState = await loadMyInventoryMarketState(itemId);
+        setTransactionPhotoState(marketState === 'RESERVED' || marketState === 'SOLD' ? 'locked' : 'editable');
       } catch {
         setTransactionPhotoState('unknown');
       }
