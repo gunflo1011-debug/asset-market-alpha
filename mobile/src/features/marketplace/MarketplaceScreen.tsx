@@ -10,6 +10,7 @@ import {
 } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
+import { marketplaceFailureMessage } from './consumerErrors';
 import { MARKETPLACE_DISCOVERY_ALL, filterMarketplaceListings, marketplaceDiscoveryCategories } from './marketplaceDiscovery';
 
 type Props = { onBack: () => void };
@@ -96,7 +97,7 @@ export function MarketplaceScreen({ onBack }: Props) {
     ]);
 
     if (listingsResult.status === 'fulfilled') setListings(listingsResult.value);
-    else setError(listingsResult.reason instanceof Error ? listingsResult.reason.message : 'Could not load marketplace.');
+    else setError(marketplaceFailureMessage('LOAD_MARKETPLACE'));
 
     if (interestsResult.status === 'fulfilled') setInterests(interestsResult.value);
     else setInterestWarning('Listings are available, but your saved interest status could not be refreshed.');
@@ -124,8 +125,8 @@ export function MarketplaceScreen({ onBack }: Props) {
       });
       setInterestWarning(null);
       setMessage(interested ? 'Interest sent. You can now message the seller privately.' : 'Interest withdrawn.');
-    } catch (nextError) {
-      setMessage(nextError instanceof Error ? nextError.message : 'Could not update interest.');
+    } catch {
+      setMessage(marketplaceFailureMessage('UPDATE_INTEREST'));
     } finally {
       setBusy(false);
     }
@@ -157,8 +158,8 @@ export function MarketplaceScreen({ onBack }: Props) {
       const opened = refreshed.find((row) => row.conversation_id === conversationId);
       if (!opened) throw new Error('Your offer conversation was created but is not available yet. Refresh and try again.');
       setSelectedConversationId(opened.conversation_id);
-    } catch (nextError) {
-      setMessage(nextError instanceof Error ? nextError.message : 'Could not start your offer.');
+    } catch {
+      setMessage(marketplaceFailureMessage('START_OFFER'));
     } finally {
       setBusy(false);
     }
