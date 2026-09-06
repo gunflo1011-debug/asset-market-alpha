@@ -44,7 +44,7 @@ async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper
       const index = nextIndex;
       nextIndex += 1;
       if (index >= values.length) return;
-      results[index] = await mapper(values[index]);
+      results[index] = await mapper(values[index]!);
     }
   }));
 
