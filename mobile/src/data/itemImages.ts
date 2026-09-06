@@ -33,18 +33,36 @@ function normalizeImageMime(mimeType: string | null): 'image/jpeg' | 'image/png'
   return 'image/jpeg';
 }
 
+async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T) => Promise<R>): Promise<R[]> {
+  if (values.length === 0) return [];
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), values.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= values.length) return;
+      results[index] = await mapper(values[index]!);
+    }
+  }));
+
+  return results;
+}
+
 export async function loadMyInventoryCoverImageRefs(): Promise<InventoryCoverImageRef[]> {
   const client = requireSupabase();
   const { data, error } = await client.rpc('load_my_inventory_cover_image_refs_v1');
   if (error) throw error;
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  const signedRefs = await Promise.all(rows.map(async (row): Promise<InventoryCoverImageRef | null> => {
+  const signedRefs = await mapWithConcurrency(rows, 8, async (row): Promise<InventoryCoverImageRef | null> => {
     const storagePath = String(row.storage_path);
     const { data: signed, error: signedError } = await client.storage.from('thing-images').createSignedUrl(storagePath, 1800);
     if (signedError || !signed?.signedUrl) return null;
     return { itemId: String(row.item_id), signedUrl: signed.signedUrl };
-  }));
+  });
   return signedRefs.filter((ref): ref is InventoryCoverImageRef => ref !== null);
 }
 
@@ -167,14 +185,14 @@ export async function loadMarketplaceImageRefs(): Promise<MarketplaceImageRef[]>
   if (error) throw error;
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  const signedRefs = await Promise.all(rows.map(async (row): Promise<MarketplaceImageRef | null> => {
+  const signedRefs = await mapWithConcurrency(rows, 8, async (row): Promise<MarketplaceImageRef | null> => {
     const itemId = String(row.item_id);
     const imageId = String(row.image_id);
     const path = `${itemId}/${imageId}`;
     const { data: signed, error: signedError } = await client.storage.from('marketplace-images').createSignedUrl(path, 1800);
     if (signedError || !signed?.signedUrl) return null;
     return { itemId, imageId, sortOrder: Number(row.sort_order), signedUrl: signed.signedUrl };
-  }));
+  });
   return signedRefs.filter((ref): ref is MarketplaceImageRef => ref !== null);
 }
 
