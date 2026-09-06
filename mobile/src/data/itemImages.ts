@@ -10,6 +10,11 @@ export type ItemImage = {
   signedUrl: string;
 };
 
+export type InventoryCoverImageRef = {
+  itemId: string;
+  signedUrl: string;
+};
+
 export type MarketplaceImageRef = {
   itemId: string;
   imageId: string;
@@ -26,6 +31,21 @@ function extensionFromMime(mimeType: string | null | undefined): string {
 function normalizeImageMime(mimeType: string | null): 'image/jpeg' | 'image/png' | 'image/webp' {
   if (mimeType === 'image/png' || mimeType === 'image/webp') return mimeType;
   return 'image/jpeg';
+}
+
+export async function loadMyInventoryCoverImageRefs(): Promise<InventoryCoverImageRef[]> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc('load_my_inventory_cover_image_refs_v1');
+  if (error) throw error;
+
+  const refs: InventoryCoverImageRef[] = [];
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    const storagePath = String(row.storage_path);
+    const { data: signed, error: signedError } = await client.storage.from('thing-images').createSignedUrl(storagePath, 1800);
+    if (signedError || !signed?.signedUrl) continue;
+    refs.push({ itemId: String(row.item_id), signedUrl: signed.signedUrl });
+  }
+  return refs;
 }
 
 export async function loadMyItemImages(itemId: string): Promise<ItemImage[]> {
