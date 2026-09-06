@@ -1,4 +1,7 @@
 export type MarketplaceFailureAction =
+  | 'LOAD_MARKETPLACE'
+  | 'UPDATE_INTEREST'
+  | 'START_OFFER'
   | 'LOAD_CONVERSATION'
   | 'SEND_MESSAGE'
   | 'UPDATE_OFFER'
@@ -6,6 +9,9 @@ export type MarketplaceFailureAction =
   | 'ADOPT_PURCHASE';
 
 const MARKETPLACE_FAILURE_COPY: Record<MarketplaceFailureAction, string> = {
+  LOAD_MARKETPLACE: "Things couldn't load Marketplace right now. Check your connection and try again.",
+  UPDATE_INTEREST: "Things couldn't update your interest right now. Try again.",
+  START_OFFER: "Things couldn't start your offer right now. Try again.",
   LOAD_CONVERSATION: "Things couldn't load this conversation right now. Check your connection and try again.",
   SEND_MESSAGE: "Message wasn't sent. Check your connection and try again.",
   UPDATE_OFFER: "Things couldn't update this offer right now. Try again.",
