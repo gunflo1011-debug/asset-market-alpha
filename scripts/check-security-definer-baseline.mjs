@@ -17,6 +17,7 @@ const allowed = new Set([
   'load_marketplace_image_refs_v1',
   'load_marketplace_v1',
   'load_marketplace_v2',
+  'load_my_inventory_cover_image_refs_v1',
   'load_my_inventory_market_states',
   'load_my_inventory_purchase_context',
   'load_my_inventory_values',

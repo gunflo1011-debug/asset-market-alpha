@@ -18,8 +18,8 @@ jobs:
         run: node scripts/check-marketplace-offer-release-gate.mjs
       - name: Verify owner market-state migration contract
         run: node scripts/check-owner-market-state-migration.mjs
-      - name: Verify numeric Marketplace location + established hardening gates
-        run: node scripts/check-marketplace-location-number-release-gate.mjs
+      - name: Verify owner Inventory cover images + established hardening gates
+        run: node scripts/check-owner-inventory-cover-images-release-gate.mjs
       - name: Verify Marketplace conversation privacy contract
         run: node scripts/check-marketplace-conversation-release-gate.mjs
       - name: Verify Marketplace reserve/sold lifecycle contract
