@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 type Props = {
@@ -9,7 +9,7 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-export function PrivateThingCover({
+function PrivateThingCoverComponent({
   uri,
   fallbackLabel,
   size = 64,
@@ -18,17 +18,18 @@ export function PrivateThingCover({
 }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const initial = fallbackLabel.trim().slice(0, 1).toUpperCase() || 'T';
-  const frameStyle = { width: size, height: size, borderRadius };
+  const frameStyle = useMemo(() => ({ width: size, height: size, borderRadius }), [borderRadius, size]);
+  const source = useMemo(() => (uri ? { uri } : null), [uri]);
 
   useEffect(() => {
     setImageFailed(false);
   }, [uri]);
 
-  if (uri && !imageFailed) {
+  if (source && !imageFailed) {
     return (
       <View style={[styles.frame, frameStyle]}>
         <Image
-          source={{ uri }}
+          source={source}
           style={styles.image}
           resizeMode="cover"
           accessibilityRole="image"
@@ -50,6 +51,8 @@ export function PrivateThingCover({
     </View>
   );
 }
+
+export const PrivateThingCover = memo(PrivateThingCoverComponent);
 
 const styles = StyleSheet.create({
   frame: {
