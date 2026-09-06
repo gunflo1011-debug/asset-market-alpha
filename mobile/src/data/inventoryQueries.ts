@@ -1,5 +1,5 @@
 import { trackAlphaEvent } from './analytics';
-import { loadMarketplaceImageRefs } from './itemImages';
+import { loadMarketplaceImageRefs, loadMyInventoryCoverImageRefs } from './itemImages';
 import { requireSupabase } from './supabaseClient';
 import type { CatalogVariant, InventoryMarketState, InventoryPurchaseContext, InventoryValueEvidence, MarketplaceConversation, MarketplaceInterest, MarketplaceInterestSummary, MarketplaceListing, MarketplaceMessage, OwnerMarketplaceListing, PrivateInventoryItem } from '../features/inventory/types';
 
@@ -17,12 +17,13 @@ export async function loadCatalog(): Promise<CatalogVariant[]> {
 
 export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
   const inventoryRequest = requireSupabase().from('items').select(`id, custom_name, category, location_label, notes, color, created_at, product_variants(id, storage_gb, region, products(brand, family)), condition_snapshots(display_state, housing_state, cameras_working, biometrics_working, battery_health, network_locked, other_defect, captured_at)`).order('created_at', { ascending: false });
-  const [inventoryResult, marketStateResult, valueResult, listingResult, purchaseContextResult] = await Promise.all([
+  const [inventoryResult, marketStateResult, valueResult, listingResult, purchaseContextResult, coverImageResult] = await Promise.all([
     inventoryRequest,
     requireSupabase().rpc('load_my_inventory_market_states'),
     requireSupabase().rpc('load_my_inventory_values'),
     requireSupabase().rpc('load_my_marketplace_listings_v2'),
     requireSupabase().rpc('load_my_inventory_purchase_context'),
+    loadMyInventoryCoverImageRefs().catch(() => []),
   ]);
   if (inventoryResult.error) throw inventoryResult.error;
   const marketStates = new Map<string, InventoryMarketState>();
@@ -40,14 +41,15 @@ export async function loadPrivateInventory(): Promise<PrivateInventoryItem[]> {
       source_gtin: row.source_gtin == null ? null : String(row.source_gtin),
     });
   }
-  const items = (inventoryResult.data ?? []) as unknown as Array<Omit<PrivateInventoryItem, 'market_state' | 'value_evidence' | 'purchase_context'>>;
+  const coverImages = new Map(coverImageResult.map((ref) => [ref.itemId, ref.signedUrl]));
+  const items = (inventoryResult.data ?? []) as unknown as Array<Omit<PrivateInventoryItem, 'market_state' | 'value_evidence' | 'cover_image_url' | 'purchase_context'>>;
   const owned = items.flatMap((item) => {
     const isCatalogDevice = item.product_variants !== null;
     if (isCatalogDevice && marketStateResult.error) return [];
     const state = marketStates.get(item.id) ?? null;
     if (isCatalogDevice && !state) return [];
     if (state === 'SOLD') return [];
-    return [{ ...item, market_state: state, value_evidence: values.get(item.id) ?? null, purchase_context: purchaseContexts.get(item.id) ?? null }];
+    return [{ ...item, market_state: state, value_evidence: values.get(item.id) ?? null, cover_image_url: coverImages.get(item.id) ?? null, purchase_context: purchaseContexts.get(item.id) ?? null }];
   });
   void trackAlphaEvent('INVENTORY_VIEWED');
   return owned;
