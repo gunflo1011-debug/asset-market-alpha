@@ -7,6 +7,7 @@ import type { ProductSuggestion } from '../../lib/barcodeProductResolver';
 import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
 import { SellListingPanel } from '../marketplace/SellListingPanel';
 import { BarcodeCapturePanel } from './BarcodeCapturePanel';
+import { PrivateThingCover } from './PrivateThingCover';
 import { itemTitle, savedDate, variantTitle } from './presentation';
 import { ValueEstimatePanel } from './ValueEstimatePanel';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
@@ -166,6 +167,7 @@ export function InventoryScreen(props: Props) {
     const modelEstimate = isModelEstimate(selectedItem);
     const lifecycleLabel = inventoryLifecycleLabel(selectedItem);
     const purchasePriceCents = selectedItem.purchase_context?.purchase_price_cents ?? null;
+    const selectedTitle = itemTitle(selectedItem);
 
     return (
       <SafeAreaView style={styles.safe}>
@@ -176,11 +178,20 @@ export function InventoryScreen(props: Props) {
           </View>
 
           <View style={styles.detailHero}>
+            <View style={styles.detailCoverWrap}>
+              <PrivateThingCover
+                uri={selectedItem.cover_image_url}
+                fallbackLabel={selectedTitle}
+                size={112}
+                borderRadius={26}
+                accessibilityLabel={`${selectedTitle} private photo`}
+              />
+            </View>
             <View style={styles.heroMetaRow}>
               <View style={styles.darkPill}><Text style={styles.darkPillText}>{generic ? (selectedItem.category || 'Thing') : 'Device'}</Text></View>
               <Text style={styles.heroDate}>{savedDate(selectedItem.created_at)}</Text>
             </View>
-            <Text style={styles.detailTitle}>{itemTitle(selectedItem)}</Text>
+            <Text style={styles.detailTitle}>{selectedTitle}</Text>
             {!generic ? <Text style={styles.detailSubtitle}>{variantTitle(selectedItem.product_variants as CatalogVariant)}</Text> : null}
           </View>
 
@@ -370,6 +381,7 @@ export function InventoryScreen(props: Props) {
             const generic = !item.product_variants;
             const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
             const lifecycleLabel = inventoryLifecycleLabel(item);
+            const title = itemTitle(item);
             const estimateAccessibilityLabel = item.value_evidence
               ? `Things Estimate ${formatEuroCents(item.value_evidence.estimated_value_cents)}`
               : 'Estimate pending';
@@ -377,15 +389,21 @@ export function InventoryScreen(props: Props) {
               <TouchableOpacity
                 key={item.id}
                 accessibilityRole="button"
-                accessibilityLabel={`${itemTitle(item)}. ${estimateAccessibilityLabel}. ${lifecycleLabel}.`}
+                accessibilityLabel={`${title}. ${estimateAccessibilityLabel}. ${lifecycleLabel}.`}
                 accessibilityHint="Opens Thing details"
                 style={[styles.compactItem, index < visibleItems.length - 1 && styles.compactItemBorder]}
                 onPress={() => setSelectedItemId(item.id)}
               >
-                <View style={styles.itemIcon}><Text style={styles.itemIconText}>{(generic ? (item.category || 'T') : 'D').slice(0, 1).toUpperCase()}</Text></View>
+                <PrivateThingCover
+                  uri={item.cover_image_url}
+                  fallbackLabel={title}
+                  size={58}
+                  borderRadius={18}
+                  accessibilityLabel={`${title} private photo`}
+                />
                 <View style={styles.flex}>
                   <View style={styles.itemTopLine}>
-                    <Text numberOfLines={1} style={styles.itemTitle}>{itemTitle(item)}</Text>
+                    <Text numberOfLines={1} style={styles.itemTitle}>{title}</Text>
                     <Text style={styles.itemValue}>{sale.valueLabel.replace('Estimated value ', '')}</Text>
                   </View>
                   <View style={styles.itemBottomLine}>
@@ -461,8 +479,6 @@ const styles = StyleSheet.create({
   listCard: { backgroundColor: 'transparent', gap: 11, overflow: 'visible' },
   compactItem: { minHeight: 94, paddingHorizontal: 15, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#FFFFFF', borderRadius: 21, borderWidth: 1, borderColor: '#E9EDF2', shadowColor: '#0B1323', shadowOpacity: 0.045, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
   compactItemBorder: { borderBottomWidth: 1, borderBottomColor: '#E9EDF2' },
-  itemIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF2F7' },
-  itemIconText: { fontSize: 16, fontWeight: '900', color: '#35445B' },
   itemTopLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   itemTitle: { flex: 1, fontSize: 16, lineHeight: 21, fontWeight: '900', letterSpacing: -0.15, color: '#0C1628' },
   itemValue: { fontSize: 15, fontWeight: '900', color: '#0C1628' },
@@ -487,6 +503,7 @@ const styles = StyleSheet.create({
   statePill: { borderRadius: 999, backgroundColor: '#F0F3F7', paddingHorizontal: 11, paddingVertical: 7 },
   statePillText: { fontSize: 12, fontWeight: '900', color: '#536174' },
   detailHero: { backgroundColor: '#0C1628', borderRadius: 30, padding: 24, gap: 11, shadowColor: '#0B1323', shadowOpacity: 0.16, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  detailCoverWrap: { alignSelf: 'flex-start', marginBottom: 2 },
   heroMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   darkPill: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#26354C', paddingHorizontal: 10, paddingVertical: 6 },
   darkPillText: { fontSize: 11, fontWeight: '800', color: '#F4F6F8' },
