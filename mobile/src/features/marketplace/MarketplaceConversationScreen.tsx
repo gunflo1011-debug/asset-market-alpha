@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView,
 import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import { viewPurchasedThingInInventory } from '../../lib/purchasedThingNavigation';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage, MarketplaceOffer } from '../inventory/types';
+import { marketplaceFailureMessage } from './consumerErrors';
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
 const QUICK_MESSAGE = 'Hi, is this still available?';
@@ -81,8 +82,8 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
         setStatus(currentConversation.status);
         setConfirmedFinalSalePriceCents(currentConversation.final_sale_price_cents ?? null);
       }
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Could not load conversation.');
+    } catch {
+      setError(marketplaceFailureMessage('LOAD_CONVERSATION'));
     } finally { setLoading(false); }
   }
 
@@ -107,7 +108,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       setSending(true); setError(null);
       await sendMyMarketplaceMessage(conversation.conversation_id, body);
       setDraft(''); await refresh();
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : 'Could not send message.'); }
+    } catch { setError(marketplaceFailureMessage('SEND_MESSAGE')); }
     finally { setSending(false); }
   }
 
@@ -118,7 +119,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       await makeMyMarketplaceOffer(conversation.conversation_id, parsedOfferAmount.cents, offerMessage);
       setOfferAmount(''); setOfferMessage(''); setShowOfferComposer(false);
       await refresh();
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : 'Could not send offer.'); }
+    } catch { setError(marketplaceFailureMessage('UPDATE_OFFER')); }
     finally { setOfferBusy(false); }
   }
 
@@ -138,7 +139,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       );
       setCounterAmount(''); setCounterMessage(''); setShowCounterComposer(false);
       await refresh();
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : 'Could not respond to offer.'); }
+    } catch { setError(marketplaceFailureMessage('UPDATE_OFFER')); }
     finally { setOfferBusy(false); }
   }
 
@@ -148,7 +149,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       const next = await setMyMarketplaceConversationStatus(conversation.conversation_id, nextStatus, finalSalePriceCents);
       setStatus(next);
       if (next === 'SOLD') setConfirmedFinalSalePriceCents(finalSalePriceCents ?? null);
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : 'Could not update listing status.'); }
+    } catch { setError(marketplaceFailureMessage('UPDATE_SALE')); }
     finally { setLifecycleBusy(false); }
   }
 
@@ -157,7 +158,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     try {
       setAdoptionBusy(true); setError(null);
       setAdoptedItemId(await adoptMySoldMarketplaceThing(conversation.conversation_id));
-    } catch (nextError) { setError(nextError instanceof Error ? nextError.message : 'Could not add purchased Thing to My Things.'); }
+    } catch { setError(marketplaceFailureMessage('ADOPT_PURCHASE')); }
     finally { setAdoptionBusy(false); }
   }
 

@@ -13,6 +13,7 @@ const authScreen = read('src/features/auth/AuthScreen.tsx');
 const app = read('App.tsx');
 const marketplaceScreen = read('src/features/marketplace/MarketplaceScreen.tsx');
 const marketplaceConversation = read('src/features/marketplace/MarketplaceConversationScreen.tsx');
+const marketplaceConsumerErrors = read('src/features/marketplace/consumerErrors.ts');
 const itemImages = read('src/features/inventory/ItemImagesPanel.tsx');
 const inventoryMarketState = read('src/data/inventoryMarketState.ts');
 const barcodeCapture = read('src/features/inventory/BarcodeCapturePanel.tsx');
@@ -122,6 +123,60 @@ assert.doesNotMatch(
   marketplaceConversation,
   /status === ['"]SOLD['"][\s\S]{0,220}not the final sale price until the seller confirms/,
   'SOLD copy must never say final sale confirmation is still pending',
+);
+assert.match(
+  marketplaceConversation,
+  /marketplaceFailureMessage\(['"]LOAD_CONVERSATION['"]\)/,
+  'Marketplace conversation load failures must use consumer-safe copy',
+);
+assert.match(
+  marketplaceConversation,
+  /marketplaceFailureMessage\(['"]SEND_MESSAGE['"]\)/,
+  'Marketplace message failures must use consumer-safe copy',
+);
+assert.match(
+  marketplaceConversation,
+  /marketplaceFailureMessage\(['"]UPDATE_OFFER['"]\)/,
+  'Marketplace offer failures must use consumer-safe copy',
+);
+assert.match(
+  marketplaceConversation,
+  /marketplaceFailureMessage\(['"]UPDATE_SALE['"]\)/,
+  'Marketplace sale lifecycle failures must use consumer-safe copy',
+);
+assert.match(
+  marketplaceConversation,
+  /marketplaceFailureMessage\(['"]ADOPT_PURCHASE['"]\)/,
+  'Marketplace purchase adoption failures must use consumer-safe copy',
+);
+assert.doesNotMatch(
+  marketplaceConversation,
+  /nextError\.message|Error\s*\?\s*[^:]*\.message/,
+  'raw Marketplace exception messages must never be rendered to users',
+);
+for (const copy of [
+  "Things couldn't load this conversation right now. Check your connection and try again.",
+  "Message wasn't sent. Check your connection and try again.",
+  "Things couldn't update this offer right now. Try again.",
+  "Things couldn't update this sale right now. Try again.",
+  "Things couldn't add this purchase to My Things right now. Try again.",
+]) {
+  assert.match(marketplaceConsumerErrors, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `consumer-safe Marketplace copy must remain stable: ${copy}`);
+}
+assert.match(
+  marketplaceConversation,
+  /await sendMyMarketplaceMessage[\s\S]*setDraft\(['"]['"]\)/,
+  'message draft must only clear after send succeeds',
+);
+assert.match(
+  marketplaceConversation,
+  /await makeMyMarketplaceOffer[\s\S]*setOfferAmount\(['"]['"]\)[\s\S]*setOfferMessage\(['"]['"]\)/,
+  'offer input must only clear after offer succeeds',
+);
+assert.match(
+  marketplaceConversation,
+  /await respondToMyMarketplaceOffer[\s\S]*setCounterAmount\(['"]['"]\)[\s\S]*setCounterMessage\(['"]['"]\)/,
+  'counter-offer input must only clear after response succeeds',
 );
 
 assert.match(
