@@ -52,7 +52,9 @@ if (!listingPanel.includes('Nothing becomes visible to other users until you exp
 if (!listingPanel.includes('Marketplace location (optional)') || !listingPanel.includes('Things never copies your private inventory location automatically.')) {
   throw new Error('Marketplace convergence must keep coarse location optional and separate from private inventory location.');
 }
-if (!marketplaceScreen.includes('location not shared') || !marketplaceScreen.includes('exact address hidden')) {
+const marketplacePrivacyCopy = marketplaceScreen.toLowerCase();
+const hidesExactSellerLocation = marketplacePrivacyCopy.includes('exact address hidden') || marketplacePrivacyCopy.includes('exact seller details stay private');
+if (!marketplacePrivacyCopy.includes('location not shared') || !hidesExactSellerLocation) {
   throw new Error('Marketplace buyer surfaces must distinguish optional coarse location from hidden exact location.');
 }
 if (!marketplaceScreen.includes('Make an offer') || !marketplaceScreen.includes('startOfferForBuyer')) {
