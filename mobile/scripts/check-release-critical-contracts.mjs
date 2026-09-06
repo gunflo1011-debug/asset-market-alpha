@@ -154,7 +154,20 @@ assert.doesNotMatch(
   /nextError\.message|Error\s*\?\s*[^:]*\.message/,
   'raw Marketplace exception messages must never be rendered to users',
 );
+assert.match(marketplaceScreen, /marketplaceFailureMessage\(['"]LOAD_MARKETPLACE['"]\)/, 'Marketplace discovery load failures must use consumer-safe copy');
+assert.match(marketplaceScreen, /marketplaceFailureMessage\(['"]UPDATE_INTEREST['"]\)/, 'Marketplace interest failures must use consumer-safe copy');
+assert.match(marketplaceScreen, /marketplaceFailureMessage\(['"]START_OFFER['"]\)/, 'Marketplace offer-start failures must use consumer-safe copy');
+assert.doesNotMatch(
+  marketplaceScreen,
+  /reason\.message|nextError\.message|Error\s*\?\s*[^:]*\.message/,
+  'raw Marketplace discovery/action exception messages must never be rendered to users',
+);
+assert.match(marketplaceScreen, /const \[searchQuery, setSearchQuery\] = useState\(['"]['"]\)/, 'Marketplace search state must remain independent of request failures');
+assert.match(marketplaceScreen, /const \[selectedCategory, setSelectedCategory\]/, 'Marketplace category state must remain independent of request failures');
 for (const copy of [
+  "Things couldn't load Marketplace right now. Check your connection and try again.",
+  "Things couldn't update your interest right now. Try again.",
+  "Things couldn't start your offer right now. Try again.",
   "Things couldn't load this conversation right now. Check your connection and try again.",
   "Message wasn't sent. Check your connection and try again.",
   "Things couldn't update this offer right now. Try again.",
@@ -196,7 +209,7 @@ assert.doesNotMatch(
 );
 assert.match(
   itemImages,
-  /loadMyInventoryMarketState\(itemId\)[\s\S]*marketState === ['"]RESERVED['"] \|\| marketState === ['"]SOLD['"]/,
+  /loadMyInventoryMarketState\(itemId\)[\s\S]*marketState === ['"]RESERVED['"] \|\| marketState === ['"]SOLD['"]/, 
   'Thing photo controls must lock from authoritative RESERVED/SOLD state without filtering SOLD items out first',
 );
 assert.match(itemImages, /Photos locked for this sale/, 'Reserved/Sold photo UI must explain why transaction photos are locked');
