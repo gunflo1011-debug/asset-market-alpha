@@ -124,6 +124,7 @@ export type PrivateInventoryItem = {
   created_at: string;
   market_state: InventoryMarketState | null;
   value_evidence: InventoryValueEvidence | null;
+  cover_image_url?: string | null;
   purchase_context?: InventoryPurchaseContext | null;
   product_variants: {
     id: string;
