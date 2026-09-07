@@ -10,6 +10,7 @@ export const premiumColors = {
   borderStrong: '#DCE2E8',
   imagePlaceholder: '#EEF2F6',
   imagePlaceholderBorder: '#E2E8F0',
+  imagePlaceholderText: '#536074',
   successSurface: '#E8F5EE',
   successText: '#26734D',
   warningSurface: '#FFF7ED',
