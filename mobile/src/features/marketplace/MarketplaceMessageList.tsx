@@ -21,7 +21,7 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Market
 });
 
 export const MarketplaceMessageList = memo(function MarketplaceMessageList({ messages, loading, buyer, closed, onUseQuickMessage }: Props) {
-  const listRef = useRef<FlatList<MarketplaceMessage>>(null);
+  const listRef = useRef<FlatList<MarketplaceMessage> | null>(null);
   const lastPositionedMessageId = useRef<string | null>(null);
   const latestMessageId = messages.length > 0 ? messages[messages.length - 1].message_id : null;
   const renderItem = useCallback(({ item }: { item: MarketplaceMessage }) => <MessageBubble message={item} />, []);
