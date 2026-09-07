@@ -18,6 +18,14 @@
       "package": "com.gunflo1011.thingsalpha",
       "softwareKeyboardLayoutMode": "resize"
     },
+    "androidStatusBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content"
+    },
     "splash": {
       "backgroundColor": "#FFFFFF"
     }
