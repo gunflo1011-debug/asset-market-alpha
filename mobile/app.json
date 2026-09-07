@@ -15,7 +15,8 @@
       ]
     ],
     "android": {
-      "package": "com.gunflo1011.thingsalpha"
+      "package": "com.gunflo1011.thingsalpha",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "splash": {
       "backgroundColor": "#FFFFFF"
