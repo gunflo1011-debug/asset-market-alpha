@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { premiumColors } from '../../lib/premiumTheme';
 
 type Props = {
   uri?: string | null;
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   frame: {
     overflow: 'hidden',
     flexShrink: 0,
-    backgroundColor: '#EEF2F6',
+    backgroundColor: premiumColors.imagePlaceholder,
   },
   image: {
     width: '100%',
@@ -68,10 +69,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: premiumColors.imagePlaceholderBorder,
   },
   initial: {
-    color: '#536074',
+    color: premiumColors.imagePlaceholderText,
     fontSize: 20,
     fontWeight: '800',
   },
