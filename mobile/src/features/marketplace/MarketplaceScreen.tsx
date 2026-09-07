@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   loadMarketplace,
   loadMyMarketplaceConversations,
@@ -10,6 +10,7 @@ import {
 } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
+import { PublicListingImage } from './PublicListingImage';
 import { marketplaceFailureMessage } from './consumerErrors';
 import { MARKETPLACE_DISCOVERY_ALL, filterMarketplaceListings, marketplaceDiscoveryCategories } from './marketplaceDiscovery';
 
@@ -187,7 +188,15 @@ export function MarketplaceScreen({ onBack }: Props) {
 
           {selected.image_urls.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery} accessibilityLabel="Public listing photos">
-              {selected.image_urls.map((url, index) => <Image key={`${selected.item_id}-${index}`} accessible accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`} source={{ uri: url }} style={styles.detailImage} resizeMode="cover" />)}
+              {selected.image_urls.map((url, index) => (
+                <PublicListingImage
+                  key={`${selected.item_id}-${index}`}
+                  uri={url}
+                  accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`}
+                  fallbackLabel="Listing photo unavailable"
+                  style={styles.detailImage}
+                />
+              ))}
             </ScrollView>
           ) : (
             <View accessible accessibilityLabel="No public photos. The seller did not share photos for this listing." style={styles.noPhotoDetail}>
@@ -306,14 +315,12 @@ export function MarketplaceScreen({ onBack }: Props) {
           const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
           return (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
-              {listing.image_urls[0] ? (
-                <Image accessible accessibilityLabel={`Cover photo for ${listing.title}`} source={{ uri: listing.image_urls[0] }} style={styles.listingImage} resizeMode="cover" />
-              ) : (
-                <View accessible accessibilityLabel={`No public photo for ${listing.title}`} style={styles.listingImagePlaceholder}>
-                  <Text style={styles.listingImagePlaceholderLabel}>NO PUBLIC PHOTO</Text>
-                  <Text style={styles.listingImagePlaceholderText}>Seller chose not to share a photo</Text>
-                </View>
-              )}
+              <PublicListingImage
+                uri={listing.image_urls[0]}
+                accessibilityLabel={listing.image_urls[0] ? `Cover photo for ${listing.title}` : `No public photo for ${listing.title}`}
+                fallbackLabel={listing.image_urls[0] ? 'Listing photo unavailable' : 'Seller chose not to share a photo'}
+                style={styles.listingImage}
+              />
               <View style={styles.listingBody}>
                 <Text style={styles.askLabel}>ASKING PRICE</Text>
                 <Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text>
