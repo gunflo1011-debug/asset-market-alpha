@@ -26,6 +26,9 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
   const latestMessageId = messages.length > 0 ? messages[messages.length - 1].message_id : null;
   const renderItem = useCallback(({ item }: { item: MarketplaceMessage }) => <MessageBubble message={item} />, []);
   const keyExtractor = useCallback((item: MarketplaceMessage) => item.message_id, []);
+  const captureListRef = useCallback((node: FlatList<MarketplaceMessage> | null) => {
+    listRef.current = node;
+  }, []);
   const positionOnLatestMessage = useCallback(() => {
     if (!latestMessageId || latestMessageId === lastPositionedMessageId.current) return;
     listRef.current?.scrollToEnd({ animated: false });
@@ -34,7 +37,7 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
 
   return (
     <FlatList
-      ref={listRef}
+      ref={captureListRef}
       style={styles.messageList}
       contentContainerStyle={styles.messageContent}
       data={messages}
