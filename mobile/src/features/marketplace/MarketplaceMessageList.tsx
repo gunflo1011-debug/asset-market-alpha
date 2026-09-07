@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useRef } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { MarketplaceMessage } from '../inventory/types';
 
@@ -21,11 +21,20 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Market
 });
 
 export const MarketplaceMessageList = memo(function MarketplaceMessageList({ messages, loading, buyer, closed, onUseQuickMessage }: Props) {
+  const listRef = useRef<FlatList<MarketplaceMessage>>(null);
+  const lastPositionedMessageId = useRef<string | null>(null);
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1].message_id : null;
   const renderItem = useCallback(({ item }: { item: MarketplaceMessage }) => <MessageBubble message={item} />, []);
   const keyExtractor = useCallback((item: MarketplaceMessage) => item.message_id, []);
+  const positionOnLatestMessage = useCallback(() => {
+    if (!latestMessageId || latestMessageId === lastPositionedMessageId.current) return;
+    listRef.current?.scrollToEnd({ animated: false });
+    lastPositionedMessageId.current = latestMessageId;
+  }, [latestMessageId]);
 
   return (
     <FlatList
+      ref={listRef}
       style={styles.messageList}
       contentContainerStyle={styles.messageContent}
       data={messages}
@@ -36,6 +45,7 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
       maxToRenderPerBatch={12}
       windowSize={9}
       removeClippedSubviews
+      onContentSizeChange={positionOnLatestMessage}
       ListEmptyComponent={loading ? (
         <ActivityIndicator />
       ) : (
