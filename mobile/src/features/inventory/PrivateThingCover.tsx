@@ -33,6 +33,7 @@ function PrivateThingCoverComponent({
           source={source}
           style={styles.image}
           resizeMode="cover"
+          fadeDuration={0}
           accessibilityRole="image"
           accessibilityLabel={accessibilityLabel ?? `${fallbackLabel} photo`}
           onError={() => setImageFailed(true)}
