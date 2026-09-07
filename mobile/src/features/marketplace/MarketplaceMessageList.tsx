@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { MarketplaceMessage } from '../inventory/types';
 
@@ -21,6 +21,7 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Market
 });
 
 export const MarketplaceMessageList = memo(function MarketplaceMessageList({ messages, loading, buyer, closed, onUseQuickMessage }: Props) {
+  const newestFirstMessages = useMemo(() => [...messages].reverse(), [messages]);
   const renderItem = useCallback(({ item }: { item: MarketplaceMessage }) => <MessageBubble message={item} />, []);
   const keyExtractor = useCallback((item: MarketplaceMessage) => item.message_id, []);
 
@@ -28,9 +29,10 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
     <FlatList
       style={styles.messageList}
       contentContainerStyle={styles.messageContent}
-      data={messages}
+      data={newestFirstMessages}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
+      inverted={newestFirstMessages.length > 0}
       keyboardShouldPersistTaps="handled"
       initialNumToRender={18}
       maxToRenderPerBatch={12}
