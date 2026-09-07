@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import { viewPurchasedThingInInventory } from '../../lib/purchasedThingNavigation';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage, MarketplaceOffer } from '../inventory/types';
 import { marketplaceFailureMessage } from './consumerErrors';
+import { MarketplaceMessageList } from './MarketplaceMessageList';
 
 type Props = { conversation: MarketplaceConversation; title: string; onBack: () => void };
 const QUICK_MESSAGE = 'Hi, is this still available?';
@@ -222,11 +223,13 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
             {adoptedItemId ? <Text accessibilityLiveRegion="polite" style={styles.success}>Purchase saved privately. Continue in My Things when you are ready.</Text> : null}
           </View> : null}
 
-          <ScrollView style={styles.messageList} contentContainerStyle={styles.messageContent} keyboardShouldPersistTaps="handled">
-            {loading && messages.length === 0 ? <ActivityIndicator /> : null}
-            {!loading && messages.length === 0 ? <View style={styles.empty}><Text style={styles.emptyTitle}>No messages yet</Text><Text style={styles.copy}>Start with a simple question about this listing.</Text>{buyer && !closed ? <TouchableOpacity accessibilityRole="button" style={styles.quickAction} onPress={() => setDraft(QUICK_MESSAGE)}><Text style={styles.quickActionText}>Use “Is this still available?”</Text></TouchableOpacity> : null}</View> : null}
-            {messages.map((message) => { const mine = message.sender_role === 'ME'; return <View key={message.message_id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}><Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text><Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.created_at).toLocaleString()}</Text></View>; })}
-          </ScrollView>
+          <MarketplaceMessageList
+            messages={messages}
+            loading={loading && messages.length === 0}
+            buyer={buyer}
+            closed={closed}
+            onUseQuickMessage={() => setDraft(QUICK_MESSAGE)}
+          />
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           {closed ? <View style={styles.closed}><Text style={styles.closedTitle}>Conversation closed</Text><Text style={styles.copy}>New messages are disabled because this transaction is {STATUS_LABELS[status].toLowerCase()}.</Text></View> : <View style={styles.composer}><TextInput accessibilityLabel="Message about this Thing" value={draft} onChangeText={setDraft} placeholder="Message about this Thing" multiline maxLength={1200} style={styles.input} /><Text style={styles.counter}>{draft.length}/1200</Text><TouchableOpacity accessibilityRole="button" disabled={sending || !draft.trim()} style={[styles.sendButton, (sending || !draft.trim()) && styles.disabled]} onPress={() => void send()}><Text style={styles.sendText}>{sending ? 'Sending…' : 'Send'}</Text></TouchableOpacity></View>}
         </View>
