@@ -10,6 +10,8 @@ type Props = {
   onOpenItem: (itemId: string) => void;
   header?: React.ReactElement | null;
   emptyState?: React.ReactElement | null;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
 function formatEuroCents(cents: number): string {
@@ -71,7 +73,7 @@ const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: 
   );
 });
 
-export const InventoryThingList = memo(function InventoryThingList({ items, onOpenItem, header = null, emptyState = null }: Props) {
+export const InventoryThingList = memo(function InventoryThingList({ items, onOpenItem, header = null, emptyState = null, refreshing = false, onRefresh }: Props) {
   const renderItem = useCallback(({ item }: ListRenderItemInfo<PrivateInventoryItem>) => (
     <InventoryThingRow item={item} onOpenItem={onOpenItem} />
   ), [onOpenItem]);
@@ -88,6 +90,9 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      showsVerticalScrollIndicator={false}
       initialNumToRender={12}
       maxToRenderPerBatch={10}
       updateCellsBatchingPeriod={50}
