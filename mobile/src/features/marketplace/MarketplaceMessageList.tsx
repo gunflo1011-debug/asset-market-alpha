@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { MarketplaceMessage } from '../inventory/types';
+import { premiumColors, premiumRadii, premiumSpacing, premiumTouch } from '../../lib/premiumTheme';
 
 type Props = {
   messages: MarketplaceMessage[];
@@ -57,17 +58,44 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
 
 const styles = StyleSheet.create({
   messageList: { flex: 1 },
-  messageContent: { gap: 10, paddingVertical: 4 },
-  empty: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, gap: 8, borderWidth: 1, borderColor: '#E5E8ED' },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#0F1728' },
-  copy: { fontSize: 13, lineHeight: 19, color: '#7A8494' },
-  quickAction: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 8, marginTop: 2 },
+  messageContent: { gap: premiumSpacing.md, paddingVertical: premiumSpacing.xs },
+  empty: {
+    backgroundColor: premiumColors.surface,
+    borderRadius: premiumRadii.card,
+    padding: premiumSpacing.lg,
+    gap: premiumSpacing.sm,
+    borderWidth: 1,
+    borderColor: premiumColors.border,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: premiumColors.text },
+  copy: { fontSize: 13, lineHeight: 19, color: premiumColors.textMuted },
+  quickAction: {
+    alignSelf: 'flex-start',
+    minHeight: premiumTouch.minimum,
+    borderRadius: premiumRadii.pill,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: premiumSpacing.md,
+    paddingVertical: premiumSpacing.sm,
+    marginTop: 2,
+    justifyContent: 'center',
+  },
   quickActionText: { fontSize: 12, fontWeight: '800', color: '#3448A5' },
-  bubble: { maxWidth: '84%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, gap: 5 },
-  mine: { alignSelf: 'flex-end', backgroundColor: '#0F1728' },
-  theirs: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E8ED' },
+  bubble: {
+    maxWidth: '84%',
+    borderRadius: premiumRadii.control,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: premiumSpacing.xs,
+  },
+  mine: { alignSelf: 'flex-end', backgroundColor: premiumColors.navy },
+  theirs: {
+    alignSelf: 'flex-start',
+    backgroundColor: premiumColors.surface,
+    borderWidth: 1,
+    borderColor: premiumColors.border,
+  },
   messageBody: { fontSize: 14, lineHeight: 20, color: '#475467' },
-  mineMessageBody: { color: '#FFFFFF' },
-  time: { fontSize: 10, color: '#98A2B3' },
+  mineMessageBody: { color: premiumColors.surface },
+  time: { fontSize: 10, color: premiumColors.textSubtle },
   mineTime: { color: '#C5CBD4' },
 });
