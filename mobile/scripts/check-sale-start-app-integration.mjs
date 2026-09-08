@@ -6,12 +6,8 @@ const screen = read('src/features/inventory/InventoryScreen.tsx');
 const surface = read('src/lib/saleStartSurface.ts');
 const listingPanel = read('src/features/marketplace/SellListingPanel.tsx');
 
-for (const marker of [
-  'buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null)',
-]) {
-  if (!screen.replace(/\s+/g, '').includes(marker.replace(/\s+/g, ''))) {
-    throw new Error(`Missing sale-start screen contract: ${marker}`);
-  }
+if (!/buildSaleStartSurface\((?:item|selectedItem)\.id,\s*(?:item|selectedItem)\.value_evidence\?\.estimated_value_cents\s*\?\?\s*null\)/.test(screen)) {
+  throw new Error('Missing sale-start screen contract: selected inventory item id and estimate must feed buildSaleStartSurface.');
 }
 
 if (!screen.includes("sale.valueLabel.replace('Estimated value ', '')")) {

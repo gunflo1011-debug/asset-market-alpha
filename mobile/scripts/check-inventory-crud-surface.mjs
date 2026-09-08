@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
 const app = read('App.tsx');
 const screen = read('src/features/inventory/InventoryScreen.tsx');
+const list = read('src/features/inventory/InventoryThingList.tsx');
 const inventory = [
   read('src/data/inventory.ts'),
   read('src/data/inventoryQueries.ts'),
@@ -67,8 +68,11 @@ for (const marker of ['onStartEditing', 'Edit item', 'onDelete', 'Delete item', 
   }
 }
 
-if (!/props\.items\.map\([\s\S]*setSelectedItemId\(item\.id\)/s.test(screen)) {
-  throw new Error('Every visible inventory item must open its detail surface.');
+if (!/<InventoryThingList[\s\S]*items=\{visibleItems\}[\s\S]*onOpenItem=\{setSelectedItemId\}/s.test(screen)) {
+  throw new Error('Visible inventory items must be rendered by the virtualized list and open their detail surface.');
+}
+if (!/<FlatList[\s\S]*data=\{items\}[\s\S]*renderItem=\{renderItem\}/s.test(list) || !/onPress=\{\(\) => onOpenItem\(item\.id\)\}/s.test(list)) {
+  throw new Error('Every virtualized inventory row must open its Thing detail surface.');
 }
 if (!/if\s*\(selectedItem\)[\s\S]*onStartEditing\(selectedItem\)[\s\S]*onDelete\(selectedItem\)/s.test(screen)) {
   throw new Error('Selected item detail must expose Edit and Delete actions.');
