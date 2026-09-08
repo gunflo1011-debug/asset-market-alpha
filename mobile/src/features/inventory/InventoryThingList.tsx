@@ -81,6 +81,7 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
 
   return (
     <FlatList
+      style={styles.list}
       data={items}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -103,7 +104,8 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
 });
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingTop: 26, paddingBottom: 64, gap: 11 },
+  list: { flex: 1 },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 26, paddingBottom: 64, gap: 11 },
   header: { gap: 20, marginBottom: 9 },
   flex: { flex: 1 },
   compactItem: {
