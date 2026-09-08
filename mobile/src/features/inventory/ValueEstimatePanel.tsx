@@ -148,7 +148,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <Text style={styles.label}>Purchase price (€)</Text>
         <TextInput
           accessibilityLabel="Purchase price in euros"
-          accessibilityState={{ invalid: showPriceError }}
+          accessibilityHint={showPriceError ? 'Enter a price above zero euros with at most two decimal places.' : undefined}
           value={purchasePrice}
           onChangeText={(value) => {
             purchasePriceDirtyRef.current = true;
@@ -163,7 +163,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         {purchasePricePrefilled ? <Text style={styles.prefillHint}>Prefilled from your completed Marketplace purchase. You can change it for this estimate.</Text> : null}
 
         <Text style={styles.label}>Purchase year</Text>
-        <TextInput accessibilityLabel="Purchase year" accessibilityState={{ invalid: showYearError }} value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={[styles.input, showYearError && styles.inputError]} />
+        <TextInput accessibilityLabel="Purchase year" accessibilityHint={showYearError ? `Enter a four-digit year from 1970 through ${new Date().getFullYear()}.` : undefined} value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={[styles.input, showYearError && styles.inputError]} />
         {showYearError ? <Text accessibilityRole="alert" style={styles.validationError}>Enter a four-digit year from 1970 through {new Date().getFullYear()}.</Text> : null}
 
         <Text style={styles.label}>Condition</Text>
