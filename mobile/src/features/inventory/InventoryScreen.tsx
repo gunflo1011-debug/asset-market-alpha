@@ -7,6 +7,7 @@ import type { ProductSuggestion } from '../../lib/barcodeProductResolver';
 import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
 import { SellListingPanel } from '../marketplace/SellListingPanel';
 import { BarcodeCapturePanel } from './BarcodeCapturePanel';
+import { InventoryThingList } from './InventoryThingList';
 import { PrivateThingCover } from './PrivateThingCover';
 import { itemTitle, savedDate, variantTitle } from './presentation';
 import { ValueEstimatePanel } from './ValueEstimatePanel';
@@ -179,13 +180,7 @@ export function InventoryScreen(props: Props) {
 
           <View style={styles.detailHero}>
             <View style={styles.detailCoverWrap}>
-              <PrivateThingCover
-                uri={selectedItem.cover_image_url}
-                fallbackLabel={selectedTitle}
-                size={112}
-                borderRadius={26}
-                accessibilityLabel={`${selectedTitle} private photo`}
-              />
+              <PrivateThingCover uri={selectedItem.cover_image_url} fallbackLabel={selectedTitle} size={112} borderRadius={26} accessibilityLabel={`${selectedTitle} private photo`} />
             </View>
             <View style={styles.heroMetaRow}>
               <View style={styles.darkPill}><Text style={styles.darkPillText}>{generic ? (selectedItem.category || 'Thing') : 'Device'}</Text></View>
@@ -247,176 +242,143 @@ export function InventoryScreen(props: Props) {
     );
   }
 
+  const inventoryHeader = (
+    <>
+      <View style={styles.headerRow}>
+        <View style={styles.flex}>
+          <Text style={styles.eyebrow}>THINGS</Text>
+          <Text style={styles.pageTitle}>Your inventory</Text>
+        </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open account" style={styles.iconButton} onPress={props.onOpenAccount}><Text style={styles.iconButtonText}>•••</Text></TouchableOpacity>
+      </View>
+
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryPrimary}>
+          <Text style={styles.summaryLabel}>TOTAL ESTIMATE</Text>
+          <Text style={styles.valueSummary}>{portfolioValueLabel}</Text>
+          <Text style={styles.metricLabel}>{portfolioCoverageLabel}</Text>
+        </View>
+        <View style={styles.summaryCount}>
+          <Text style={styles.summaryLabel}>THINGS</Text>
+          <Text style={styles.metric}>{props.items.length}</Text>
+        </View>
+      </View>
+
+      <View style={styles.quickActions}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={captureOpen ? 'Close Add Thing' : 'Add Thing'} accessibilityState={{ expanded: captureOpen }} style={styles.primaryQuickAction} onPress={() => { setCaptureOpen((open) => !open); if (!captureOpen) setCaptureMode('scan'); }}>
+          <Text style={styles.primaryQuickIcon}>{captureOpen ? '×' : '+'}</Text>
+          <Text style={styles.primaryQuickText}>{captureOpen ? 'Close' : 'Add Thing'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Marketplace" style={styles.secondaryQuickAction} onPress={() => setMarketplaceOpen(true)}>
+          <Text style={styles.secondaryQuickText}>Marketplace</Text><Text style={styles.quickArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {captureOpen ? (
+        <View style={styles.captureCard}>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Scan a barcode or QR code" accessibilityState={{ selected: captureMode === 'scan' }} style={[styles.segment, captureMode === 'scan' && styles.segmentActive]} onPress={() => setCaptureMode('scan')}><Text style={[styles.segmentText, captureMode === 'scan' && styles.segmentTextActive]}>Scan</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter Thing details manually" accessibilityState={{ selected: captureMode === 'manual' }} style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Manual</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose a known device from the catalog" accessibilityState={{ selected: captureMode === 'catalog' }} style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Catalog</Text></TouchableOpacity>
+          </View>
+
+          {captureMode === 'scan' ? (
+            <BarcodeCapturePanel onUseSuggestion={useScannedSuggestion} onEnterManually={() => setCaptureMode('manual')} />
+          ) : captureMode === 'manual' ? (
+            <>
+              <Text style={styles.sectionTitle}>{props.editingItemId ? 'Edit Thing' : 'Confirm Thing details'}</Text>
+              {!props.editingItemId ? <Text style={styles.compactCopy}>Review or correct every suggestion before saving. Scanned data is never treated as verified truth.</Text> : null}
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Name <Text style={styles.fieldMeta}>· Required</Text></Text>
+                <TextInput accessibilityLabel="Thing name, required" value={props.thingName} onChangeText={props.onThingNameChange} placeholder="e.g. Road bike" maxLength={120} returnKeyType="next" style={styles.input} />
+              </View>
+              <View style={styles.twoColumnInputs}>
+                <View style={[styles.formField, styles.flexInput]}>
+                  <Text style={styles.fieldLabel}>Category <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                  <TextInput accessibilityLabel="Category, optional" value={props.thingCategory} onChangeText={props.onThingCategoryChange} placeholder="e.g. Sports" maxLength={80} returnKeyType="next" style={styles.input} />
+                </View>
+                <View style={[styles.formField, styles.flexInput]}>
+                  <Text style={styles.fieldLabel}>Location <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                  <TextInput accessibilityLabel="Private location, optional" value={props.thingLocation} onChangeText={props.onThingLocationChange} placeholder="e.g. Garage" maxLength={120} returnKeyType="next" style={styles.input} />
+                </View>
+              </View>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Notes <Text style={styles.fieldMeta}>· Optional</Text></Text>
+                <TextInput accessibilityLabel="Private notes, optional" value={props.thingNotes} onChangeText={props.onThingNotesChange} placeholder="Anything useful to remember" maxLength={2000} multiline style={[styles.input, styles.notesInput]} />
+              </View>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.editingItemId ? 'Save Thing changes' : 'Add Thing to inventory'} style={[styles.primaryButton, (!props.thingName.trim() || props.actionBusy) && styles.disabled]} disabled={!props.thingName.trim() || props.actionBusy} onPress={props.onSaveThing}><Text style={styles.primaryButtonText}>{props.actionBusy ? 'Saving…' : props.editingItemId ? 'Save changes' : 'Add to inventory'}</Text></TouchableOpacity>
+              {props.editingItemId ? <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={props.onCancelEditing}><Text style={styles.secondaryButtonText}>Cancel</Text></TouchableOpacity> : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>Choose a known device</Text>
+              {props.catalogLoading ? <ActivityIndicator /> : null}
+              {props.catalogError ? <Text style={styles.compactCopy}>{props.catalogError}</Text> : null}
+              {props.catalog.slice(0, 4).map((variant) => {
+                const selected = variant.id === props.selectedVariantId;
+                return <TouchableOpacity key={variant.id} style={[styles.variantButton, selected && styles.variantButtonSelected]} onPress={() => props.onSelectVariant(variant.id)}><Text style={styles.variantText}>{variantTitle(variant)}</Text>{selected ? <Text style={styles.variantSelectedText}>Selected</Text> : null}</TouchableOpacity>;
+              })}
+              {props.catalog.length > 0 ? <TouchableOpacity style={[styles.primaryButton, (!props.selectedVariant || props.actionBusy) && styles.disabled]} disabled={!props.selectedVariant || props.actionBusy} onPress={props.onCreatePrivateDevice}><Text style={styles.primaryButtonText}>Add selected device</Text></TouchableOpacity> : null}
+              {props.catalogError ? <TouchableOpacity onPress={props.onRefreshCatalog}><Text style={styles.linkCentered}>Retry</Text></TouchableOpacity> : null}
+            </>
+          )}
+        </View>
+      ) : null}
+
+      {props.message ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{props.message}</Text> : null}
+
+      <View style={styles.inventoryHeading}>
+        <View><Text style={styles.sectionTitle}>Things</Text><Text style={styles.compactCopy}>{props.items.length ? `${visibleItems.length} shown · ${props.items.length} saved` : 'Your saved Things appear here.'}</Text></View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh private inventory" disabled={props.inventoryLoading} style={styles.inventoryRefreshButton} onPress={props.onRefreshInventory}><Text style={styles.refreshLink}>{props.inventoryLoading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
+      </View>
+
+      {props.items.length > 0 ? (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+            {([
+              ['ALL', 'All'],
+              ['PRIVATE', 'My Things'],
+              ['FOR_SALE', 'For sale'],
+              ['RESERVED', 'Reserved'],
+            ] as Array<[InventoryFilter, string]>).map(([filter, label]) => {
+              const active = inventoryFilter === filter;
+              return (
+                <TouchableOpacity key={filter} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setInventoryFilter(filter)}>
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <TextInput accessibilityLabel="Search inventory" value={inventorySearch} onChangeText={setInventorySearch} placeholder="Search name, category or location" autoCapitalize="none" autoCorrect={false} returnKeyType="search" clearButtonMode="while-editing" style={styles.input} />
+        </>
+      ) : null}
+
+      {props.inventoryError && visibleItems.length > 0 ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View> : null}
+    </>
+  );
+
+  const inventoryEmptyState = props.inventoryLoading && props.items.length === 0
+    ? <ActivityIndicator />
+    : props.inventoryError
+      ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View>
+      : props.items.length === 0
+        ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Scan a barcode or add anything you own manually.</Text></View>
+        : lifecycleItems.length === 0
+          ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing in this view</Text><Text style={styles.compactCopy}>Choose another inventory filter to see your other Things.</Text></View>
+          : hasInventorySearch
+            ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No matching Things</Text><Text style={styles.compactCopy}>Try another name, category or location, or clear the search.</Text></View>
+            : null;
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View style={styles.flex}>
-            <Text style={styles.eyebrow}>THINGS</Text>
-            <Text style={styles.pageTitle}>Your inventory</Text>
-          </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open account" style={styles.iconButton} onPress={props.onOpenAccount}><Text style={styles.iconButtonText}>•••</Text></TouchableOpacity>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryPrimary}>
-            <Text style={styles.summaryLabel}>TOTAL ESTIMATE</Text>
-            <Text style={styles.valueSummary}>{portfolioValueLabel}</Text>
-            <Text style={styles.metricLabel}>{portfolioCoverageLabel}</Text>
-          </View>
-          <View style={styles.summaryCount}>
-            <Text style={styles.summaryLabel}>THINGS</Text>
-            <Text style={styles.metric}>{props.items.length}</Text>
-          </View>
-        </View>
-
-        <View style={styles.quickActions}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={captureOpen ? 'Close Add Thing' : 'Add Thing'} accessibilityState={{ expanded: captureOpen }} style={styles.primaryQuickAction} onPress={() => { setCaptureOpen((open) => !open); if (!captureOpen) setCaptureMode('scan'); }}>
-            <Text style={styles.primaryQuickIcon}>{captureOpen ? '×' : '+'}</Text>
-            <Text style={styles.primaryQuickText}>{captureOpen ? 'Close' : 'Add Thing'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Marketplace" style={styles.secondaryQuickAction} onPress={() => setMarketplaceOpen(true)}>
-            <Text style={styles.secondaryQuickText}>Marketplace</Text><Text style={styles.quickArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {captureOpen ? (
-          <View style={styles.captureCard}>
-            <View style={styles.segmentedControl}>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Scan a barcode or QR code" accessibilityState={{ selected: captureMode === 'scan' }} style={[styles.segment, captureMode === 'scan' && styles.segmentActive]} onPress={() => setCaptureMode('scan')}><Text style={[styles.segmentText, captureMode === 'scan' && styles.segmentTextActive]}>Scan</Text></TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter Thing details manually" accessibilityState={{ selected: captureMode === 'manual' }} style={[styles.segment, captureMode === 'manual' && styles.segmentActive]} onPress={() => setCaptureMode('manual')}><Text style={[styles.segmentText, captureMode === 'manual' && styles.segmentTextActive]}>Manual</Text></TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose a known device from the catalog" accessibilityState={{ selected: captureMode === 'catalog' }} style={[styles.segment, captureMode === 'catalog' && styles.segmentActive]} onPress={() => setCaptureMode('catalog')}><Text style={[styles.segmentText, captureMode === 'catalog' && styles.segmentTextActive]}>Catalog</Text></TouchableOpacity>
-            </View>
-
-            {captureMode === 'scan' ? (
-              <BarcodeCapturePanel onUseSuggestion={useScannedSuggestion} onEnterManually={() => setCaptureMode('manual')} />
-            ) : captureMode === 'manual' ? (
-              <>
-                <Text style={styles.sectionTitle}>{props.editingItemId ? 'Edit Thing' : 'Confirm Thing details'}</Text>
-                {!props.editingItemId ? <Text style={styles.compactCopy}>Review or correct every suggestion before saving. Scanned data is never treated as verified truth.</Text> : null}
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Name <Text style={styles.fieldMeta}>· Required</Text></Text>
-                  <TextInput accessibilityLabel="Thing name, required" value={props.thingName} onChangeText={props.onThingNameChange} placeholder="e.g. Road bike" maxLength={120} returnKeyType="next" style={styles.input} />
-                </View>
-                <View style={styles.twoColumnInputs}>
-                  <View style={[styles.formField, styles.flexInput]}>
-                    <Text style={styles.fieldLabel}>Category <Text style={styles.fieldMeta}>· Optional</Text></Text>
-                    <TextInput accessibilityLabel="Category, optional" value={props.thingCategory} onChangeText={props.onThingCategoryChange} placeholder="e.g. Sports" maxLength={80} returnKeyType="next" style={styles.input} />
-                  </View>
-                  <View style={[styles.formField, styles.flexInput]}>
-                    <Text style={styles.fieldLabel}>Location <Text style={styles.fieldMeta}>· Optional</Text></Text>
-                    <TextInput accessibilityLabel="Private location, optional" value={props.thingLocation} onChangeText={props.onThingLocationChange} placeholder="e.g. Garage" maxLength={120} returnKeyType="next" style={styles.input} />
-                  </View>
-                </View>
-                <View style={styles.formField}>
-                  <Text style={styles.fieldLabel}>Notes <Text style={styles.fieldMeta}>· Optional</Text></Text>
-                  <TextInput accessibilityLabel="Private notes, optional" value={props.thingNotes} onChangeText={props.onThingNotesChange} placeholder="Anything useful to remember" maxLength={2000} multiline style={[styles.input, styles.notesInput]} />
-                </View>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.editingItemId ? 'Save Thing changes' : 'Add Thing to inventory'} style={[styles.primaryButton, (!props.thingName.trim() || props.actionBusy) && styles.disabled]} disabled={!props.thingName.trim() || props.actionBusy} onPress={props.onSaveThing}><Text style={styles.primaryButtonText}>{props.actionBusy ? 'Saving…' : props.editingItemId ? 'Save changes' : 'Add to inventory'}</Text></TouchableOpacity>
-                {props.editingItemId ? <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={props.onCancelEditing}><Text style={styles.secondaryButtonText}>Cancel</Text></TouchableOpacity> : null}
-              </>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>Choose a known device</Text>
-                {props.catalogLoading ? <ActivityIndicator /> : null}
-                {props.catalogError ? <Text style={styles.compactCopy}>{props.catalogError}</Text> : null}
-                {props.catalog.slice(0, 4).map((variant) => {
-                  const selected = variant.id === props.selectedVariantId;
-                  return <TouchableOpacity key={variant.id} style={[styles.variantButton, selected && styles.variantButtonSelected]} onPress={() => props.onSelectVariant(variant.id)}><Text style={styles.variantText}>{variantTitle(variant)}</Text>{selected ? <Text style={styles.variantSelectedText}>Selected</Text> : null}</TouchableOpacity>;
-                })}
-                {props.catalog.length > 0 ? <TouchableOpacity style={[styles.primaryButton, (!props.selectedVariant || props.actionBusy) && styles.disabled]} disabled={!props.selectedVariant || props.actionBusy} onPress={props.onCreatePrivateDevice}><Text style={styles.primaryButtonText}>Add selected device</Text></TouchableOpacity> : null}
-                {props.catalogError ? <TouchableOpacity onPress={props.onRefreshCatalog}><Text style={styles.linkCentered}>Retry</Text></TouchableOpacity> : null}
-              </>
-            )}
-          </View>
-        ) : null}
-
-        {props.message ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{props.message}</Text> : null}
-
-        <View style={styles.inventoryHeading}>
-          <View><Text style={styles.sectionTitle}>Things</Text><Text style={styles.compactCopy}>{props.items.length ? `${visibleItems.length} shown · ${props.items.length} saved` : 'Your saved Things appear here.'}</Text></View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh private inventory" disabled={props.inventoryLoading} style={styles.inventoryRefreshButton} onPress={props.onRefreshInventory}><Text style={styles.refreshLink}>{props.inventoryLoading ? 'Refreshing…' : 'Refresh'}</Text></TouchableOpacity>
-        </View>
-
-        {props.items.length > 0 ? (
-          <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {([
-                ['ALL', 'All'],
-                ['PRIVATE', 'My Things'],
-                ['FOR_SALE', 'For sale'],
-                ['RESERVED', 'Reserved'],
-              ] as Array<[InventoryFilter, string]>).map(([filter, label]) => {
-                const active = inventoryFilter === filter;
-                return (
-                  <TouchableOpacity key={filter} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setInventoryFilter(filter)}>
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-            <TextInput
-              accessibilityLabel="Search inventory"
-              value={inventorySearch}
-              onChangeText={setInventorySearch}
-              placeholder="Search name, category or location"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              clearButtonMode="while-editing"
-              style={styles.input}
-            />
-          </>
-        ) : null}
-
-        {props.inventoryLoading && props.items.length === 0 ? <ActivityIndicator /> : null}
-        {props.inventoryError ? <View style={styles.errorCard}><Text style={styles.errorTitle}>Couldn’t load inventory</Text><Text style={styles.compactCopy}>{props.inventoryError}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading private inventory" disabled={props.inventoryLoading} style={styles.errorRetryButton} onPress={props.onRefreshInventory}><Text style={styles.errorRetryText}>{props.inventoryLoading ? 'Retrying…' : 'Try again'}</Text></TouchableOpacity></View> : null}
-        {!props.inventoryLoading && !props.inventoryError && props.items.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Start with your first Thing</Text><Text style={styles.compactCopy}>Scan a barcode or add anything you own manually.</Text></View> : null}
-        {!props.inventoryLoading && !props.inventoryError && props.items.length > 0 && lifecycleItems.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing in this view</Text><Text style={styles.compactCopy}>Choose another inventory filter to see your other Things.</Text></View> : null}
-        {!props.inventoryLoading && !props.inventoryError && lifecycleItems.length > 0 && visibleItems.length === 0 && hasInventorySearch ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No matching Things</Text><Text style={styles.compactCopy}>Try another name, category or location, or clear the search.</Text></View> : null}
-
-        {visibleItems.length > 0 ? <View style={styles.listCard}>
-          {visibleItems.map((item, index) => {
-            const snapshot = item.condition_snapshots[0];
-            const generic = !item.product_variants;
-            const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
-            const lifecycleLabel = inventoryLifecycleLabel(item);
-            const title = itemTitle(item);
-            const estimateAccessibilityLabel = item.value_evidence
-              ? `Things Estimate ${formatEuroCents(item.value_evidence.estimated_value_cents)}`
-              : 'Estimate pending';
-            return (
-              <TouchableOpacity
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${title}. ${estimateAccessibilityLabel}. ${lifecycleLabel}.`}
-                accessibilityHint="Opens Thing details"
-                style={[styles.compactItem, index < visibleItems.length - 1 && styles.compactItemBorder]}
-                onPress={() => setSelectedItemId(item.id)}
-              >
-                <PrivateThingCover
-                  uri={item.cover_image_url}
-                  fallbackLabel={title}
-                  size={58}
-                  borderRadius={18}
-                  accessibilityLabel={`${title} private photo`}
-                />
-                <View style={styles.flex}>
-                  <View style={styles.itemTopLine}>
-                    <Text numberOfLines={1} style={styles.itemTitle}>{title}</Text>
-                    <Text style={styles.itemValue}>{sale.valueLabel.replace('Estimated value ', '')}</Text>
-                  </View>
-                  <View style={styles.itemBottomLine}>
-                    <Text numberOfLines={1} style={styles.itemMeta}>{generic ? (item.category || 'Thing') : 'Device'}{snapshot ? ` · ${snapshot.housing_state.replace(/_/g, ' ').toLowerCase()}` : ''}</Text>
-                    <View style={styles.stateDot} /><Text style={styles.itemState}>{lifecycleLabel}</Text>
-                  </View>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View> : null}
-      </ScrollView>
+      <InventoryThingList
+        items={visibleItems}
+        onOpenItem={setSelectedItemId}
+        header={inventoryHeader}
+        emptyState={inventoryEmptyState}
+        refreshing={props.inventoryLoading && props.items.length > 0}
+        onRefresh={props.onRefreshInventory}
+      />
     </SafeAreaView>
   );
 }
