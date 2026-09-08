@@ -13,10 +13,12 @@ type Props = {
 
 const MessageBubble = memo(function MessageBubble({ message }: { message: MarketplaceMessage }) {
   const mine = message.sender_role === 'ME';
+  const timestamp = new Date(message.created_at).toLocaleString();
+  const accessibilityLabel = `${mine ? 'You' : 'Other person'}: ${message.body}. Sent ${timestamp}`;
   return (
-    <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
+    <View accessible accessibilityLabel={accessibilityLabel} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
       <Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text>
-      <Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.created_at).toLocaleString()}</Text>
+      <Text style={[styles.time, mine && styles.mineTime]}>{timestamp}</Text>
     </View>
   );
 });
@@ -28,6 +30,7 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
 
   return (
     <FlatList
+      accessibilityLabel="Marketplace conversation messages"
       style={styles.messageList}
       contentContainerStyle={styles.messageContent}
       data={newestFirstMessages}
@@ -47,7 +50,13 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
           <Text style={styles.emptyTitle}>No messages yet</Text>
           <Text style={styles.copy}>Start with a simple question about this listing.</Text>
           {buyer && !closed ? (
-            <TouchableOpacity accessibilityRole="button" style={styles.quickAction} onPress={onUseQuickMessage}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Use quick message: Is this still available?"
+              accessibilityHint="Fills the message composer without sending"
+              style={styles.quickAction}
+              onPress={onUseQuickMessage}
+            >
               <Text style={styles.quickActionText}>Use “Is this still available?”</Text>
             </TouchableOpacity>
           ) : null}
