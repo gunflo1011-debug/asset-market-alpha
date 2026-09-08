@@ -20,7 +20,7 @@ function PrivateThingCoverComponent({
   const [imageFailed, setImageFailed] = useState(false);
   const initial = fallbackLabel.trim().slice(0, 1).toUpperCase() || 'T';
   const frameStyle = useMemo(() => ({ width: size, height: size, borderRadius }), [borderRadius, size]);
-  const source = useMemo(() => (uri ? { uri } : null), [uri]);
+  const source = useMemo(() => (uri ? { uri, cache: 'force-cache' as const } : null), [uri]);
 
   useEffect(() => {
     setImageFailed(false);
