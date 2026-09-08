@@ -57,26 +57,14 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
       if (result) {
         setSuggestion(result);
       } else if (isGtinLike(normalizedProductCode)) {
-        setError({
-          kind: 'no_match',
-          message: 'The barcode is valid, but Things could not find a reliable product match. You can add the item manually instead.',
-        });
+        setError({ kind: 'no_match', message: 'The barcode is valid, but Things could not find a reliable product match. You can add the item manually instead.' });
       } else if (symbology !== 'qr' && looksLikeNumericProductCode(normalized)) {
-        setError({
-          kind: 'invalid_barcode',
-          message: 'The barcode was read, but its check digit is invalid. Scan it again or enter the item manually.',
-        });
+        setError({ kind: 'invalid_barcode', message: 'The barcode was read, but its check digit is invalid. Scan it again or enter the item manually.' });
       } else {
-        setError({
-          kind: 'unsupported_qr',
-          message: 'This QR code does not contain product data Things can safely use yet. Its contents were not sent to a product lookup provider.',
-        });
+        setError({ kind: 'unsupported_qr', message: 'This QR code does not contain product data Things can safely use yet. Its contents were not sent to a product lookup provider.' });
       }
     } catch {
-      setError({
-        kind: 'lookup_failed',
-        message: LOOKUP_FAILED_MESSAGE,
-      });
+      setError({ kind: 'lookup_failed', message: LOOKUP_FAILED_MESSAGE });
     } finally {
       setBusy(false);
     }
@@ -95,15 +83,15 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
     setLastCaptureWasQr(false);
   }
 
-  if (!permission) return <View style={styles.center}><ActivityIndicator /></View>;
+  if (!permission) return <View style={styles.center}><ActivityIndicator accessibilityLabel="Checking camera permission" /></View>;
 
   if (!permission.granted) {
     return (
       <View style={styles.permissionCard}>
         <Text style={styles.title}>Scan a barcode</Text>
         <Text style={styles.copy}>Use the camera to read EAN, UPC or QR codes. Things only sends normal product barcodes to the lookup provider; arbitrary QR contents stay on your device.</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera" accessibilityHint="Allows camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter manually instead" accessibilityHint="Opens manual Thing entry" style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
       </View>
     );
   }
@@ -112,15 +100,10 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
     <View style={styles.root}>
       <View style={styles.cameraFrame}>
         {!scanned ? (
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
-            onBarcodeScanned={handleScan}
-          />
+          <CameraView style={styles.camera} facing="back" barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }} onBarcodeScanned={handleScan} />
         ) : (
-          <View style={styles.scanPaused}>
-            {busy ? <ActivityIndicator /> : null}
+          <View style={styles.scanPaused} accessibilityLiveRegion="polite">
+            {busy ? <ActivityIndicator accessibilityLabel="Looking up scanned product" /> : null}
             <Text style={styles.scanPausedTitle}>{busy ? 'Looking up product…' : 'Code captured'}</Text>
             {lastCaptureWasQr ? <Text style={styles.codeText}>QR payload kept private</Text> : lastCode ? <Text numberOfLines={2} style={styles.codeText}>{lastCode}</Text> : null}
           </View>
@@ -130,9 +113,9 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
       <Text style={styles.hint}>Point the camera at the product barcode. You always review the suggested details before anything is saved.</Text>
 
       {suggestion ? (
-        <View style={styles.resultCard}>
+        <View style={styles.resultCard} accessibilityLiveRegion="polite">
           <Text style={styles.eyebrow}>PRODUCT SUGGESTION · {suggestion.confidence.toUpperCase()} CONFIDENCE</Text>
-          {suggestion.imageUrl ? <Image source={{ uri: suggestion.imageUrl }} style={styles.image} resizeMode="contain" /> : null}
+          {suggestion.imageUrl ? <Image source={{ uri: suggestion.imageUrl }} style={styles.image} resizeMode="contain" accessibilityLabel={`${suggestion.title} product image`} /> : null}
           <Text style={styles.resultTitle}>{suggestion.title}</Text>
           {suggestion.brand ? <Text style={styles.meta}>Brand: {suggestion.brand}</Text> : null}
           {suggestion.model ? <Text style={styles.meta}>Model: {suggestion.model}</Text> : null}
@@ -140,8 +123,8 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           <Text style={styles.meta}>Code: {suggestion.kind === 'gtin' ? suggestion.code : 'QR product data'}</Text>
           {suggestion.privateSerial ? <Text style={styles.privateNote}>Serial detected: kept private. It will not be published to Marketplace automatically.</Text> : null}
           <Text style={styles.disclaimer}>This is a lookup suggestion, not verified truth. Next, review and correct the prefilled fields before adding this Thing to your inventory.</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)} accessibilityRole="button" accessibilityLabel="Review suggested Thing details"><Text style={styles.primaryButtonText}>Review suggested details</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => onUseSuggestion(suggestion)} accessibilityRole="button" accessibilityLabel="Review suggested details" accessibilityHint="Opens the suggested Thing details for review"><Text style={styles.primaryButtonText}>Review suggested details</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button" accessibilityLabel="Scan again" accessibilityHint="Scans another product code"><Text style={styles.secondaryButtonText}>Scan again</Text></TouchableOpacity>
         </View>
       ) : null}
 
@@ -151,13 +134,13 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
           <Text style={styles.errorText}>{error.message}</Text>
           {error.kind === 'invalid_barcode' ? (
             <>
-              <TouchableOpacity style={styles.primaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.primaryButtonText}>Scan again</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton} onPress={onEnterManually} accessibilityRole="button"><Text style={styles.secondaryButtonText}>Enter item manually</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.primaryButton} onPress={scanAgain} accessibilityRole="button" accessibilityLabel="Scan again" accessibilityHint="Scans the product code again"><Text style={styles.primaryButtonText}>Scan again</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={onEnterManually} accessibilityRole="button" accessibilityLabel="Enter item manually" accessibilityHint="Opens manual Thing entry"><Text style={styles.secondaryButtonText}>Enter item manually</Text></TouchableOpacity>
             </>
           ) : (
             <>
-              <TouchableOpacity style={styles.primaryButton} onPress={onEnterManually} accessibilityRole="button"><Text style={styles.primaryButtonText}>Enter item manually</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button"><Text style={styles.secondaryButtonText}>{error.kind === 'lookup_failed' ? 'Try scanning again' : 'Scan another code'}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.primaryButton} onPress={onEnterManually} accessibilityRole="button" accessibilityLabel="Enter item manually" accessibilityHint="Opens manual Thing entry"><Text style={styles.primaryButtonText}>Enter item manually</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={scanAgain} accessibilityRole="button" accessibilityLabel={error.kind === 'lookup_failed' ? 'Try scanning again' : 'Scan another code'} accessibilityHint={error.kind === 'lookup_failed' ? 'Retries by scanning the product code again' : 'Scans another product code'}><Text style={styles.secondaryButtonText}>{error.kind === 'lookup_failed' ? 'Try scanning again' : 'Scan another code'}</Text></TouchableOpacity>
             </>
           )}
         </View>
@@ -167,11 +150,11 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
         <Text style={styles.manualLabel}>Or enter EAN / UPC</Text>
         <View style={styles.manualRow}>
           <TextInput value={manualCode} onChangeText={setManualCode} keyboardType="number-pad" placeholder="e.g. 4006381333931" style={styles.input} accessibilityLabel="EAN or UPC code" />
-          <TouchableOpacity disabled={!manualCode.trim() || busy} style={[styles.lookupButton, (!manualCode.trim() || busy) && styles.disabled]} onPress={() => void lookup(manualCode)} accessibilityRole="button"><Text style={styles.lookupButtonText}>Look up</Text></TouchableOpacity>
+          <TouchableOpacity disabled={!manualCode.trim() || busy} accessibilityState={{ disabled: !manualCode.trim() || busy, busy }} style={[styles.lookupButton, (!manualCode.trim() || busy) && styles.disabled]} onPress={() => void lookup(manualCode)} accessibilityRole="button" accessibilityLabel={busy ? 'Looking…' : 'Look up'} accessibilityHint="Looks up the entered EAN or UPC code"><Text style={styles.lookupButtonText}>{busy ? 'Looking…' : 'Look up'}</Text></TouchableOpacity>
         </View>
       </View>
 
-      <TouchableOpacity onPress={onEnterManually} accessibilityRole="button"><Text style={styles.manualLink}>Enter item manually</Text></TouchableOpacity>
+      <TouchableOpacity onPress={onEnterManually} accessibilityRole="button" accessibilityLabel="Enter item manually" accessibilityHint="Opens manual Thing entry"><Text style={styles.manualLink}>Enter item manually</Text></TouchableOpacity>
     </View>
   );
 }
