@@ -34,13 +34,14 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       inverted={newestFirstMessages.length > 0}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
       keyboardShouldPersistTaps="handled"
       initialNumToRender={18}
       maxToRenderPerBatch={12}
       windowSize={9}
       removeClippedSubviews
       ListEmptyComponent={loading ? (
-        <ActivityIndicator />
+        <ActivityIndicator accessibilityLabel="Loading messages" />
       ) : (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No messages yet</Text>
