@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View, type ListRenderItemInfo } from 'react-native';
+import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, type ListRenderItemInfo } from 'react-native';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { PrivateThingCover } from './PrivateThingCover';
 import { itemTitle } from './presentation';
@@ -97,7 +97,7 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
       maxToRenderPerBatch={10}
       updateCellsBatchingPeriod={50}
       windowSize={7}
-      removeClippedSubviews
+      removeClippedSubviews={Platform.OS === 'android'}
     />
   );
 });
