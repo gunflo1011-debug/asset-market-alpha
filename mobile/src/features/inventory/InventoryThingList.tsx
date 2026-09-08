@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, type ListRenderItemInfo } from 'react-native';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { PrivateThingCover } from './PrivateThingCover';
 import { itemTitle } from './presentation';
@@ -8,6 +8,8 @@ import type { PrivateInventoryItem } from './types';
 type Props = {
   items: PrivateInventoryItem[];
   onOpenItem: (itemId: string) => void;
+  header?: React.ReactElement | null;
+  emptyState?: React.ReactElement | null;
 };
 
 function formatEuroCents(cents: number): string {
@@ -69,8 +71,8 @@ const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: 
   );
 });
 
-export const InventoryThingList = memo(function InventoryThingList({ items, onOpenItem }: Props) {
-  const renderItem = useCallback(({ item }: { item: PrivateInventoryItem }) => (
+export const InventoryThingList = memo(function InventoryThingList({ items, onOpenItem, header = null, emptyState = null }: Props) {
+  const renderItem = useCallback(({ item }: ListRenderItemInfo<PrivateInventoryItem>) => (
     <InventoryThingRow item={item} onOpenItem={onOpenItem} />
   ), [onOpenItem]);
   const keyExtractor = useCallback((item: PrivateInventoryItem) => item.id, []);
@@ -80,8 +82,12 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
       data={items}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
+      ListHeaderComponent={header}
+      ListHeaderComponentStyle={styles.header}
+      ListEmptyComponent={emptyState}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       initialNumToRender={12}
       maxToRenderPerBatch={10}
       updateCellsBatchingPeriod={50}
@@ -92,7 +98,8 @@ export const InventoryThingList = memo(function InventoryThingList({ items, onOp
 });
 
 const styles = StyleSheet.create({
-  content: { gap: 11, paddingBottom: 64 },
+  content: { paddingHorizontal: 20, paddingTop: 26, paddingBottom: 64, gap: 11 },
+  header: { gap: 20, marginBottom: 9 },
   flex: { flex: 1 },
   compactItem: {
     minHeight: 94,
