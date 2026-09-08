@@ -60,15 +60,21 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
   }, [itemId, loadAttempt]);
 
   const parsed = useMemo(() => {
-    const normalized = purchasePrice.replace(',', '.').trim();
-    const euros = Number(normalized);
-    const year = Number.parseInt(purchaseYear.trim(), 10);
+    const normalizedPrice = purchasePrice.trim();
+    const normalizedYear = purchaseYear.trim();
+    const priceFormatValid = /^\d+(?:[.,]\d{1,2})?$/.test(normalizedPrice);
+    const yearFormatValid = /^\d{4}$/.test(normalizedYear);
+    const euros = priceFormatValid ? Number(normalizedPrice.replace(',', '.')) : Number.NaN;
+    const year = yearFormatValid ? Number(normalizedYear) : Number.NaN;
     const currentYear = new Date().getFullYear();
-    const valid = Number.isFinite(euros) && euros > 0 && euros <= 10_000_000 && Number.isInteger(year) && year >= 1970 && year <= currentYear;
-    return { valid, cents: Math.round(euros * 100), year };
+    const priceValid = priceFormatValid && Number.isFinite(euros) && euros > 0 && euros <= 10_000_000;
+    const yearValid = yearFormatValid && Number.isInteger(year) && year >= 1970 && year <= currentYear;
+    return { valid: priceValid && yearValid, priceValid, yearValid, cents: priceValid ? Math.round(euros * 100) : 0, year };
   }, [purchasePrice, purchaseYear]);
 
   const disabled = !parsed.valid || busy || estimating;
+  const showPriceError = purchasePrice.trim().length > 0 && !parsed.priceValid;
+  const showYearError = purchaseYear.trim().length > 0 && !parsed.yearValid;
 
   async function runEstimate() {
     if (disabled) return;
@@ -142,6 +148,7 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
         <Text style={styles.label}>Purchase price (€)</Text>
         <TextInput
           accessibilityLabel="Purchase price in euros"
+          accessibilityHint={showPriceError ? 'Enter a price above zero euros with at most two decimal places.' : undefined}
           value={purchasePrice}
           onChangeText={(value) => {
             purchasePriceDirtyRef.current = true;
@@ -150,12 +157,14 @@ export function ValueEstimatePanel({ itemId, busy = false, onEstimated }: Props)
           }}
           keyboardType="decimal-pad"
           placeholder="e.g. 1200"
-          style={styles.input}
+          style={[styles.input, showPriceError && styles.inputError]}
         />
+        {showPriceError ? <Text accessibilityRole="alert" style={styles.validationError}>Enter a price above €0 with at most two decimal places.</Text> : null}
         {purchasePricePrefilled ? <Text style={styles.prefillHint}>Prefilled from your completed Marketplace purchase. You can change it for this estimate.</Text> : null}
 
         <Text style={styles.label}>Purchase year</Text>
-        <TextInput accessibilityLabel="Purchase year" value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={styles.input} />
+        <TextInput accessibilityLabel="Purchase year" accessibilityHint={showYearError ? `Enter a four-digit year from 1970 through ${new Date().getFullYear()}.` : undefined} value={purchaseYear} onChangeText={setPurchaseYear} keyboardType="number-pad" maxLength={4} placeholder="e.g. 2023" style={[styles.input, showYearError && styles.inputError]} />
+        {showYearError ? <Text accessibilityRole="alert" style={styles.validationError}>Enter a four-digit year from 1970 through {new Date().getFullYear()}.</Text> : null}
 
         <Text style={styles.label}>Condition</Text>
         <View accessibilityRole="radiogroup" style={styles.options}>
@@ -204,6 +213,8 @@ const styles = StyleSheet.create({
   retryButtonText: { fontSize: 13, fontWeight: '800', color: '#344054' },
   label: { fontSize: 14, fontWeight: '700', color: '#344054', marginTop: 4 },
   input: { minHeight: 52, borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 14, paddingHorizontal: 14, fontSize: 16, fontWeight: '600', color: '#101828', backgroundColor: '#FFFFFF' },
+  inputError: { borderColor: '#D92D20' },
+  validationError: { fontSize: 12, lineHeight: 18, color: '#B42318', marginTop: -4 },
   prefillHint: { fontSize: 12, lineHeight: 18, color: '#667085', marginTop: -4 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
