@@ -7,13 +7,20 @@ const failures = [];
 const requireText = (source, text, message) => {
   if (!source.includes(text)) failures.push(message);
 };
+const requireMatch = (source, pattern, message) => {
+  if (!pattern.test(source)) failures.push(message);
+};
 const reject = (source, pattern, message) => {
   if (pattern.test(source)) failures.push(message);
 };
 
 requireText(screen, "import { MarketplaceBrowseList } from './MarketplaceBrowseList';", 'MarketplaceScreen must import MarketplaceBrowseList.');
 requireText(screen, '<MarketplaceBrowseList', 'MarketplaceScreen must render MarketplaceBrowseList for discovery.');
-requireText(screen, 'listings={filteredBrowseListings}', 'MarketplaceBrowseList must own the filtered public discovery data.');
+requireMatch(
+  screen,
+  /listings=\{(?:filteredBrowseListings|error\s*\?\s*\[\]\s*:\s*filteredBrowseListings)\}/,
+  'MarketplaceBrowseList must own filtered public discovery data, optionally guarded by the existing error state.',
+);
 requireText(screen, 'renderListing={renderBrowseListing}', 'Marketplace listing cards must render through the virtualized list.');
 reject(screen, /filteredBrowseListings\s*\.map\s*\(/, 'Marketplace discovery must not regress to full-mount filteredBrowseListings.map(...).');
 
