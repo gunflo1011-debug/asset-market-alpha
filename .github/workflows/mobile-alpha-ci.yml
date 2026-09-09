@@ -51,6 +51,8 @@ jobs:
         run: npm run test:inventory-value
       - name: Validate inventory value surface regression
         run: npm run test:inventory-value-surface
+      - name: Validate Inventory virtualization contract
+        run: npm run test:inventory-virtualization
       - name: Validate value-to-sell regression
         run: npm run test:value-to-sell
       - name: Validate sale-start surface regression
