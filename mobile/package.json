@@ -16,6 +16,7 @@
     "test:inventory-crud-surface": "node scripts/check-inventory-crud-surface.mjs",
     "test:inventory-value": "node scripts/check-inventory-value.mjs",
     "test:inventory-value-surface": "node scripts/check-inventory-value-surface.mjs",
+    "test:inventory-virtualization": "node scripts/check-inventory-virtualization.mjs",
     "test:value-to-sell": "node scripts/check-value-to-sell.mjs",
     "test:sale-start-surface": "node scripts/check-sale-start-surface.mjs",
     "test:sale-start-app-integration": "node scripts/check-sale-start-app-integration.mjs",
