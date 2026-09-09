@@ -17,7 +17,7 @@ function PublicListingImageComponent({
 }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
   const [imageLoading, setImageLoading] = useState(Boolean(uri));
-  const source = useMemo(() => (uri ? { uri } : null), [uri]);
+  const source = useMemo(() => (uri ? { uri, cache: 'force-cache' as const } : null), [uri]);
 
   useEffect(() => {
     setImageFailed(false);
