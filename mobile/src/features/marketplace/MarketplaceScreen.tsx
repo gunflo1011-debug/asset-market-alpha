@@ -9,6 +9,7 @@ import {
   setMyMarketplaceInterest,
 } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
+import { MarketplaceBrowseList } from './MarketplaceBrowseList';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
 import { PublicListingImage } from './PublicListingImage';
 import { marketplaceFailureMessage } from './consumerErrors';
@@ -166,6 +167,37 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
   }
 
+  const renderBrowseListing = React.useCallback((listing: MarketplaceListing) => {
+    const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
+    const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
+    return (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`}
+        style={styles.card}
+        onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}
+      >
+        <PublicListingImage
+          uri={listing.image_urls[0]}
+          accessibilityLabel={listing.image_urls[0] ? `Cover photo for ${listing.title}` : `No public photo for ${listing.title}`}
+          fallbackLabel={listing.image_urls[0] ? 'Listing photo unavailable' : 'Seller chose not to share a photo'}
+          style={styles.listingImage}
+        />
+        <View style={styles.listingBody}>
+          <Text style={styles.askLabel}>ASKING PRICE</Text>
+          <Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text>
+          <Text style={styles.itemTitle}>{listing.title}</Text>
+          <View style={styles.listingMetaRow}>
+            <Text style={styles.listingMeta}>{listing.public_location ?? 'Location not shared'}</Text>
+            {listing.condition_label ? <Text style={styles.listingMeta}>· {listing.condition_label}</Text> : null}
+            <Text style={styles.listingMeta}>· {listing.category}</Text>
+          </View>
+          {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{buyerConversation ? 'Conversation open' : 'Interested'}</Text></View> : null}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [interestByItem, conversationsByItem]);
+
   if (selectedConversation) {
     return (
       <MarketplaceConversationScreen
@@ -241,134 +273,126 @@ export function MarketplaceScreen({ onBack }: Props) {
     );
   }
 
+  const browseHeader = (
+    <View style={styles.listSection}>
+      <View style={styles.topBar}>
+        <TouchableOpacity accessibilityRole="button" onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Marketplace" style={styles.refreshButton} disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity>
+      </View>
+
+      <View style={styles.marketplaceHeader}>
+        <Text style={styles.eyebrow}>MARKETPLACE</Text>
+        <Text style={styles.title}>Discover Things</Text>
+        <Text style={styles.headerCue}>Public listings only · exact seller details stay private</Text>
+      </View>
+
+      {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
+      {error ? <View accessibilityRole="alert" style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
+      {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
+      {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
+      {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
+
+      {!error && browseListings.length > 0 ? (
+        <View style={styles.discoveryBlock}>
+          <View style={styles.searchRow}>
+            <TextInput
+              accessibilityLabel="Search Marketplace listings"
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              placeholder="Search Things, categories or area"
+              placeholderTextColor="#98A2B3"
+              returnKeyType="search"
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {discoveryActive ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.clearButton} onPress={resetDiscovery}><Text style={styles.clearButtonText}>Clear</Text></TouchableOpacity> : null}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow} keyboardShouldPersistTaps="handled">
+            {[MARKETPLACE_DISCOVERY_ALL, ...discoveryCategories].map((category) => {
+              const selectedChip = selectedCategory === category;
+              const label = category === MARKETPLACE_DISCOVERY_ALL ? 'All' : category;
+              return (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedChip }}
+                  accessibilityLabel={`Filter Marketplace by ${label}`}
+                  key={category}
+                  style={[styles.categoryChip, selectedChip && styles.categoryChipSelected]}
+                  onPress={() => setSelectedCategory(category)}
+                >
+                  <Text style={[styles.categoryChipText, selectedChip && styles.categoryChipTextSelected]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{filteredBrowseListings.length} {filteredBrowseListings.length === 1 ? 'listing' : 'listings'}</Text>
+        </View>
+      ) : null}
+
+      {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
+    </View>
+  );
+
+  const browseEmpty = !loading && !error && browseListings.length === 0 ? (
+    <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View>
+  ) : !loading && !error && browseListings.length > 0 && filteredBrowseListings.length === 0 ? (
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyTitle}>No matching listings</Text>
+      <Text style={styles.copy}>Try a broader search or switch back to All categories.</Text>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.secondaryButton} onPress={resetDiscovery}><Text style={styles.secondaryButtonText}>Clear search & filters</Text></TouchableOpacity>
+    </View>
+  ) : null;
+
+  const browseFooter = (
+    <View style={styles.listSection}>
+      {(transactionConversations.length > 0 || publishedMine.length > 0) ? <View style={styles.manageDivider}><Text style={styles.manageEyebrow}>YOUR MARKETPLACE</Text><Text style={styles.manageTitle}>Manage your activity</Text><Text style={styles.copy}>Transactions and listings stay separate from public browsing.</Text></View> : null}
+
+      {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
+      {transactionConversations.map((conversation) => (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open ${conversation.role === 'BUYER' ? 'buying' : 'selling'} transaction, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+          <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text><Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+          <Text style={styles.messageRowAction}>Open ›</Text>
+        </TouchableOpacity>
+      ))}
+
+      {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
+      {publishedMine.map((ownerListing) => {
+        const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
+        return (
+          <View key={ownerListing.item_id} style={styles.ownerCard}>
+            <View style={styles.cardTop}><View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View><Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text></View>
+            <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
+            <View style={styles.metaRow}>
+              {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
+              {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
+              {sellerConversations.length > 0 ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{sellerConversations.length} {sellerConversations.length === 1 ? 'conversation' : 'conversations'}</Text></View> : null}
+            </View>
+            <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
+            {sellerConversations.map((conversation, index) => (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open conversation with interested buyer ${index + 1}, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
+                <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
+                <Text style={styles.messageRowAction}>Reply ›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.topBar}>
-          <TouchableOpacity accessibilityRole="button" onPress={onBack}><Text style={styles.back}>‹ Inventory</Text></TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh Marketplace" style={styles.refreshButton} disabled={loading} onPress={() => void refresh()}><Text style={styles.refresh}>{loading ? '…' : '↻'}</Text></TouchableOpacity>
-        </View>
-
-        <View style={styles.marketplaceHeader}>
-          <Text style={styles.eyebrow}>MARKETPLACE</Text>
-          <Text style={styles.title}>Discover Things</Text>
-          <Text style={styles.headerCue}>Public listings only · exact seller details stay private</Text>
-        </View>
-
-        {loading && listings.length === 0 ? <View style={styles.loadingCard}><ActivityIndicator /><Text style={styles.copy}>Loading marketplace…</Text></View> : null}
-        {error ? <View accessibilityRole="alert" style={styles.errorCard}><Text style={styles.errorTitle}>Marketplace unavailable</Text><Text style={styles.errorText}>{error}</Text></View> : null}
-        {!error && interestWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Marketplace available</Text><Text style={styles.warningText}>{interestWarning}</Text></View> : null}
-        {!error && ownerListingWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Your listings need refresh</Text><Text style={styles.warningText}>{ownerListingWarning}</Text></View> : null}
-        {!error && conversationWarning ? <View style={styles.warningCard}><Text style={styles.warningTitle}>Messages need refresh</Text><Text style={styles.warningText}>{conversationWarning}</Text></View> : null}
-
-        {!error && browseListings.length > 0 ? (
-          <View style={styles.discoveryBlock}>
-            <View style={styles.searchRow}>
-              <TextInput
-                accessibilityLabel="Search Marketplace listings"
-                autoCapitalize="none"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-                placeholder="Search Things, categories or area"
-                placeholderTextColor="#98A2B3"
-                returnKeyType="search"
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {discoveryActive ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.clearButton} onPress={resetDiscovery}><Text style={styles.clearButtonText}>Clear</Text></TouchableOpacity> : null}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow} keyboardShouldPersistTaps="handled">
-              {[MARKETPLACE_DISCOVERY_ALL, ...discoveryCategories].map((category) => {
-                const selectedChip = selectedCategory === category;
-                const label = category === MARKETPLACE_DISCOVERY_ALL ? 'All' : category;
-                return (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedChip }}
-                    accessibilityLabel={`Filter Marketplace by ${label}`}
-                    key={category}
-                    style={[styles.categoryChip, selectedChip && styles.categoryChipSelected]}
-                    onPress={() => setSelectedCategory(category)}
-                  >
-                    <Text style={[styles.categoryChipText, selectedChip && styles.categoryChipTextSelected]}>{label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-            <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{filteredBrowseListings.length} {filteredBrowseListings.length === 1 ? 'listing' : 'listings'}</Text>
-          </View>
-        ) : null}
-
-        {!loading && !error && browseListings.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>Nothing else for sale yet</Text><Text style={styles.copy}>Published Things from other owners will appear here.</Text></View> : null}
-        {!loading && !error && browseListings.length > 0 && filteredBrowseListings.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No matching listings</Text>
-            <Text style={styles.copy}>Try a broader search or switch back to All categories.</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Clear Marketplace search and filters" style={styles.secondaryButton} onPress={resetDiscovery}><Text style={styles.secondaryButtonText}>Clear search & filters</Text></TouchableOpacity>
-          </View>
-        ) : null}
-
-        {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
-        {filteredBrowseListings.map((listing) => {
-          const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
-          const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
-          return (
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open listing ${listing.title}, ${euro(listing.asking_price_cents)}`} key={listing.item_id} style={styles.card} onPress={() => { setSelectedItemId(listing.item_id); setMessage(null); }}>
-              <PublicListingImage
-                uri={listing.image_urls[0]}
-                accessibilityLabel={listing.image_urls[0] ? `Cover photo for ${listing.title}` : `No public photo for ${listing.title}`}
-                fallbackLabel={listing.image_urls[0] ? 'Listing photo unavailable' : 'Seller chose not to share a photo'}
-                style={styles.listingImage}
-              />
-              <View style={styles.listingBody}>
-                <Text style={styles.askLabel}>ASKING PRICE</Text>
-                <Text style={styles.ask}>{euro(listing.asking_price_cents)}</Text>
-                <Text style={styles.itemTitle}>{listing.title}</Text>
-                <View style={styles.listingMetaRow}>
-                  <Text style={styles.listingMeta}>{listing.public_location ?? 'Location not shared'}</Text>
-                  {listing.condition_label ? <Text style={styles.listingMeta}>· {listing.condition_label}</Text> : null}
-                  <Text style={styles.listingMeta}>· {listing.category}</Text>
-                </View>
-                {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{buyerConversation ? 'Conversation open' : 'Interested'}</Text></View> : null}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        {(transactionConversations.length > 0 || publishedMine.length > 0) ? <View style={styles.manageDivider}><Text style={styles.manageEyebrow}>YOUR MARKETPLACE</Text><Text style={styles.manageTitle}>Manage your activity</Text><Text style={styles.copy}>Transactions and listings stay separate from public browsing.</Text></View> : null}
-
-        {transactionConversations.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your transactions</Text><Text style={styles.sectionMeta}>{transactionConversations.length}</Text></View> : null}
-        {transactionConversations.map((conversation) => (
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open ${conversation.role === 'BUYER' ? 'buying' : 'selling'} transaction, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-            <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>{titleForConversation(conversation)}</Text><Text style={styles.messageRowMeta}>{conversation.role === 'BUYER' ? 'Buying' : 'Selling'} · {conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
-            <Text style={styles.messageRowAction}>Open ›</Text>
-          </TouchableOpacity>
-        ))}
-
-        {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
-        {publishedMine.map((ownerListing) => {
-          const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
-          return (
-            <View key={ownerListing.item_id} style={styles.ownerCard}>
-              <View style={styles.cardTop}><View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View><Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text></View>
-              <Text style={styles.itemTitle}>{ownerListing.title ?? 'Your Thing'}</Text>
-              <View style={styles.metaRow}>
-                {ownerListing.category ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.category}</Text></View> : null}
-                {ownerListing.public_location ? <View style={styles.metaChip}><Text style={styles.metaChipText}>{ownerListing.public_location}</Text></View> : null}
-                {sellerConversations.length > 0 ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{sellerConversations.length} {sellerConversations.length === 1 ? 'conversation' : 'conversations'}</Text></View> : null}
-              </View>
-              <Text style={styles.copy}>Published on Marketplace · linked to your private inventory item{ownerListing.public_location ? ' · coarse location public' : ' · location not shared'}.</Text>
-              {sellerConversations.map((conversation, index) => (
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open conversation with interested buyer ${index + 1}, ${conversationStatusLabel(conversation.status)}`} key={conversation.conversation_id} style={styles.messageRow} onPress={() => setSelectedConversationId(conversation.conversation_id)}>
-                  <View style={styles.messageCopy}><Text style={styles.messageRowTitle}>Interested buyer {index + 1}</Text><Text style={styles.messageRowMeta}>{conversationStatusLabel(conversation.status)} · updated {new Date(conversation.updated_at).toLocaleString()}</Text></View>
-                  <Text style={styles.messageRowAction}>Reply ›</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          );
-        })}
-      </ScrollView>
+      <MarketplaceBrowseList
+        listings={error ? [] : filteredBrowseListings}
+        renderListing={renderBrowseListing}
+        header={browseHeader}
+        footer={browseFooter}
+        empty={browseEmpty}
+        refreshing={loading && listings.length > 0}
+        onRefresh={() => void refresh()}
+      />
     </SafeAreaView>
   );
 }
@@ -376,6 +400,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FCFDFE' },
   container: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 64, gap: 17 },
+  listSection: { gap: 17 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { fontSize: 16, fontWeight: '900', color: '#334155', paddingVertical: 10 },
   refreshButton: { width: 46, height: 46, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E9EDF2', shadowColor: '#0B1323', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
