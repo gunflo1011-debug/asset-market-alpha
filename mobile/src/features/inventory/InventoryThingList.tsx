@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, type ListRenderItemInfo } from 'react-native';
+import { premiumColors } from '../../lib/premiumTheme';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { PrivateThingCover } from './PrivateThingCover';
 import { itemTitle } from './presentation';
@@ -115,10 +116,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: premiumColors.surface,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E9EDF2',
+    borderColor: premiumColors.border,
     shadowColor: '#0B1323',
     shadowOpacity: 0.045,
     shadowRadius: 10,
@@ -126,8 +127,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   itemTopLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  itemTitle: { flex: 1, fontSize: 16, lineHeight: 21, fontWeight: '900', letterSpacing: -0.15, color: '#0C1628' },
-  itemValue: { fontSize: 15, fontWeight: '900', color: '#0C1628' },
+  itemTitle: { flex: 1, fontSize: 16, lineHeight: 21, fontWeight: '900', letterSpacing: -0.15, color: premiumColors.text },
+  itemValue: { fontSize: 15, fontWeight: '900', color: premiumColors.text },
   itemBottomLine: { flexDirection: 'row', alignItems: 'center', marginTop: 7 },
   itemMeta: { flex: 1, fontSize: 12, color: '#7C8798' },
   stateDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: '#6B778A', marginRight: 5 },
