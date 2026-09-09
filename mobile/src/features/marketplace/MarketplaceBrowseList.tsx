@@ -25,12 +25,14 @@ function MarketplaceBrowseListComponent({
     ({ item }: ListRenderItemInfo<MarketplaceListing>) => renderListing(item),
     [renderListing],
   );
+  const keyExtractor = useCallback((item: MarketplaceListing) => item.item_id, []);
 
   return (
     <FlatList
+      style={styles.list}
       data={listings}
       renderItem={renderItem}
-      keyExtractor={(item) => item.item_id}
+      keyExtractor={keyExtractor}
       ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : null}
       ListFooterComponent={footer ? <View style={styles.footer}>{footer}</View> : null}
       ListEmptyComponent={empty ? <View style={styles.empty}>{empty}</View> : null}
@@ -53,6 +55,9 @@ function MarketplaceBrowseListComponent({
 export const MarketplaceBrowseList = memo(MarketplaceBrowseListComponent);
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: 20,
