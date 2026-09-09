@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { premiumColors } from '../../lib/premiumTheme';
 
 type Props = {
@@ -18,12 +18,14 @@ function PrivateThingCoverComponent({
   accessibilityLabel,
 }: Props) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [imageLoading, setImageLoading] = useState(Boolean(uri));
   const initial = fallbackLabel.trim().slice(0, 1).toUpperCase() || 'T';
   const frameStyle = useMemo(() => ({ width: size, height: size, borderRadius }), [borderRadius, size]);
   const source = useMemo(() => (uri ? { uri, cache: 'force-cache' as const } : null), [uri]);
 
   useEffect(() => {
     setImageFailed(false);
+    setImageLoading(Boolean(uri));
   }, [uri]);
 
   if (source && !imageFailed) {
@@ -37,8 +39,18 @@ function PrivateThingCoverComponent({
           fadeDuration={0}
           accessibilityRole="image"
           accessibilityLabel={accessibilityLabel ?? `${fallbackLabel} photo`}
-          onError={() => setImageFailed(true)}
+          onLoadStart={() => setImageLoading(true)}
+          onLoadEnd={() => setImageLoading(false)}
+          onError={() => {
+            setImageLoading(false);
+            setImageFailed(true);
+          }}
         />
+        {imageLoading ? (
+          <View pointerEvents="none" importantForAccessibility="no-hide-descendants" style={styles.loadingOverlay}>
+            <ActivityIndicator accessibilityElementsHidden />
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -66,6 +78,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: premiumColors.imagePlaceholder,
   },
   placeholder: {
     alignItems: 'center',
