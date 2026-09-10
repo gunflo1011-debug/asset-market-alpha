@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import { viewPurchasedThingInInventory } from '../../lib/purchasedThingNavigation';
@@ -60,6 +60,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [adoptedItemId, setAdoptedItemId] = useState<string | null>(null);
   const [status, setStatus] = useState<MarketplaceConversationStatus>(conversation.status);
   const [error, setError] = useState<string | null>(null);
+  const refreshRequestRef = useRef(0);
 
   const parsedFinalSalePrice = useMemo(() => parseEuroAmount(finalSalePrice, MAX_FINAL_SALE_CENTS), [finalSalePrice]);
   const parsedOfferAmount = useMemo(() => parseEuroAmount(offerAmount, MAX_OFFER_CENTS), [offerAmount]);
@@ -68,29 +69,41 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const acceptedOffer = useMemo(() => [...offers].reverse().find((offer) => offer.status === 'ACCEPTED') ?? null, [offers]);
 
   async function refresh() {
+    const requestId = ++refreshRequestRef.current;
+    const conversationId = conversation.conversation_id;
     try {
       setLoading(true);
       setError(null);
       const [nextMessages, conversations, nextOffers] = await Promise.all([
-        loadMyMarketplaceMessages(conversation.conversation_id),
+        loadMyMarketplaceMessages(conversationId),
         loadMyMarketplaceConversations(),
-        loadMyMarketplaceOffers(conversation.conversation_id),
+        loadMyMarketplaceOffers(conversationId),
       ]);
+      if (requestId !== refreshRequestRef.current) return;
       setMessages(nextMessages);
       setOffers(nextOffers);
-      const currentConversation = conversations.find((entry) => entry.conversation_id === conversation.conversation_id);
+      const currentConversation = conversations.find((entry) => entry.conversation_id === conversationId);
       if (currentConversation) {
         setStatus(currentConversation.status);
         setConfirmedFinalSalePriceCents(currentConversation.final_sale_price_cents ?? null);
       }
     } catch {
-      setError(marketplaceFailureMessage('LOAD_CONVERSATION'));
-    } finally { setLoading(false); }
+      if (requestId === refreshRequestRef.current) setError(marketplaceFailureMessage('LOAD_CONVERSATION'));
+    } finally {
+      if (requestId === refreshRequestRef.current) setLoading(false);
+    }
   }
 
   useEffect(() => {
     setStatus(conversation.status);
     setConfirmedFinalSalePriceCents(conversation.final_sale_price_cents ?? null);
+  }, [conversation.conversation_id, conversation.status, conversation.final_sale_price_cents]);
+
+  useEffect(() => {
+    refreshRequestRef.current += 1;
+    setMessages([]);
+    setOffers([]);
+    setDraft('');
     setAdoptedItemId(null);
     setFinalSalePrice('');
     setOfferAmount('');
@@ -100,7 +113,8 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     setShowOfferComposer(conversation.role === 'BUYER' && conversation.status === 'OPEN');
     setShowCounterComposer(false);
     void refresh();
-  }, [conversation.conversation_id, conversation.status, conversation.final_sale_price_cents]);
+    return () => { refreshRequestRef.current += 1; };
+  }, [conversation.conversation_id]);
 
   async function send() {
     const body = draft.trim();
