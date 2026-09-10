@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { MarketplaceMessage } from '../inventory/types';
 import { premiumColors, premiumRadii, premiumSpacing, premiumTouch } from '../../lib/premiumTheme';
 
@@ -39,10 +39,11 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
       inverted={newestFirstMessages.length > 0}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       initialNumToRender={18}
       maxToRenderPerBatch={12}
       windowSize={9}
-      removeClippedSubviews
+      removeClippedSubviews={Platform.OS === 'android'}
       ListEmptyComponent={loading ? (
         <ActivityIndicator accessibilityLabel="Loading messages" />
       ) : (
