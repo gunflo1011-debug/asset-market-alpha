@@ -61,6 +61,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [status, setStatus] = useState<MarketplaceConversationStatus>(conversation.status);
   const [error, setError] = useState<string | null>(null);
   const refreshRequestRef = useRef(0);
+  const activeConversationRef = useRef(conversation.conversation_id);
 
   const parsedFinalSalePrice = useMemo(() => parseEuroAmount(finalSalePrice, MAX_FINAL_SALE_CENTS), [finalSalePrice]);
   const parsedOfferAmount = useMemo(() => parseEuroAmount(offerAmount, MAX_OFFER_CENTS), [offerAmount]);
@@ -100,10 +101,15 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   }, [conversation.conversation_id, conversation.status, conversation.final_sale_price_cents]);
 
   useEffect(() => {
+    activeConversationRef.current = conversation.conversation_id;
     refreshRequestRef.current += 1;
     setMessages([]);
     setOffers([]);
     setDraft('');
+    setSending(false);
+    setOfferBusy(false);
+    setLifecycleBusy(false);
+    setAdoptionBusy(false);
     setAdoptedItemId(null);
     setFinalSalePrice('');
     setOfferAmount('');
@@ -119,23 +125,33 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   async function send() {
     const body = draft.trim();
     if (!body || sending || status === 'SOLD' || status === 'CLOSED') return;
+    const conversationId = conversation.conversation_id;
     try {
       setSending(true); setError(null);
-      await sendMyMarketplaceMessage(conversation.conversation_id, body);
+      await sendMyMarketplaceMessage(conversationId, body);
+      if (activeConversationRef.current !== conversationId) return;
       setDraft(''); await refresh();
-    } catch { setError(marketplaceFailureMessage('SEND_MESSAGE')); }
-    finally { setSending(false); }
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('SEND_MESSAGE'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setSending(false);
+    }
   }
 
   async function submitOffer() {
     if (!parsedOfferAmount.valid || offerBusy || status !== 'OPEN' || pendingOffer) return;
+    const conversationId = conversation.conversation_id;
     try {
       setOfferBusy(true); setError(null);
-      await makeMyMarketplaceOffer(conversation.conversation_id, parsedOfferAmount.cents, offerMessage);
+      await makeMyMarketplaceOffer(conversationId, parsedOfferAmount.cents, offerMessage);
+      if (activeConversationRef.current !== conversationId) return;
       setOfferAmount(''); setOfferMessage(''); setShowOfferComposer(false);
       await refresh();
-    } catch { setError(marketplaceFailureMessage('UPDATE_OFFER')); }
-    finally { setOfferBusy(false); }
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('UPDATE_OFFER'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setOfferBusy(false);
+    }
   }
 
   async function respondToOffer(action: 'ACCEPT' | 'DECLINE' | 'COUNTER') {
@@ -144,6 +160,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       setError('Enter a valid counter offer amount.');
       return;
     }
+    const conversationId = conversation.conversation_id;
     try {
       setOfferBusy(true); setError(null);
       await respondToMyMarketplaceOffer(
@@ -152,29 +169,43 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
         action === 'COUNTER' ? parsedCounterAmount.cents : null,
         action === 'COUNTER' ? counterMessage : null,
       );
+      if (activeConversationRef.current !== conversationId) return;
       setCounterAmount(''); setCounterMessage(''); setShowCounterComposer(false);
       await refresh();
-    } catch { setError(marketplaceFailureMessage('UPDATE_OFFER')); }
-    finally { setOfferBusy(false); }
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('UPDATE_OFFER'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setOfferBusy(false);
+    }
   }
 
   async function changeLifecycle(nextStatus: 'RESERVED' | 'SOLD', finalSalePriceCents?: number | null) {
+    const conversationId = conversation.conversation_id;
     try {
       setLifecycleBusy(true); setError(null);
-      const next = await setMyMarketplaceConversationStatus(conversation.conversation_id, nextStatus, finalSalePriceCents);
+      const next = await setMyMarketplaceConversationStatus(conversationId, nextStatus, finalSalePriceCents);
+      if (activeConversationRef.current !== conversationId) return;
       setStatus(next);
       if (next === 'SOLD') setConfirmedFinalSalePriceCents(finalSalePriceCents ?? null);
-    } catch { setError(marketplaceFailureMessage('UPDATE_SALE')); }
-    finally { setLifecycleBusy(false); }
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('UPDATE_SALE'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setLifecycleBusy(false);
+    }
   }
 
   async function adoptPurchasedThing() {
     if (adoptionBusy || adoptedItemId) return;
+    const conversationId = conversation.conversation_id;
     try {
       setAdoptionBusy(true); setError(null);
-      setAdoptedItemId(await adoptMySoldMarketplaceThing(conversation.conversation_id));
-    } catch { setError(marketplaceFailureMessage('ADOPT_PURCHASE')); }
-    finally { setAdoptionBusy(false); }
+      const nextItemId = await adoptMySoldMarketplaceThing(conversationId);
+      if (activeConversationRef.current === conversationId) setAdoptedItemId(nextItemId);
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('ADOPT_PURCHASE'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setAdoptionBusy(false);
+    }
   }
 
   function confirmReserve() {
