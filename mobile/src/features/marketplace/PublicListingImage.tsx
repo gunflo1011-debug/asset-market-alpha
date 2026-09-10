@@ -31,6 +31,7 @@ function PublicListingImageComponent({
           source={source}
           style={styles.image}
           resizeMode="cover"
+          resizeMethod="resize"
           fadeDuration={0}
           accessibilityRole="image"
           accessibilityLabel={accessibilityLabel}
