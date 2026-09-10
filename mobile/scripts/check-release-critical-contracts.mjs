@@ -111,7 +111,7 @@ assert.match(
 );
 assert.match(
   marketplaceScreen,
-  /selected\.image_urls\.map\(/,
+  /data=\{selected\.image_urls\}/,
   'Marketplace detail must keep seller-selected public image URLs as its image source',
 );
 assert.match(
