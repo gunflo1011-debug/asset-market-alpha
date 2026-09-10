@@ -27,11 +27,15 @@ function mapOffer(row: Record<string, unknown>): MarketplaceOffer {
   if (row.status !== 'PENDING' && row.status !== 'ACCEPTED' && row.status !== 'DECLINED' && row.status !== 'COUNTERED') {
     throw new Error('Offer history returned an invalid status.');
   }
+  const message = row.message == null ? null : String(row.message);
+  if (message != null && message.length > MAX_OFFER_MESSAGE_LENGTH) {
+    throw new Error('Offer history returned an invalid message.');
+  }
   return {
     offer_id: String(row.offer_id),
     proposer_role: row.proposer_role,
     amount_cents: amountCents,
-    message: row.message == null ? null : String(row.message),
+    message,
     status: row.status,
     parent_offer_id: row.parent_offer_id == null ? null : String(row.parent_offer_id),
     created_at: String(row.created_at),
