@@ -67,6 +67,8 @@ jobs:
         run: npm run test:marketplace-discovery-contract
       - name: Validate Marketplace virtualization contract
         run: npm run test:marketplace-virtualization
+      - name: Validate Listing Detail gallery virtualization
+        run: npm run test:listing-detail-gallery-virtualization
       - name: Validate authenticated product convergence regression
         run: npm run test:product-convergence
       - name: Validate sold-state regression
