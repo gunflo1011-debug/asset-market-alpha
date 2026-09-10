@@ -69,6 +69,8 @@ jobs:
         run: npm run test:marketplace-virtualization
       - name: Validate Listing Detail gallery virtualization
         run: npm run test:listing-detail-gallery-virtualization
+      - name: Validate Marketplace conversation state isolation
+        run: npm run test:marketplace-conversation-state-isolation
       - name: Validate authenticated product convergence regression
         run: npm run test:product-convergence
       - name: Validate sold-state regression
