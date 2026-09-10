@@ -12,6 +12,7 @@ for (const rpc of ['load_my_marketplace_offers', 'make_my_marketplace_offer', 'r
 assert.match(source, /Number\.isInteger\(amountCents\)[\s\S]*amountCents < 1[\s\S]*amountCents > MAX_OFFER_CENTS/);
 assert.match(source, /function mapOffer[\s\S]*Number\.isInteger\(amountCents\)[\s\S]*amountCents < 1[\s\S]*amountCents > MAX_OFFER_CENTS/);
 assert.match(source, /MAX_OFFER_MESSAGE_LENGTH = 500/);
+assert.match(source, /function mapOffer[\s\S]*message\.length > MAX_OFFER_MESSAGE_LENGTH[\s\S]*invalid message/);
 assert.match(source, /action === 'COUNTER'[\s\S]*counterAmountCents == null/);
 assert.match(source, /p_counter_amount_cents: action === 'COUNTER' \? counterAmountCents : null/);
 assert.match(source, /p_counter_message: action === 'COUNTER' \? normalizeOfferMessage\(counterMessage\) : null/);
