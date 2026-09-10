@@ -20,7 +20,9 @@ function normalizeOfferMessage(message?: string | null): string | null {
 
 function mapOffer(row: Record<string, unknown>): MarketplaceOffer {
   const amountCents = Number(row.amount_cents);
-  if (!Number.isInteger(amountCents) || amountCents < 1) throw new Error('Offer history returned an invalid amount.');
+  if (!Number.isInteger(amountCents) || amountCents < 1 || amountCents > MAX_OFFER_CENTS) {
+    throw new Error('Offer history returned an invalid amount.');
+  }
   if (row.proposer_role !== 'ME' && row.proposer_role !== 'OTHER') throw new Error('Offer history returned an invalid proposer role.');
   if (row.status !== 'PENDING' && row.status !== 'ACCEPTED' && row.status !== 'DECLINED' && row.status !== 'COUNTERED') {
     throw new Error('Offer history returned an invalid status.');
