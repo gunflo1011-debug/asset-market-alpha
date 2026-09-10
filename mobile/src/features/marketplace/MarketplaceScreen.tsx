@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   loadMarketplace,
   loadMyMarketplaceConversations,
@@ -219,17 +219,26 @@ export function MarketplaceScreen({ onBack }: Props) {
           </View>
 
           {selected.image_urls.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.detailGallery} accessibilityLabel="Public listing photos">
-              {selected.image_urls.map((url, index) => (
+            <FlatList
+              horizontal
+              data={selected.image_urls}
+              keyExtractor={(_, index) => `${selected.item_id}-${index}`}
+              renderItem={({ item: url, index }) => (
                 <PublicListingImage
-                  key={`${selected.item_id}-${index}`}
                   uri={url}
                   accessibilityLabel={`Listing photo ${index + 1} of ${selected.image_urls.length}`}
                   fallbackLabel="Listing photo unavailable"
                   style={styles.detailImage}
                 />
-              ))}
-            </ScrollView>
+              )}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.detailGallery}
+              accessibilityLabel="Public listing photos"
+              initialNumToRender={2}
+              maxToRenderPerBatch={2}
+              windowSize={3}
+              removeClippedSubviews={Platform.OS === 'android'}
+            />
           ) : (
             <View accessible accessibilityLabel="No public photos. The seller did not share photos for this listing." style={styles.noPhotoDetail}>
               <View style={styles.noPhotoIcon}><Text style={styles.noPhotoIconText}>PHOTO</Text></View>
