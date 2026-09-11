@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ImageSourcePropType } from 'react-native';
 
 type RemoteImageState = {
@@ -12,8 +12,10 @@ type RemoteImageState = {
 
 export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const normalizedUri = uri?.trim() || null;
+  const currentUriRef = useRef(normalizedUri);
+  currentUriRef.current = normalizedUri;
   const [failedUri, setFailedUri] = useState<string | null>(null);
-  const [loadingUri, setLoadingUri] = useState<string | null>(normalizedUri);
+  const [loadedUri, setLoadedUri] = useState<string | null>(null);
 
   const source = useMemo<ImageSourcePropType | null>(
     () => (normalizedUri ? { uri: normalizedUri, cache: 'force-cache' as const } : null),
@@ -21,26 +23,25 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
   );
 
   const onLoadStart = useCallback(() => {
-    if (!normalizedUri) return;
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
     setFailedUri((current) => (current === normalizedUri ? null : current));
-    setLoadingUri(normalizedUri);
+    setLoadedUri((current) => (current === normalizedUri ? null : current));
   }, [normalizedUri]);
 
   const onLoadEnd = useCallback(() => {
-    if (!normalizedUri) return;
-    setLoadingUri((current) => (current === normalizedUri ? null : current));
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
+    setLoadedUri(normalizedUri);
   }, [normalizedUri]);
 
   const onError = useCallback(() => {
-    if (!normalizedUri) return;
-    setLoadingUri((current) => (current === normalizedUri ? null : current));
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
     setFailedUri(normalizedUri);
   }, [normalizedUri]);
 
   return {
     source,
     failed: Boolean(normalizedUri && failedUri === normalizedUri),
-    loading: Boolean(normalizedUri && loadingUri === normalizedUri && failedUri !== normalizedUri),
+    loading: Boolean(normalizedUri && loadedUri !== normalizedUri && failedUri !== normalizedUri),
     onLoadStart,
     onLoadEnd,
     onError,
