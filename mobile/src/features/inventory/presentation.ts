@@ -1,4 +1,54 @@
-import type { CatalogVariant, PrivateInventoryItem } from './types';
+import type { CatalogVariant, InventoryMarketState, PrivateInventoryItem } from './types';
+
+export type InventoryLifecyclePresentation = {
+  label: 'Private' | 'Ready to list' | 'Publishing' | 'For sale' | 'Reserved' | 'Sold';
+  accessibilityLabel: string;
+  isPubliclyForSale: boolean;
+};
+
+export function inventoryLifecyclePresentation(
+  state: InventoryMarketState | null | undefined,
+): InventoryLifecyclePresentation {
+  switch (state) {
+    case 'MARKET_ELIGIBLE':
+      return {
+        label: 'Ready to list',
+        accessibilityLabel: 'Ready to list, not yet public',
+        isPubliclyForSale: false,
+      };
+    case 'ACTIVATING':
+      return {
+        label: 'Publishing',
+        accessibilityLabel: 'Publishing to Marketplace',
+        isPubliclyForSale: false,
+      };
+    case 'OFFERS_ENABLED':
+      return {
+        label: 'For sale',
+        accessibilityLabel: 'For sale on Marketplace',
+        isPubliclyForSale: true,
+      };
+    case 'RESERVED':
+      return {
+        label: 'Reserved',
+        accessibilityLabel: 'Reserved for a buyer',
+        isPubliclyForSale: false,
+      };
+    case 'SOLD':
+      return {
+        label: 'Sold',
+        accessibilityLabel: 'Sold',
+        isPubliclyForSale: false,
+      };
+    case 'PRIVATE':
+    default:
+      return {
+        label: 'Private',
+        accessibilityLabel: 'Private, not listed',
+        isPubliclyForSale: false,
+      };
+  }
+}
 
 export function variantTitle(variant: CatalogVariant): string {
   const product = variant.products;
