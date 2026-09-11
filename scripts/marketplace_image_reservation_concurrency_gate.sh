@@ -12,6 +12,10 @@ psql "$DB_URL" -v ON_ERROR_STOP=1 <<SQL
 delete from private.marketplace_offers where conversation_id in (select id from private.marketplace_conversations where item_id='$ITEM'::uuid);
 delete from private.marketplace_conversations where item_id='$ITEM'::uuid;
 
+# Reset the fixture to an eligible lifecycle state before publishing. The production
+# republish invariant intentionally rejects PUBLISHED while an item is RESERVED/SOLD.
+update private.item_market_state set market_state='MARKET_ELIGIBLE',updated_at=now() where item_id='$ITEM'::uuid;
+
 insert into private.marketplace_listings(item_id,seller_id,asking_price_cents,status,published_at,updated_at,public_title,public_category,sold_price_cents)
 values('$ITEM'::uuid,'$SELLER'::uuid,65000,'PUBLISHED',now(),now(),'Image race Thing','Test',null)
 on conflict(item_id) do update set seller_id=excluded.seller_id,asking_price_cents=excluded.asking_price_cents,status='PUBLISHED',published_at=now(),updated_at=now(),public_title=excluded.public_title,public_category=excluded.public_category,sold_price_cents=null;
@@ -22,8 +26,6 @@ on conflict(id) do update set marketplace_visible=true;
 
 insert into private.marketplace_conversations(id,item_id,buyer_id,seller_id,status)
 values('$CONVERSATION'::uuid,'$ITEM'::uuid,'$BUYER'::uuid,'$SELLER'::uuid,'OPEN');
-
-update private.item_market_state set market_state='MARKET_ELIGIBLE',updated_at=now() where item_id='$ITEM'::uuid;
 SQL
 
 # Reservation obtains the per-Thing lock and deliberately holds the transaction open.
