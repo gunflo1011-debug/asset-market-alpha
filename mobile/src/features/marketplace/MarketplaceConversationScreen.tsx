@@ -37,7 +37,7 @@ function acceptedOfferCopy(status: MarketplaceConversationStatus, buyer: boolean
 function parseEuroAmount(value: string, maxCents: number): { cents: number; valid: boolean } {
   const euros = Number(value.replace(',', '.').trim());
   const cents = Math.round(euros * 100);
-  return { cents, valid: Number.isFinite(euros) && euros > 0 && cents <= maxCents };
+  return { cents, valid: Number.isFinite(euros) && cents > 0 && cents <= maxCents };
 }
 
 export function MarketplaceConversationScreen({ conversation, title, onBack }: Props) {
