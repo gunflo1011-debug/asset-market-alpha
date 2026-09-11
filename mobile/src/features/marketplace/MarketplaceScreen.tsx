@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
   loadMarketplace,
@@ -46,6 +46,7 @@ export function MarketplaceScreen({ onBack }: Props) {
   const [ownerListingWarning, setOwnerListingWarning] = useState<string | null>(null);
   const [conversationWarning, setConversationWarning] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const refreshRequestRef = useRef(0);
 
   const selected = useMemo(() => listings.find((listing) => listing.item_id === selectedItemId) ?? null, [listings, selectedItemId]);
   const selectedConversation = useMemo(() => conversations.find((row) => row.conversation_id === selectedConversationId) ?? null, [conversations, selectedConversationId]);
@@ -85,6 +86,7 @@ export function MarketplaceScreen({ onBack }: Props) {
   }
 
   async function refresh() {
+    const requestId = ++refreshRequestRef.current;
     setLoading(true);
     setError(null);
     setInterestWarning(null);
@@ -97,6 +99,8 @@ export function MarketplaceScreen({ onBack }: Props) {
       loadMyMarketplaceListings(),
       loadMyMarketplaceConversations(),
     ]);
+
+    if (requestId !== refreshRequestRef.current) return;
 
     if (listingsResult.status === 'fulfilled') setListings(listingsResult.value);
     else setError(marketplaceFailureMessage('LOAD_MARKETPLACE'));
@@ -113,7 +117,10 @@ export function MarketplaceScreen({ onBack }: Props) {
     setLoading(false);
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    void refresh();
+    return () => { refreshRequestRef.current += 1; };
+  }, []);
 
   async function changeInterest(itemId: string, interested: boolean) {
     if (busy) return;
