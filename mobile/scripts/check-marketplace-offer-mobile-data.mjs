@@ -2,12 +2,23 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const source = fs.readFileSync(new URL('../src/data/marketplaceOffers.ts', import.meta.url), 'utf8');
+const commands = fs.readFileSync(new URL('../src/data/inventoryCommands.ts', import.meta.url), 'utf8');
 const barrel = fs.readFileSync(new URL('../src/data/inventory.ts', import.meta.url), 'utf8');
 const types = fs.readFileSync(new URL('../src/features/inventory/types.ts', import.meta.url), 'utf8');
 
 for (const rpc of ['load_my_marketplace_offers', 'make_my_marketplace_offer', 'respond_to_my_marketplace_offer']) {
   assert.match(source, new RegExp(`rpc\\('${rpc}'`), `${rpc} must remain wired through the authenticated Supabase client`);
 }
+
+const offerMaxMatch = source.match(/MAX_OFFER_CENTS = ([0-9_]+)/);
+const finalSaleMaxMatch = commands.match(/MAX_FINAL_SALE_CENTS = ([0-9_]+)/);
+assert.ok(offerMaxMatch, 'MAX_OFFER_CENTS must remain explicit');
+assert.ok(finalSaleMaxMatch, 'MAX_FINAL_SALE_CENTS must remain explicit');
+assert.equal(
+  Number(offerMaxMatch[1].replaceAll('_', '')),
+  Number(finalSaleMaxMatch[1].replaceAll('_', '')),
+  'Offer/counter ceiling must remain aligned with the final sale price ceiling',
+);
 
 assert.match(source, /Number\.isInteger\(amountCents\)[\s\S]*amountCents < 1[\s\S]*amountCents > MAX_OFFER_CENTS/);
 assert.match(source, /function mapOffer[\s\S]*Number\.isInteger\(amountCents\)[\s\S]*amountCents < 1[\s\S]*amountCents > MAX_OFFER_CENTS/);
