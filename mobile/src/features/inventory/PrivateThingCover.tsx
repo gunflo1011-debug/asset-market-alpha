@@ -1,6 +1,7 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { premiumColors } from '../../lib/premiumTheme';
+import { useRemoteImageState } from '../../lib/useRemoteImageState';
 
 type Props = {
   uri?: string | null;
@@ -17,36 +18,27 @@ function PrivateThingCoverComponent({
   borderRadius = 18,
   accessibilityLabel,
 }: Props) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const [imageLoading, setImageLoading] = useState(Boolean(uri));
+  const image = useRemoteImageState(uri);
   const initial = fallbackLabel.trim().slice(0, 1).toUpperCase() || 'T';
   const frameStyle = useMemo(() => ({ width: size, height: size, borderRadius }), [borderRadius, size]);
-  const source = useMemo(() => (uri ? { uri, cache: 'force-cache' as const } : null), [uri]);
 
-  useEffect(() => {
-    setImageFailed(false);
-    setImageLoading(Boolean(uri));
-  }, [uri]);
-
-  if (source && !imageFailed) {
+  if (image.source && !image.failed) {
     return (
       <View style={[styles.frame, frameStyle]}>
         <Image
-          source={source}
+          key={uri || 'private-cover'}
+          source={image.source}
           style={styles.image}
           resizeMode="cover"
           resizeMethod="resize"
           fadeDuration={0}
           accessibilityRole="image"
           accessibilityLabel={accessibilityLabel ?? `${fallbackLabel} photo`}
-          onLoadStart={() => setImageLoading(true)}
-          onLoadEnd={() => setImageLoading(false)}
-          onError={() => {
-            setImageLoading(false);
-            setImageFailed(true);
-          }}
+          onLoadStart={image.onLoadStart}
+          onLoadEnd={image.onLoadEnd}
+          onError={image.onError}
         />
-        {imageLoading ? (
+        {image.loading ? (
           <View pointerEvents="none" importantForAccessibility="no-hide-descendants" style={styles.loadingOverlay}>
             <ActivityIndicator accessibilityElementsHidden />
           </View>
