@@ -6,6 +6,8 @@ export type InventoryLifecyclePresentation = {
   isPubliclyForSale: boolean;
 };
 
+export type InventoryLifecycleFilter = 'ALL' | 'PRIVATE' | 'FOR_SALE' | 'RESERVED';
+
 export function inventoryLifecyclePresentation(
   state: InventoryMarketState | null | undefined,
 ): InventoryLifecyclePresentation {
@@ -48,6 +50,16 @@ export function inventoryLifecyclePresentation(
         isPubliclyForSale: false,
       };
   }
+}
+
+export function matchesInventoryLifecycleFilter(
+  state: InventoryMarketState | null | undefined,
+  filter: InventoryLifecycleFilter,
+): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'FOR_SALE') return inventoryLifecyclePresentation(state).isPubliclyForSale;
+  if (filter === 'RESERVED') return state === 'RESERVED';
+  return state == null || state === 'PRIVATE';
 }
 
 export function variantTitle(variant: CatalogVariant): string {
