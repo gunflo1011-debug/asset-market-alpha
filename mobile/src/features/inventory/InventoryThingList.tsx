@@ -3,7 +3,7 @@ import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View, type List
 import { premiumColors } from '../../lib/premiumTheme';
 import { buildSaleStartSurface } from '../../lib/saleStartSurface';
 import { PrivateThingCover } from './PrivateThingCover';
-import { itemTitle } from './presentation';
+import { inventoryLifecyclePresentation, itemTitle } from './presentation';
 import type { PrivateInventoryItem } from './types';
 
 type Props = {
@@ -24,18 +24,11 @@ function formatEuroCents(cents: number): string {
   });
 }
 
-function inventoryLifecycleLabel(item: PrivateInventoryItem): string {
-  if (item.market_state === 'RESERVED') return 'Reserved';
-  if (item.market_state === 'SOLD') return 'Sold';
-  if (item.market_state === 'OFFERS_ENABLED' || item.market_state === 'MARKET_ELIGIBLE' || item.market_state === 'ACTIVATING') return 'For sale';
-  return 'Private';
-}
-
 const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: { item: PrivateInventoryItem; onOpenItem: (itemId: string) => void }) {
   const snapshot = item.condition_snapshots[0];
   const generic = !item.product_variants;
   const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
-  const lifecycleLabel = inventoryLifecycleLabel(item);
+  const lifecycle = inventoryLifecyclePresentation(item.market_state);
   const title = itemTitle(item);
   const estimateAccessibilityLabel = item.value_evidence
     ? `Things Estimate ${formatEuroCents(item.value_evidence.estimated_value_cents)}`
@@ -44,7 +37,7 @@ const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: 
   return (
     <TouchableOpacity
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${estimateAccessibilityLabel}. ${lifecycleLabel}.`}
+      accessibilityLabel={`${title}. ${estimateAccessibilityLabel}. ${lifecycle.accessibilityLabel}.`}
       accessibilityHint="Opens Thing details"
       style={styles.compactItem}
       onPress={() => onOpenItem(item.id)}
@@ -66,7 +59,7 @@ const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: 
             {generic ? (item.category || 'Thing') : 'Device'}{snapshot ? ` · ${snapshot.housing_state.replace(/_/g, ' ').toLowerCase()}` : ''}
           </Text>
           <View style={styles.stateDot} />
-          <Text style={styles.itemState}>{lifecycleLabel}</Text>
+          <Text style={styles.itemState}>{lifecycle.label}</Text>
         </View>
       </View>
       <Text style={styles.chevron}>›</Text>
