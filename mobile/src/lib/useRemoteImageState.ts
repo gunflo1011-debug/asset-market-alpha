@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ImageSourcePropType } from 'react-native';
 
 type RemoteImageState = {
@@ -12,6 +12,8 @@ type RemoteImageState = {
 
 export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const normalizedUri = uri?.trim() || null;
+  const currentUriRef = useRef(normalizedUri);
+  currentUriRef.current = normalizedUri;
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
 
@@ -21,18 +23,18 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
   );
 
   const onLoadStart = useCallback(() => {
-    if (!normalizedUri) return;
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
     setFailedUri((current) => (current === normalizedUri ? null : current));
     setLoadedUri((current) => (current === normalizedUri ? null : current));
   }, [normalizedUri]);
 
   const onLoadEnd = useCallback(() => {
-    if (!normalizedUri) return;
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
     setLoadedUri(normalizedUri);
   }, [normalizedUri]);
 
   const onError = useCallback(() => {
-    if (!normalizedUri) return;
+    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
     setFailedUri(normalizedUri);
   }, [normalizedUri]);
 
