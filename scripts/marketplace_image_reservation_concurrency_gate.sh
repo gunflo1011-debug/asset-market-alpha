@@ -12,8 +12,8 @@ psql "$DB_URL" -v ON_ERROR_STOP=1 <<SQL
 delete from private.marketplace_offers where conversation_id in (select id from private.marketplace_conversations where item_id='$ITEM'::uuid);
 delete from private.marketplace_conversations where item_id='$ITEM'::uuid;
 
-# Reset the fixture to an eligible lifecycle state before publishing. The production
-# republish invariant intentionally rejects PUBLISHED while an item is RESERVED/SOLD.
+-- Reset the fixture to an eligible lifecycle state before publishing. The production
+-- republish invariant intentionally rejects PUBLISHED while an item is RESERVED/SOLD.
 update private.item_market_state set market_state='MARKET_ELIGIBLE',updated_at=now() where item_id='$ITEM'::uuid;
 
 insert into private.marketplace_listings(item_id,seller_id,asking_price_cents,status,published_at,updated_at,public_title,public_category,sold_price_cents)
