@@ -9,7 +9,8 @@ import { SellListingPanel } from '../marketplace/SellListingPanel';
 import { BarcodeCapturePanel } from './BarcodeCapturePanel';
 import { InventoryThingList } from './InventoryThingList';
 import { PrivateThingCover } from './PrivateThingCover';
-import { itemTitle, savedDate, variantTitle } from './presentation';
+import { inventoryLifecyclePresentation, itemTitle, matchesInventoryLifecycleFilter, savedDate, variantTitle } from './presentation';
+import type { InventoryLifecycleFilter } from './presentation';
 import { ValueEstimatePanel } from './ValueEstimatePanel';
 import type { CatalogVariant, PrivateInventoryItem } from './types';
 
@@ -47,7 +48,6 @@ type Props = {
 };
 
 type CaptureMode = 'scan' | 'manual' | 'catalog';
-type InventoryFilter = 'ALL' | 'PRIVATE' | 'FOR_SALE' | 'RESERVED';
 
 function formatEuroCents(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -55,20 +55,6 @@ function formatEuroCents(cents: number): string {
 
 function isModelEstimate(item: PrivateInventoryItem): boolean {
   return item.value_evidence?.source_type === 'MODEL_V1_OWNER_INPUT';
-}
-
-function inventoryLifecycleLabel(item: PrivateInventoryItem): string {
-  if (item.market_state === 'RESERVED') return 'Reserved';
-  if (item.market_state === 'SOLD') return 'Sold';
-  if (item.market_state === 'OFFERS_ENABLED' || item.market_state === 'MARKET_ELIGIBLE' || item.market_state === 'ACTIVATING') return 'For sale';
-  return 'Private';
-}
-
-function matchesInventoryFilter(item: PrivateInventoryItem, filter: InventoryFilter): boolean {
-  if (filter === 'ALL') return true;
-  if (filter === 'RESERVED') return item.market_state === 'RESERVED';
-  if (filter === 'FOR_SALE') return item.market_state === 'OFFERS_ENABLED' || item.market_state === 'MARKET_ELIGIBLE' || item.market_state === 'ACTIVATING';
-  return item.market_state == null || item.market_state === 'PRIVATE';
 }
 
 function matchesInventorySearch(item: PrivateInventoryItem, query: string): boolean {
@@ -93,11 +79,11 @@ export function InventoryScreen(props: Props) {
   const [captureMode, setCaptureMode] = useState<CaptureMode>('scan');
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [pendingMarketplaceItemId, setPendingMarketplaceItemId] = useState<string | null>(null);
-  const [inventoryFilter, setInventoryFilter] = useState<InventoryFilter>('ALL');
+  const [inventoryFilter, setInventoryFilter] = useState<InventoryLifecycleFilter>('ALL');
   const [inventorySearch, setInventorySearch] = useState('');
 
   const selectedItem = useMemo(() => props.items.find((item) => item.id === selectedItemId) ?? null, [props.items, selectedItemId]);
-  const lifecycleItems = useMemo(() => props.items.filter((item) => matchesInventoryFilter(item, inventoryFilter)), [props.items, inventoryFilter]);
+  const lifecycleItems = useMemo(() => props.items.filter((item) => matchesInventoryLifecycleFilter(item.market_state, inventoryFilter)), [props.items, inventoryFilter]);
   const visibleItems = useMemo(() => lifecycleItems.filter((item) => matchesInventorySearch(item, inventorySearch)), [lifecycleItems, inventorySearch]);
   const inventoryValue = useMemo(() => summarizeInventoryValue(props.items.map((item) => ({
     itemId: item.id,
@@ -166,7 +152,7 @@ export function InventoryScreen(props: Props) {
     const sale = buildSaleStartSurface(selectedItem.id, selectedItem.value_evidence?.estimated_value_cents ?? null);
     const saleOpen = props.saleIntentItemId === selectedItem.id;
     const modelEstimate = isModelEstimate(selectedItem);
-    const lifecycleLabel = inventoryLifecycleLabel(selectedItem);
+    const lifecycle = inventoryLifecyclePresentation(selectedItem.market_state);
     const purchasePriceCents = selectedItem.purchase_context?.purchase_price_cents ?? null;
     const selectedTitle = itemTitle(selectedItem);
 
@@ -175,7 +161,7 @@ export function InventoryScreen(props: Props) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailContainer}>
           <View style={styles.topBar}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to inventory" onPress={() => setSelectedItemId(null)}><Text style={styles.topLink}>‹ Inventory</Text></TouchableOpacity>
-            <View style={styles.statePill}><Text style={styles.statePillText}>{lifecycleLabel}</Text></View>
+            <View accessible accessibilityLabel={lifecycle.accessibilityLabel} style={styles.statePill}><Text style={styles.statePillText}>{lifecycle.label}</Text></View>
           </View>
 
           <View style={styles.detailHero}>
@@ -340,7 +326,7 @@ export function InventoryScreen(props: Props) {
               ['PRIVATE', 'My Things'],
               ['FOR_SALE', 'For sale'],
               ['RESERVED', 'Reserved'],
-            ] as Array<[InventoryFilter, string]>).map(([filter, label]) => {
+            ] as Array<[InventoryLifecycleFilter, string]>).map(([filter, label]) => {
               const active = inventoryFilter === filter;
               return (
                 <TouchableOpacity key={filter} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setInventoryFilter(filter)}>
