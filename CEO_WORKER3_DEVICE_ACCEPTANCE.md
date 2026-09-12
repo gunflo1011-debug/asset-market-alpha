@@ -1,109 +1,141 @@
-# CEO Worker 3 — Owner-ready Android acceptance packet
+# Things 1.0 — Android production-device acceptance
 
-Status: **BLOCKED ON DETERMINISTIC APK INPUT + LIVE TWO-USER EVIDENCE**
+Status: **DEVICE ACCEPTANCE REQUIRED BEFORE MARK-READY**
 
-Packet target commit: `9626f6960e18d4072e0c12ac42bd427290f691e9` (current evidenced `main` when this packet was refreshed).
+Current production candidate baseline: `main` commit `2c57dd658c79770fe8563c958122059ae428b82b`.
 
-This is the owner-test contract for the current Things alpha. Do not mark it PASS until an APK is built from the intended current tested commit and the live two-account matrix passes through normal app/Auth clients. Static RLS evidence is not live two-user evidence.
+Current evidenced Android workflow: `android-release` run `34676259571` / run number `185`, completed successfully on the baseline commit. Device-test artifact: `things-android-device-test-candidate` (artifact id `10292617939`, 36,342,664 bytes, SHA-256 digest recorded by GitHub Actions). This artifact is explicitly a device-test candidate, not a Play Store signing proof.
 
-## Pre-build gate — do this before spending a build attempt
+This packet is the acceptance contract for Things 1.0. CI/static checks are necessary but are not device evidence. Do not call the app market-ready until the complete production journey and isolation checks below pass on the intended APK.
 
-1. `mobile/package-lock.json` must exist in the repository at the intended build commit.
-2. From `mobile/`, `npm ci --no-audit --no-fund` must be satisfiable from `package.json` + the committed lockfile.
-3. Run `npm run check:client-secrets` and `npm run typecheck`.
-4. Run `node scripts/check-two-user-rls-acceptance.mjs`; expected output: `Two-user Auth/RLS acceptance static contract passed.`
-5. Do not treat these static checks as proof of device behavior.
+## 1. Pre-install release gate
 
-At the current target commit the lockfile is not yet evidenced as committed, so the packet remains BLOCKED before APK acceptance. The approved dependency-input path is to generate/review the lockfile first; do not substitute a hand-written or partial lockfile.
+Before testing, verify:
 
-## APK artifact gate
+1. The APK was produced by a successful `android-release` run from the exact intended `main` commit.
+2. The artifact is named `things-android-device-test-candidate` and is non-zero/non-expired.
+3. `mobile-release-ci`, `backend-security-gate`, and `actions-smoke` are green for the relevant integrated code.
+4. Production config uses hosted HTTPS Supabase, the production Things identity, and no privileged/service-role client key.
+5. Never treat the device-test APK as Play Store signed. Store publication requires the separate signed AAB path and configured upload-key secrets.
 
-Before installation, record all values below without credentials or tokens:
+Reject an APK from an older commit, an Alpha artifact, a failed workflow, or an artifact with unknown provenance.
 
-- intended/tested Git commit SHA
-- successful Android workflow run ID
-- artifact name (`things-alpha-android-standalone` in the current workflow contract)
-- APK filename
-- APK non-zero byte size
+## 2. Fresh install / Auth / session
 
-Reject the artifact if the workflow did not succeed, its SHA differs from the intended tested commit, the APK does not exist/is zero bytes, or the artifact came from an older run.
+Use normal disposable Supabase Auth accounts only; never admin/service-role credentials.
 
-## Install path
-
-1. Download the APK only from the successful Android workflow run recorded above.
-2. Transfer/open the APK on the Android test device.
-3. If Android requests permission to install unknown apps, enable it only for the browser/files source needed for this install.
-4. Install the APK and launch Things from a fresh install. Do not record acceptance evidence against a previously installed older build.
-
-## Single-account core smoke
-
-Use a disposable normal Auth account; never service-role/admin credentials.
-
-| Step | Action | PASS expectation |
+| ID | Action | PASS expectation |
 |---|---|---|
-| S1 | Fresh launch | Real backend/auth UI appears; no fake private inventory fallback. |
-| S2 | Register/sign in | Normal Supabase Auth succeeds. If email confirmation is required, complete it normally. |
-| S3 | Load inventory | `My devices` loads through the authenticated path. |
-| S4 | Capture/add | Select a catalog device and `Add privately`; success is shown and no public listing is created. |
-| S5 | Inventory | Added device appears after refresh/load and remains private. |
-| S6 | Value | Unknown/unverified monetary value stays unknown/unavailable; it is never converted to €0 or an invented asking price. |
-| S7 | Sell-start | Explicit owner tap opens only the private decision surface; no listing is auto-created. |
-| S8 | Relaunch | Valid session restores and the private device is re-read from hosted storage. |
-| S9 | Logout/login | Signed-out state exposes no private inventory; after normal re-login the same owner's device returns. |
+| A1 | Fresh install and launch | Things opens into the real production auth/app surface; no fake private-data fallback. |
+| A2 | Register / sign in | Normal Auth completes; confirmation/reset links return to Things through the production deep-link path. |
+| A3 | Relaunch | Valid session restores without exposing another account's data. |
+| A4 | Invalid login | Clear user-facing error; no private data appears. |
+| A5 | Sign out | Inventory, private item details and seller-private state are no longer accessible. |
 
-## Exact two-account Auth/RLS matrix
+## 3. Core owner journey — Add → Inventory → Thing detail
 
-This section consumes Worker 2's repository contract at `CEO_WORKER2_TWO_USER_ACCEPTANCE.md` (commits `3311a2d3` and `9626f696`). Use two disposable accounts created through normal Auth only.
+Run one complete creation flow. At least one pass must use camera/photo or barcode if available on the device; manual entry is not sufficient as the only evidence.
+
+| ID | Action | PASS expectation |
+|---|---|---|
+| C1 | Add Thing | Barcode/photo/manual entry reaches suggestions/confirmation without crash or dead navigation. |
+| C2 | Confirm and save | Exactly one Thing is persisted; repeated taps while saving do not create accidental duplicates. |
+| C3 | Inventory | New Thing appears after refresh and after relaunch. Large-list scrolling remains responsive. |
+| C4 | Images | Image loads/changes do not leave permanent loader/error overlays or stale previous images. |
+| C5 | Thing detail | Product data, private images and lifecycle state match the saved Thing. |
+| C6 | Estimate | Unknown/unverified estimate remains unknown; it is never silently converted to €0 or an asking price. |
+
+Private images, serial numbers, exact addresses and seller-private metadata must remain private throughout this section.
+
+## 4. Listing journey — Thing → public Marketplace listing
+
+| ID | Action | PASS expectation |
+|---|---|---|
+| L1 | Start selling | Explicit owner action enters listing flow; no automatic public listing. |
+| L2 | Asking price | Asking Price is entered independently from Estimate. Changing it must not mutate the Estimate source of truth. |
+| L3 | Location | Only the intended coarse marketplace location is exposed; exact address/private owner data stays private. |
+| L4 | Publish | Lifecycle progresses consistently (`Ready to list` / `Publishing` / `For sale`) and only actually public listings show as For sale. |
+| L5 | Discovery | The published item is discoverable from another normal account with only public listing fields/images. |
+| L6 | Reopen/edit | Listing remains coherent after refresh/relaunch; no stale pre-publish state returns. |
+
+## 5. Two-user Marketplace transaction journey
+
+Use two disposable normal accounts: Seller A and Buyer B.
+
+| ID | Action | PASS expectation |
+|---|---|---|
+| M1 | Buyer B opens listing | B sees public listing data only; never A's private inventory/address/serial/private image state. |
+| M2 | Make Offer | Offer amount is its own source of truth and does not overwrite Asking Price or Estimate. |
+| M3 | Seller receives offer | A sees the correct offer/conversation; unrelated accounts cannot read it. |
+| M4 | Counter | Counter amount is represented independently and both parties converge on the same current negotiation state. |
+| M5 | Accept | Accepted offer produces one coherent transaction/conversation state. |
+| M6 | Chat | A and B can exchange messages; keyboard/send/loading/retry behavior remains usable and messages do not leak to other accounts. |
+| M7 | Reserve | Reserved state is reflected consistently in listing/conversation/inventory and cannot regress to a stale Published state. |
+| M8 | Sold | Sold state persists across refresh/relaunch and the listing cannot be republished after transaction completion. |
+| M9 | Final/Paid Price | Final/Paid Price is recorded independently from Estimate, Asking Price and Offer/Counter. |
+| M10 | Buyer adoption | Buyer receives the intended adopted Thing state; seller-private fields are not transferred unless explicitly part of the product contract. |
+
+Any cross-account access to private data is a **STOP / P0 privacy failure**.
+
+## 6. Exact account-isolation matrix
 
 | ID | Action | PASS | Immediate failure |
 |---|---|---|---|
-| A1 | Fresh app, sign up/sign in as A | Normal client auth succeeds | Admin/service-role required or auth fails |
-| A2 | Add one disposable device as A | Device appears after refresh and remains private | Write fails/device not visible to A |
-| A3 | Relaunch while A session should persist | Session restores; A device remains visible | Session lost/device disappears |
-| A4 | Sign out A | Private inventory no longer accessible | Private inventory accessible signed out |
-| B1 | Sign up/sign in as B | Normal client auth succeeds | Admin/service-role required or auth fails |
-| B2 | Read B inventory before adding | A device/conditions absent | **STOP / P0 privacy failure:** any A-owned data visible |
-| B3 | Add one disposable device as B | B device appears; A remains absent | Wrong-owner visibility/write failure |
-| B4 | Relaunch as B | B session/data persist; A remains absent | Cross-owner visibility/persistence failure |
-| A5 | Sign out B, sign back in A | A device visible; B device absent | **STOP / P0 privacy failure:** any B-owned data visible |
-| ANON | Sign out; normal unauthenticated state | No private item/condition data exposed | **STOP / P0 privacy failure:** any private row exposed |
+| R1 | A owns a private Thing | Visible to A | Write/read failure for owner |
+| R2 | B opens Inventory | A private Thing absent | **P0:** A private Thing visible |
+| R3 | B adds own Thing | B Thing visible; A remains absent | Wrong-owner visibility/write |
+| R4 | Sign back in as A | A Thing visible; B private Thing absent | **P0:** B private Thing visible |
+| R5 | Signed out | No private inventory/conditions/conversations | **P0:** any private row exposed |
+| R6 | Public listing read | Only explicitly public marketplace projection visible | Exact address, serial, private images or seller-private data exposed |
 
-Do not weaken RLS for cleanup. The current client has no safe owner-delete path; disposable rows may remain in disposable accounts rather than using privileged SQL/admin cleanup.
+Do not weaken RLS for test cleanup.
 
-## Error / offline / retry sanity
+## 7. Network, retries and lifecycle race sanity
 
-1. While authenticated, disable network and trigger Refresh. PASS: visible error/retry state; no fake inventory substitution.
-2. Re-enable network and Refresh. PASS: hosted inventory recovers without accidental duplicate creation.
-3. Attempt invalid login. PASS: user-facing auth error and no private data exposure.
-4. Repeated taps while a save is busy are not evidence of repeated successful captures; inspect inventory for accidental duplicates.
+1. Disable network during Inventory refresh. PASS: visible error/retry state; no fake inventory substitution.
+2. Re-enable network and retry. PASS: hosted state recovers without duplicate creation.
+3. Repeat with Marketplace refresh. PASS: an older request cannot overwrite newer listing/interest/conversation state.
+4. Switch product images quickly. PASS: stale callbacks from the previous URI cannot re-activate a loader or replace the current image state.
+5. Trigger reserve/sold transitions and refresh/navigation rapidly. PASS: transaction state never visually or persistently regresses to Published.
+6. Background/relaunch during an in-progress user flow. PASS: no private data leaks and state returns to a coherent screen.
 
-## Known alpha limitations
+## 8. World-class consumer-app acceptance
 
-- Verified monetary value evidence is not yet connected; truthful unknown/unavailable value states are expected.
-- Sell-start is intentionally a private decision step and does not publish a marketplace listing.
-- Physical-device success cannot be inferred from static tests or CI alone.
-- Multi-user isolation cannot be inferred from schema/RLS inspection alone; the complete A/B matrix must pass against hosted Supabase through normal clients.
-- APK acceptance is blocked until deterministic dependency input (`mobile/package-lock.json`) is committed and the intended build succeeds.
+This is not a screenshot-only check. Test all major screens as one product: Inventory/Home, Marketplace, Listing Detail, Make an Offer, Offers Received, Chat, Add Thing and Thing Detail.
 
-## Evidence to retain
+PASS requires:
 
-For the acceptance run retain only:
+- consistent navigation/back behavior and no dead ends;
+- safe-area/keyboard handling on the actual device;
+- touch targets usable one-handed;
+- loading/empty/error/success states understandable without developer knowledge;
+- no obvious visual jumps from image loading or list refresh;
+- smooth Inventory/Marketplace scrolling with representative data;
+- coherent white/navy premium visual system across the complete journey;
+- no Alpha/debug/internal wording in normal consumer surfaces.
 
-- tested commit SHA
-- workflow run ID + artifact name + APK filename/size
-- Android device model and Android version
-- fresh install vs upgrade
-- account label only (`A`/`B`, never email/user ID)
-- PASS/BLOCKED/FAIL for S1–S9, A1–A5, B1–B4 and ANON
-- UTC test time
-- exact failing step, expected result, actual result and reproducibility
-- redacted screenshot/screen recording only if it contains no credentials/tokens
-- network state where relevant
+A polished individual screen does not compensate for a broken transaction or privacy journey.
 
-Never retain passwords, access/refresh tokens, service-role keys, private Supabase secrets, account emails, user UUIDs, item UUIDs or full auth logs.
+## 9. Evidence to retain
 
-## Acceptance decision
+Retain only non-sensitive evidence:
 
-**PASS** only when the current intended APK is successful and integrity-checked; fresh install succeeds; normal registration/login/logout succeeds; Capture → Inventory → truthful Value → explicit Sell-start succeeds; persistence/relaunch succeeds; A→B and B→A isolation succeeds; signed-out state exposes no private inventory; and offline/retry sanity shows no privacy/data-corruption failure.
+- tested commit SHA;
+- workflow run id and artifact id/name/size/digest;
+- Android device model + Android version;
+- fresh install vs upgrade;
+- account labels `A` / `B` only;
+- PASS / BLOCKED / FAIL for A1–A5, C1–C6, L1–L6, M1–M10, R1–R6 and network/UI checks;
+- UTC test time;
+- exact failing step, expected result, actual result and reproducibility;
+- redacted screenshots/video only when free of credentials, tokens, account emails, exact addresses and other private data.
 
-Use **BLOCKED** when a prerequisite such as deterministic lockfile/APK/two normal accounts is missing. Use **FAIL** when an executed acceptance step violates its expected behavior. Any cross-account or anonymous private-data visibility is an immediate **STOP / P0 privacy failure**.
+Never retain passwords, access/refresh tokens, service-role keys, private Supabase secrets, account UUIDs or full auth logs.
+
+## 10. Release decision
+
+**MARK-READY** only when the intended current APK passes fresh-install Auth/session, complete Add → Inventory → Estimate → Listing → Discovery → Offer/Counter/Accept → Chat → Reserved/Sold → Buyer Adoption, two-account isolation, offline/retry/race sanity and cross-screen consumer-quality acceptance.
+
+Use **BLOCKED** when a prerequisite or physical-device/two-account evidence is missing. Use **FAIL** when an executed step violates its expected behavior. Any privacy/account-isolation breach, destructive data regression, price-source conflation, or transaction-state corruption is an immediate release blocker.
+
+Play Store publication remains a separate final gate: the signed AAB path must be executed with explicitly configured Android upload-key credentials and verified independently. Device acceptance alone does not authorize or perform a store publish.
