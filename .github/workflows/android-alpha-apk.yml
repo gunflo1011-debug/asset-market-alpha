@@ -1,4 +1,4 @@
-name: android-release-apk
+name: android-release
 
 on:
   push:
@@ -12,10 +12,11 @@ on:
       task:
         description: 'Choose what to run'
         required: true
-        default: 'build-apk'
+        default: 'build-device-apk'
         type: choice
         options:
-          - build-apk
+          - build-device-apk
+          - build-store-aab
           - generate-lockfile
 
 permissions:
@@ -50,8 +51,8 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build-apk:
-    if: ${{ github.event_name == 'push' || inputs.task == 'build-apk' }}
+  build-device-apk:
+    if: ${{ github.event_name == 'push' || inputs.task == 'build-device-apk' }}
     runs-on: windows-latest
     env:
       NODE_ENV: production
@@ -135,21 +136,122 @@ jobs:
         shell: powershell
         working-directory: ${{ env.MOBILE_BUILD_ROOT }}\android
         run: .\gradlew.bat clean --no-daemon --max-workers=1 --no-watch-fs
-      - name: Build release APK
+      - name: Build device-test APK
         shell: powershell
         working-directory: ${{ env.MOBILE_BUILD_ROOT }}\android
         run: .\gradlew.bat assembleRelease --no-daemon --max-workers=1 --no-watch-fs
-      - name: Verify release APK
+      - name: Verify device-test APK
         shell: powershell
         run: |
           $apk = Join-Path $env:MOBILE_BUILD_ROOT 'android\app\build\outputs\apk\release\app-release.apk'
           if (-not (Test-Path $apk)) { throw 'Release APK was not created' }
           if ((Get-Item $apk).Length -eq 0) { throw 'Release APK is empty' }
-          Copy-Item $apk "$env:GITHUB_WORKSPACE\things-release.apk" -Force
-      - name: Upload standalone APK
+          Copy-Item $apk "$env:GITHUB_WORKSPACE\things-device-test.apk" -Force
+          Write-Warning 'This APK is for device acceptance only. Expo prebuild signs the default release variant with the Android debug key unless store credentials are explicitly configured.'
+      - name: Upload device-test APK
         uses: actions/upload-artifact@v4
         with:
-          name: things-android-release-candidate
-          path: things-release.apk
+          name: things-android-device-test-candidate
+          path: things-device-test.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  build-store-aab:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.task == 'build-store-aab' }}
+    runs-on: windows-latest
+    env:
+      NODE_ENV: production
+      EXPO_PUBLIC_SUPABASE_URL: https://tfshblqsrczoekfsexrf.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_dTP4W0G3LHUhIN88wOk2PQ_w_GBXku3
+      THINGS_ANDROID_KEYSTORE_BASE64: ${{ secrets.THINGS_ANDROID_KEYSTORE_BASE64 }}
+      THINGS_ANDROID_KEY_ALIAS: ${{ secrets.THINGS_ANDROID_KEY_ALIAS }}
+      THINGS_ANDROID_KEY_PASSWORD: ${{ secrets.THINGS_ANDROID_KEY_PASSWORD }}
+      THINGS_ANDROID_STORE_PASSWORD: ${{ secrets.THINGS_ANDROID_STORE_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Require Android store signing credentials
+        shell: powershell
+        run: |
+          $required = @('THINGS_ANDROID_KEYSTORE_BASE64','THINGS_ANDROID_KEY_ALIAS','THINGS_ANDROID_KEY_PASSWORD','THINGS_ANDROID_STORE_PASSWORD')
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) { throw "Missing required store-signing secret: $name" }
+          }
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci --include=dev --no-audit --no-fund
+      - name: Reject client-side secrets
+        working-directory: mobile
+        run: npm run check:client-secrets
+      - name: Validate production release configuration
+        working-directory: mobile
+        run: npm run check:release-config
+      - name: Typecheck
+        working-directory: mobile
+        run: npm run typecheck
+      - name: Generate native Android project
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --clean
+      - name: Configure upload-key signing
+        shell: powershell
+        working-directory: mobile
+        run: |
+          $keystorePath = Join-Path (Resolve-Path 'android/app') 'things-upload.keystore'
+          [IO.File]::WriteAllBytes($keystorePath, [Convert]::FromBase64String($env:THINGS_ANDROID_KEYSTORE_BASE64))
+          $gradleProperties = 'android/gradle.properties'
+          Add-Content $gradleProperties "`nTHINGS_UPLOAD_STORE_FILE=things-upload.keystore"
+          Add-Content $gradleProperties "THINGS_UPLOAD_KEY_ALIAS=$env:THINGS_ANDROID_KEY_ALIAS"
+          Add-Content $gradleProperties "THINGS_UPLOAD_KEY_PASSWORD=$env:THINGS_ANDROID_KEY_PASSWORD"
+          Add-Content $gradleProperties "THINGS_UPLOAD_STORE_PASSWORD=$env:THINGS_ANDROID_STORE_PASSWORD"
+          $buildGradle = 'android/app/build.gradle'
+          $content = Get-Content $buildGradle -Raw
+          $releaseSigning = @'
+              release {
+                  if (!project.hasProperty('THINGS_UPLOAD_STORE_FILE')) {
+                      throw new GradleException('Store signing credentials are required for release')
+                  }
+                  storeFile file(THINGS_UPLOAD_STORE_FILE)
+                  storePassword THINGS_UPLOAD_STORE_PASSWORD
+                  keyAlias THINGS_UPLOAD_KEY_ALIAS
+                  keyPassword THINGS_UPLOAD_KEY_PASSWORD
+              }
+          '@
+          if ($content -notmatch 'signingConfigs\s*\{[\s\S]*debug\s*\{') { throw 'Could not locate generated signingConfigs block' }
+          $content = $content -replace '(signingConfigs\s*\{[\s\S]*?debug\s*\{[\s\S]*?\}\s*)', "`$1`r`n$releaseSigning`r`n"
+          if ($content -notmatch 'release\s*\{[\s\S]*?signingConfig\s+signingConfigs\.debug') { throw 'Could not locate generated release debug-signing assignment' }
+          $content = $content -replace '(release\s*\{[\s\S]*?)signingConfig\s+signingConfigs\.debug', '`$1signingConfig signingConfigs.release'
+          Set-Content -Path $buildGradle -Value $content -Encoding utf8
+      - name: Build store AAB
+        shell: powershell
+        working-directory: mobile\android
+        run: .\gradlew.bat bundleRelease --no-daemon --max-workers=1 --no-watch-fs
+      - name: Verify store AAB
+        shell: powershell
+        working-directory: mobile
+        run: |
+          $aab = 'android/app/build/outputs/bundle/release/app-release.aab'
+          if (-not (Test-Path $aab)) { throw 'Release AAB was not created' }
+          if ((Get-Item $aab).Length -eq 0) { throw 'Release AAB is empty' }
+          $certOutput = (& keytool -printcert -jarfile $aab 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect AAB signing certificate' }
+          if ($certOutput -match 'CN=Android Debug') { throw 'Store AAB is signed with the Android debug certificate' }
+          Copy-Item $aab "$env:GITHUB_WORKSPACE\things-store-release.aab" -Force
+      - name: Upload store AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: things-android-store-release
+          path: things-store-release.aab
           if-no-files-found: error
           retention-days: 7
