@@ -138,6 +138,7 @@ export async function loadMyMarketplaceConversations(): Promise<MarketplaceConve
     item_id: String(row.item_id),
     role: row.role as MarketplaceConversation['role'],
     status: row.status as MarketplaceConversation['status'],
+    title: String(row.title ?? 'Thing'),
     final_sale_price_cents: row.final_sale_price_cents == null ? null : Number(row.final_sale_price_cents),
     updated_at: String(row.updated_at),
   }));
