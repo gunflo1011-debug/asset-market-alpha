@@ -9,6 +9,9 @@ type Props = {
   buyer: boolean;
   closed: boolean;
   onUseQuickMessage: () => void;
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
 };
 
 const MessageBubble = memo(function MessageBubble({ message }: { message: MarketplaceMessage }) {
@@ -23,10 +26,33 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: Market
   );
 });
 
-export const MarketplaceMessageList = memo(function MarketplaceMessageList({ messages, loading, buyer, closed, onUseQuickMessage }: Props) {
+export const MarketplaceMessageList = memo(function MarketplaceMessageList({
+  messages,
+  loading,
+  buyer,
+  closed,
+  onUseQuickMessage,
+  hasOlder = false,
+  loadingOlder = false,
+  onLoadOlder,
+}: Props) {
   const newestFirstMessages = useMemo(() => [...messages].reverse(), [messages]);
   const renderItem = useCallback(({ item }: { item: MarketplaceMessage }) => <MessageBubble message={item} />, []);
   const keyExtractor = useCallback((item: MarketplaceMessage) => item.message_id, []);
+  const historyControl = hasOlder && onLoadOlder ? (
+    <View style={styles.historyControl}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={loadingOlder ? 'Loading earlier messages' : 'Load earlier messages'}
+        accessibilityHint="Loads older messages without leaving this conversation"
+        disabled={loadingOlder}
+        style={[styles.historyButton, loadingOlder && styles.historyButtonDisabled]}
+        onPress={onLoadOlder}
+      >
+        {loadingOlder ? <ActivityIndicator size="small" /> : <Text style={styles.historyButtonText}>Earlier messages</Text>}
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
   return (
     <FlatList
@@ -44,6 +70,7 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
       maxToRenderPerBatch={12}
       windowSize={9}
       removeClippedSubviews={Platform.OS === 'android'}
+      ListFooterComponent={historyControl}
       ListEmptyComponent={loading ? (
         <ActivityIndicator accessibilityLabel="Loading messages" />
       ) : (
@@ -70,6 +97,20 @@ export const MarketplaceMessageList = memo(function MarketplaceMessageList({ mes
 const styles = StyleSheet.create({
   messageList: { flex: 1 },
   messageContent: { gap: premiumSpacing.md, paddingVertical: premiumSpacing.xs },
+  historyControl: { alignItems: 'center', paddingBottom: premiumSpacing.xs },
+  historyButton: {
+    minHeight: premiumTouch.minimum,
+    borderRadius: premiumRadii.pill,
+    backgroundColor: premiumColors.surface,
+    borderWidth: 1,
+    borderColor: premiumColors.border,
+    paddingHorizontal: premiumSpacing.lg,
+    paddingVertical: premiumSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyButtonDisabled: { opacity: 0.6 },
+  historyButtonText: { fontSize: 12, fontWeight: '800', color: premiumColors.textMuted },
   empty: {
     backgroundColor: premiumColors.surface,
     borderRadius: premiumRadii.card,
