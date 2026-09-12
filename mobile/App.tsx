@@ -4,6 +4,8 @@ import { ActivityIndicator, Alert, Linking, SafeAreaView, StyleSheet, Text, View
 import {
   beginPasswordRecoveryFromUrl,
   getSession,
+  isEmailConfirmationUrl,
+  isPasswordRecoveryUrl,
   onAuthStateChange,
   requestAccountEmailChange,
   requestPasswordReset,
@@ -104,14 +106,14 @@ export default function App() {
     let active = true;
     const handleUrl = async (url: string | null) => {
       if (!url) return;
-      if (url.startsWith('thingsalpha://auth/confirmed')) {
+      if (isEmailConfirmationUrl(url)) {
         if (active) {
           setAuthMode('signin');
           setMessage('Email confirmed. You can sign in now.');
         }
         return;
       }
-      if (!url.startsWith('thingsalpha://auth/reset-password')) return;
+      if (!isPasswordRecoveryUrl(url)) return;
       try {
         setAuthBusy(true);
         setMessage(null);
