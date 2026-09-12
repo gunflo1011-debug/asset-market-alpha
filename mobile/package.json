@@ -1,6 +1,6 @@
 {
   "name": "asset-market-alpha-mobile",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
@@ -42,6 +42,7 @@
     "test:two-user-rls-static": "node scripts/check-two-user-rls-acceptance.mjs",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "check:alpha-config": "node scripts/check-alpha-config.mjs",
+    "check:release-config": "node scripts/check-release-config.mjs",
     "check:expo-deps": "npx expo install --check",
     "smoke:hosted-alpha": "node scripts/hosted-alpha-smoke.mjs",
     "smoke:two-user-rls": "node scripts/two-user-runtime-smoke.mjs"
