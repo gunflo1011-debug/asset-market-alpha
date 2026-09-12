@@ -81,6 +81,7 @@ export type MarketplaceConversation = {
   item_id: string;
   role: MarketplaceConversationRole;
   status: MarketplaceConversationStatus;
+  title: string;
   final_sale_price_cents: number | null;
   updated_at: string;
 };
