@@ -2,7 +2,10 @@
   "expo": {
     "name": "Things",
     "slug": "things",
-    "scheme": "things",
+    "scheme": [
+      "things",
+      "thingsalpha"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
