@@ -4,8 +4,18 @@ import { trackAlphaEvent } from './analytics';
 import { assertAlphaBackendCompatible } from './readiness';
 
 const MIN_PASSWORD_LENGTH = 8;
-const EMAIL_CONFIRM_REDIRECT = 'thingsalpha://auth/confirmed';
-const PASSWORD_RESET_REDIRECT = 'thingsalpha://auth/reset-password';
+const EMAIL_CONFIRM_REDIRECT = 'things://auth/confirmed';
+const PASSWORD_RESET_REDIRECT = 'things://auth/reset-password';
+const LEGACY_EMAIL_CONFIRM_REDIRECT = 'thingsalpha://auth/confirmed';
+const LEGACY_PASSWORD_RESET_REDIRECT = 'thingsalpha://auth/reset-password';
+
+export function isEmailConfirmationUrl(url: string): boolean {
+  return url.startsWith(EMAIL_CONFIRM_REDIRECT) || url.startsWith(LEGACY_EMAIL_CONFIRM_REDIRECT);
+}
+
+export function isPasswordRecoveryUrl(url: string): boolean {
+  return url.startsWith(PASSWORD_RESET_REDIRECT) || url.startsWith(LEGACY_PASSWORD_RESET_REDIRECT);
+}
 
 function client() {
   if (!supabase) throw new Error('Supabase is not configured for this build.');
@@ -119,7 +129,7 @@ function recoveryParam(url: string, key: string): string | null {
 }
 
 export async function beginPasswordRecoveryFromUrl(url: string): Promise<void> {
-  if (!url.startsWith(PASSWORD_RESET_REDIRECT)) {
+  if (!isPasswordRecoveryUrl(url)) {
     throw new Error('This password reset link is not valid for Things.');
   }
 
