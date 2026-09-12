@@ -24,9 +24,10 @@ export {
   loadMyMarketplaceConversations,
   loadMyMarketplaceInterests,
   loadMyMarketplaceListings,
-  loadMyMarketplaceMessages,
   loadPrivateInventory,
 } from './inventoryQueries';
+
+export { loadMyMarketplaceMessages } from './marketplaceMessages';
 
 export {
   loadMyMarketplaceOffers,
