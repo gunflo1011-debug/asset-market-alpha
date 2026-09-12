@@ -57,6 +57,7 @@ try {
 }
 
 const appConfig = JSON.parse(fs.readFileSync(new URL('../app.json', import.meta.url), 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const expo = appConfig.expo ?? {};
 const failures = [];
 const schemes = Array.isArray(expo.scheme) ? expo.scheme : [expo.scheme].filter(Boolean);
@@ -71,6 +72,16 @@ if (expo.version !== '1.0.0') failures.push('expo.version must be 1.0.0 for the 
 if (expo.android?.package !== 'com.gunflo1011.things') failures.push('android.package must use the production Things application id');
 if (expo.slug?.toLowerCase().includes('alpha')) failures.push('release slug must not contain alpha');
 if (expo.android?.package?.toLowerCase().includes('alpha')) failures.push('release Android package must not contain alpha');
+
+const runtimeDependencyGroups = [packageJson.dependencies ?? {}, packageJson.devDependencies ?? {}];
+const nonExactDependencies = runtimeDependencyGroups.flatMap((group) =>
+  Object.entries(group)
+    .filter(([, version]) => typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version))
+    .map(([name, version]) => `${name}@${version}`),
+);
+if (nonExactDependencies.length) {
+  failures.push(`release dependencies must use exact versions: ${nonExactDependencies.join(', ')}`);
+}
 
 if (failures.length) {
   console.error('Mobile release configuration is not production-ready:');
