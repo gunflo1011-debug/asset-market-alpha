@@ -1,9 +1,9 @@
 {
   "expo": {
     "name": "Things",
-    "slug": "things-alpha",
-    "scheme": "thingsalpha",
-    "version": "0.1.0",
+    "slug": "things",
+    "scheme": "things",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
@@ -15,7 +15,7 @@
       ]
     ],
     "android": {
-      "package": "com.gunflo1011.thingsalpha",
+      "package": "com.gunflo1011.things",
       "softwareKeyboardLayoutMode": "resize"
     },
     "androidStatusBar": {
