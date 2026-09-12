@@ -27,7 +27,7 @@ export {
   loadPrivateInventory,
 } from './inventoryQueries';
 
-export { loadMyMarketplaceMessages } from './marketplaceMessages';
+export { loadMyMarketplaceMessagePage, loadMyMarketplaceMessages } from './marketplaceMessages';
 
 export {
   loadMyMarketplaceOffers,
