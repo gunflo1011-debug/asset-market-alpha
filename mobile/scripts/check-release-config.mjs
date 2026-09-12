@@ -9,7 +9,7 @@ if (missing.length) {
 }
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY.trim();
 
 try {
   const parsed = new URL(url);
@@ -22,25 +22,55 @@ try {
   process.exit(1);
 }
 
-if (/service[_-]?role|secret/i.test(key)) {
-  console.error('A privileged Supabase key must never be bundled into the mobile app.');
+function decodeBase64UrlJson(segment) {
+  const normalized = segment.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+}
+
+function assertPublicSupabaseKey(value) {
+  if (/service[_-]?role|secret/i.test(value)) {
+    throw new Error('A privileged Supabase key must never be bundled into the mobile app.');
+  }
+
+  const segments = value.split('.');
+  if (segments.length !== 3) return;
+
+  let payload;
+  try {
+    payload = decodeBase64UrlJson(segments[1]);
+  } catch {
+    throw new Error('Legacy Supabase JWT key could not be decoded safely.');
+  }
+
+  const role = typeof payload?.role === 'string' ? payload.role : null;
+  if (role !== 'anon') {
+    throw new Error(`Legacy Supabase JWT role ${role ?? 'unknown'} is not safe for a mobile release.`);
+  }
+}
+
+try {
+  assertPublicSupabaseKey(key);
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
 
 const appConfig = JSON.parse(fs.readFileSync(new URL('../app.json', import.meta.url), 'utf8'));
 const expo = appConfig.expo ?? {};
 const failures = [];
+const schemes = Array.isArray(expo.scheme) ? expo.scheme : [expo.scheme].filter(Boolean);
 
 if (expo.name !== 'Things') failures.push('expo.name must be Things');
 if (expo.slug !== 'things') failures.push('expo.slug must be things');
-if (expo.scheme !== 'things') failures.push('expo.scheme must be things');
+if (!schemes.includes('things')) failures.push('expo.scheme must register the production things scheme');
+if (!schemes.includes('thingsalpha')) {
+  failures.push('expo.scheme must temporarily retain thingsalpha for existing auth confirmation/password-reset links');
+}
 if (expo.version !== '1.0.0') failures.push('expo.version must be 1.0.0 for the first production candidate');
 if (expo.android?.package !== 'com.gunflo1011.things') failures.push('android.package must use the production Things application id');
-
-const serialized = JSON.stringify(appConfig).toLowerCase();
-if (serialized.includes('things-alpha') || serialized.includes('thingsalpha')) {
-  failures.push('release app config must not contain alpha product identifiers');
-}
+if (expo.slug?.toLowerCase().includes('alpha')) failures.push('release slug must not contain alpha');
+if (expo.android?.package?.toLowerCase().includes('alpha')) failures.push('release Android package must not contain alpha');
 
 if (failures.length) {
   console.error('Mobile release configuration is not production-ready:');
