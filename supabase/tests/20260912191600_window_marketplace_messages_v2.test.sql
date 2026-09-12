@@ -9,18 +9,26 @@ select has_function(
 );
 
 select ok(
-  position('auth.uid() in (c.buyer_id, c.seller_id)' in pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) > 0,
+  lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) ~
+    'auth\.uid\(\)[[:space:]]*(in[[:space:]]*\(c\.buyer_id,[[:space:]]*c\.seller_id\)|=[[:space:]]*any[[:space:]]*\(array\[c\.buyer_id,[[:space:]]*c\.seller_id\]\))',
   'message history remains limited to conversation participants'
 );
 
 select ok(
-  position('least(greatest(coalesce(p_limit, 100), 1), 200)' in pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) > 0,
+  position(
+    'least(greatest(coalesce(p_limit, 100), 1), 200)'
+    in lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure))
+  ) > 0,
   'requested message history is clamped to a safe 1..200 row window'
 );
 
 select ok(
-  position('order by m.created_at desc, m.id desc' in pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) > 0
-  and position('order by recent.created_at, recent.message_id' in pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) > 0,
+  position(
+    'order by m.created_at desc, m.id desc'
+    in lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure))
+  ) > 0
+  and lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) ~
+    'order by recent\.created_at([[:space:]]+asc)?,[[:space:]]*recent\.message_id([[:space:]]+asc)?',
   'reader selects the newest window efficiently and returns chronological UI order'
 );
 
