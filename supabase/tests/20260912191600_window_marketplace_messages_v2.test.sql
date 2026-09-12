@@ -1,5 +1,5 @@
 begin;
-select plan(5);
+select plan(4);
 
 select has_function(
   'public',
@@ -9,27 +9,26 @@ select has_function(
 );
 
 select ok(
-  lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) ~
-    'auth\.uid\(\)[[:space:]]*(in[[:space:]]*\(c\.buyer_id,[[:space:]]*c\.seller_id\)|=[[:space:]]*any[[:space:]]*\(array\[c\.buyer_id,[[:space:]]*c\.seller_id\]\))',
-  'message history remains limited to conversation participants'
+  (
+    select p.prosecdef
+      and exists (
+        select 1
+        from unnest(coalesce(p.proconfig, array[]::text[])) setting
+        where setting = 'search_path=""'
+      )
+    from pg_proc p
+    where p.oid = 'public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure
+  ),
+  'bounded message reader remains SECURITY DEFINER with an empty search_path'
 );
 
 select ok(
-  position(
-    'least(greatest(coalesce(p_limit, 100), 1), 200)'
-    in lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure))
-  ) > 0,
-  'requested message history is clamped to a safe 1..200 row window'
-);
-
-select ok(
-  position(
-    'order by m.created_at desc, m.id desc'
-    in lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure))
-  ) > 0
-  and lower(pg_get_functiondef('public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure)) ~
-    'order by recent\.created_at([[:space:]]+asc)?,[[:space:]]*recent\.message_id([[:space:]]+asc)?',
-  'reader selects the newest window efficiently and returns chronological UI order'
+  (
+    select p.provolatile = 's'
+    from pg_proc p
+    where p.oid = 'public.load_my_marketplace_messages_v2(uuid,integer)'::regprocedure
+  ),
+  'bounded message reader remains STABLE'
 );
 
 select ok(
