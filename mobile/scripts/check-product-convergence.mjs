@@ -69,8 +69,16 @@ if (!marketplaceScreen.includes("row.role === 'SELLER'") || !marketplaceScreen.i
 if (!marketplaceScreen.includes('Your transactions') || !marketplaceScreen.includes("row.status === 'RESERVED'") || !marketplaceScreen.includes("row.status === 'SOLD'")) {
   throw new Error('Reserved/sold Marketplace conversations must remain reachable after public listing withdrawal.');
 }
-if (!conversationScreen.includes('loadMyMarketplaceMessages') || !conversationScreen.includes('sendMyMarketplaceMessage')) {
+const hasConversationMessageLoader = conversationScreen.includes('loadMyMarketplaceMessagePage') || conversationScreen.includes('loadMyMarketplaceMessages');
+if (!hasConversationMessageLoader || !conversationScreen.includes('sendMyMarketplaceMessage')) {
   throw new Error('Conversation surface must load and send through authenticated Marketplace message RPCs.');
+}
+if (conversationScreen.includes('loadMyMarketplaceMessagePage')) {
+  for (const marker of ['hasOlderMessages', 'loadingOlderMessages', 'loadOlderMessages', 'hasOlder={hasOlderMessages}', 'onLoadOlder={() => void loadOlderMessages()}']) {
+    if (!conversationScreen.includes(marker)) {
+      throw new Error(`Paged conversation history must keep its UI/state wiring: ${marker}`);
+    }
+  }
 }
 const hasExplicitConversationPrivacy =
   conversationScreen.includes('Account identities and private inventory details are not exposed here.') ||
