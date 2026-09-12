@@ -31,6 +31,7 @@ const allowed = new Set([
   'load_my_marketplace_listings_v2',
   'load_my_marketplace_messages',
   'load_my_marketplace_messages_v2',
+  'load_my_marketplace_messages_v3',
   'load_my_marketplace_offers',
   'make_my_marketplace_offer',
   'marketplace_image_object_access',
