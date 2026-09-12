@@ -1,4 +1,4 @@
-name: android-alpha-apk
+name: android-release-apk
 
 on:
   push:
@@ -103,9 +103,9 @@ jobs:
       - name: Reject client-side secrets
         working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm run check:client-secrets
-      - name: Validate hosted alpha configuration
+      - name: Validate production release configuration
         working-directory: ${{ env.MOBILE_BUILD_ROOT }}
-        run: npm run check:alpha-config
+        run: npm run check:release-config
       - name: Typecheck
         working-directory: ${{ env.MOBILE_BUILD_ROOT }}
         run: npm run typecheck
@@ -145,11 +145,11 @@ jobs:
           $apk = Join-Path $env:MOBILE_BUILD_ROOT 'android\app\build\outputs\apk\release\app-release.apk'
           if (-not (Test-Path $apk)) { throw 'Release APK was not created' }
           if ((Get-Item $apk).Length -eq 0) { throw 'Release APK is empty' }
-          Copy-Item $apk "$env:GITHUB_WORKSPACE\things-alpha.apk" -Force
+          Copy-Item $apk "$env:GITHUB_WORKSPACE\things-release.apk" -Force
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
-          name: things-alpha-android-standalone
-          path: things-alpha.apk
+          name: things-android-release-candidate
+          path: things-release.apk
           if-no-files-found: error
           retention-days: 7
