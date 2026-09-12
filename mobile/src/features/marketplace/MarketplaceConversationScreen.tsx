@@ -57,7 +57,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [offerBusy, setOfferBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
   const [adoptionBusy, setAdoptionBusy] = useState(false);
-  const [adoptedItemId, setAdoptedItemId] = useState<string | null>(null);
+  const [adoptedItemId, setAdoptedItemId] = useState<string | null>(conversation.adopted_item_id ?? null);
   const [status, setStatus] = useState<MarketplaceConversationStatus>(conversation.status);
   const [error, setError] = useState<string | null>(null);
   const refreshRequestRef = useRef(0);
@@ -87,6 +87,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
       if (currentConversation) {
         setStatus(currentConversation.status);
         setConfirmedFinalSalePriceCents(currentConversation.final_sale_price_cents ?? null);
+        setAdoptedItemId(currentConversation.adopted_item_id ?? null);
       }
     } catch {
       if (requestId === refreshRequestRef.current) setError(marketplaceFailureMessage('LOAD_CONVERSATION'));
@@ -98,7 +99,8 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   useEffect(() => {
     setStatus(conversation.status);
     setConfirmedFinalSalePriceCents(conversation.final_sale_price_cents ?? null);
-  }, [conversation.conversation_id, conversation.status, conversation.final_sale_price_cents]);
+    setAdoptedItemId(conversation.adopted_item_id ?? null);
+  }, [conversation.conversation_id, conversation.status, conversation.final_sale_price_cents, conversation.adopted_item_id]);
 
   useEffect(() => {
     activeConversationRef.current = conversation.conversation_id;
@@ -110,7 +112,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     setOfferBusy(false);
     setLifecycleBusy(false);
     setAdoptionBusy(false);
-    setAdoptedItemId(null);
+    setAdoptedItemId(conversation.adopted_item_id ?? null);
     setFinalSalePrice('');
     setOfferAmount('');
     setOfferMessage('');
