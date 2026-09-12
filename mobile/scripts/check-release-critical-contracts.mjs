@@ -37,12 +37,17 @@ assert.match(
   'UI must reload authoritative inventory for the initiating account after add-private succeeds',
 );
 
-assert.match(auth, /const\s+EMAIL_CONFIRM_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/confirmed['"];/, 'signup confirmation must redirect to the Things app');
-assert.match(auth, /const\s+PASSWORD_RESET_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/reset-password['"];/, 'password reset must redirect to the Things app');
-assert.match(auth, /auth\.signUp\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'signup must pass the confirmation deep link to Supabase');
-assert.match(auth, /auth\.resend\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'resend confirmation must preserve the app deep link');
-assert.match(auth, /resetPasswordForEmail\([\s\S]*redirectTo\s*:\s*PASSWORD_RESET_REDIRECT/, 'password reset must preserve the app deep link');
-assert.match(app, /url\.startsWith\(['"]thingsalpha:\/\/auth\/reset-password['"]\)/, 'app must handle password-reset deep links');
+assert.match(auth, /const\s+EMAIL_CONFIRM_REDIRECT\s*=\s*['"]things:\/\/auth\/confirmed['"];/, 'new signup confirmations must use the production Things scheme');
+assert.match(auth, /const\s+PASSWORD_RESET_REDIRECT\s*=\s*['"]things:\/\/auth\/reset-password['"];/, 'new password resets must use the production Things scheme');
+assert.match(auth, /const\s+LEGACY_EMAIL_CONFIRM_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/confirmed['"];/, 'already-issued alpha confirmation links must remain recognized');
+assert.match(auth, /const\s+LEGACY_PASSWORD_RESET_REDIRECT\s*=\s*['"]thingsalpha:\/\/auth\/reset-password['"];/, 'already-issued alpha recovery links must remain recognized');
+assert.match(auth, /isEmailConfirmationUrl[\s\S]*EMAIL_CONFIRM_REDIRECT[\s\S]*LEGACY_EMAIL_CONFIRM_REDIRECT/, 'email confirmation recognition must accept production and legacy schemes');
+assert.match(auth, /isPasswordRecoveryUrl[\s\S]*PASSWORD_RESET_REDIRECT[\s\S]*LEGACY_PASSWORD_RESET_REDIRECT/, 'password recovery recognition must accept production and legacy schemes');
+assert.match(auth, /auth\.signUp\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'signup must pass the production confirmation deep link to Supabase');
+assert.match(auth, /auth\.resend\([\s\S]*emailRedirectTo\s*:\s*EMAIL_CONFIRM_REDIRECT/, 'resend confirmation must preserve the production app deep link');
+assert.match(auth, /resetPasswordForEmail\([\s\S]*redirectTo\s*:\s*PASSWORD_RESET_REDIRECT/, 'password reset must preserve the production app deep link');
+assert.match(app, /isEmailConfirmationUrl\(url\)/, 'app must route confirmation links through centralized production/legacy recognition');
+assert.match(app, /isPasswordRecoveryUrl\(url\)/, 'app must route password recovery links through centralized production/legacy recognition');
 assert.match(
   app,
   /setMessage\(['"]If an account exists for this email, a reset link has been sent\.['"]\)/,
@@ -229,4 +234,4 @@ assert.match(
   'Disabled Marketplace photo controls must expose the lock reason to assistive technology',
 );
 
-console.log('release-critical ownership + auth + barcode capture + Marketplace conversation + transaction photo regression: ok');
+console.log('release-critical ownership + production/legacy auth deep links + barcode capture + Marketplace conversation + transaction photo regression: ok');
