@@ -80,9 +80,10 @@ export function MarketplaceScreen({ onBack }: Props) {
   }
 
   function titleForConversation(conversation: MarketplaceConversation): string {
-    return listings.find((row) => row.item_id === conversation.item_id)?.title
-      ?? myListings.find((row) => row.item_id === conversation.item_id)?.title
-      ?? 'Marketplace Thing';
+    return conversation.title
+      || listings.find((row) => row.item_id === conversation.item_id)?.title
+      || myListings.find((row) => row.item_id === conversation.item_id)?.title
+      || 'Marketplace Thing';
   }
 
   async function refresh() {
