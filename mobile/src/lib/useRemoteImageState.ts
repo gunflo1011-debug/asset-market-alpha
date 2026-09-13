@@ -4,7 +4,7 @@ import type { ImageSourcePropType } from 'react-native';
 const MAX_SESSION_LOADED_URIS = 256;
 const sessionLoadedImageKeys = new Set<string>();
 
-function remoteImageCacheKey(uri: string): string {
+export function remoteImageIdentity(uri: string): string {
   const queryIndex = uri.indexOf('?');
   const hashIndex = uri.indexOf('#');
   let cutoff = uri.length;
@@ -26,6 +26,7 @@ type RemoteImageState = {
   source: ImageSourcePropType | null;
   failed: boolean;
   loading: boolean;
+  renderKey: string;
   onLoadStart: () => void;
   onLoadEnd: () => void;
   onError: () => void;
@@ -33,9 +34,32 @@ type RemoteImageState = {
 
 export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const normalizedUri = uri?.trim() || null;
-  const imageKey = normalizedUri ? remoteImageCacheKey(normalizedUri) : null;
+  const imageKey = normalizedUri ? remoteImageIdentity(normalizedUri) : null;
   const currentUriRef = useRef(normalizedUri);
   currentUriRef.current = normalizedUri;
+  const renderKeyRef = useRef({
+    imageKey,
+    uri: normalizedUri,
+    renderKey: normalizedUri || 'remote-image',
+  });
+
+  if (renderKeyRef.current.imageKey !== imageKey) {
+    renderKeyRef.current = {
+      imageKey,
+      uri: normalizedUri,
+      renderKey: normalizedUri || 'remote-image',
+    };
+  } else if (renderKeyRef.current.uri !== normalizedUri) {
+    const canReuseLoadedImage = Boolean(imageKey && sessionLoadedImageKeys.has(imageKey));
+    renderKeyRef.current = {
+      imageKey,
+      uri: normalizedUri,
+      renderKey: canReuseLoadedImage
+        ? renderKeyRef.current.renderKey
+        : normalizedUri || 'remote-image',
+    };
+  }
+
   const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
   const [loadedImageKey, setLoadedImageKey] = useState<string | null>(() =>
     imageKey && sessionLoadedImageKeys.has(imageKey) ? imageKey : null,
@@ -74,6 +98,7 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
     loading: Boolean(
       imageKey && !wasLoadedThisSession && loadedImageKey !== imageKey && failedImageKey !== imageKey,
     ),
+    renderKey: renderKeyRef.current.renderKey,
     onLoadStart,
     onLoadEnd,
     onError,

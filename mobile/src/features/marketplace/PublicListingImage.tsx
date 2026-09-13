@@ -22,7 +22,7 @@ function PublicListingImageComponent({
     return (
       <View style={[styles.frame, style]}>
         <Image
-          key={uri || 'public-listing-image'}
+          key={image.renderKey}
           source={image.source}
           style={styles.image}
           resizeMode="cover"
