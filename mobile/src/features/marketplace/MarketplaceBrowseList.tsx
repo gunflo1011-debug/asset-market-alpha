@@ -55,7 +55,8 @@ const MarketplaceBrowseRow = memo(
     return renderListing(listing, state);
   },
   (previous, next) => (
-    previous.state.interested === next.state.interested
+    previous.renderListing === next.renderListing
+    && previous.state.interested === next.state.interested
     && previous.state.conversationOpen === next.state.conversationOpen
     && sameMarketplaceListing(previous.listing, next.listing)
   ),
