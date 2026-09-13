@@ -14,17 +14,25 @@ type Props = {
   onLoadOlder?: () => void;
 };
 
-const MessageBubble = memo(function MessageBubble({ message }: { message: MarketplaceMessage }) {
-  const mine = message.sender_role === 'ME';
-  const timestamp = new Date(message.created_at).toLocaleString();
-  const accessibilityLabel = `${mine ? 'You' : 'Other person'}: ${message.body}. Sent ${timestamp}`;
-  return (
-    <View accessible accessibilityLabel={accessibilityLabel} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-      <Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text>
-      <Text style={[styles.time, mine && styles.mineTime]}>{timestamp}</Text>
-    </View>
-  );
-});
+const MessageBubble = memo(
+  function MessageBubble({ message }: { message: MarketplaceMessage }) {
+    const mine = message.sender_role === 'ME';
+    const timestamp = useMemo(() => new Date(message.created_at).toLocaleString(), [message.created_at]);
+    const accessibilityLabel = `${mine ? 'You' : 'Other person'}: ${message.body}. Sent ${timestamp}`;
+    return (
+      <View accessible accessibilityLabel={accessibilityLabel} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
+        <Text style={[styles.messageBody, mine && styles.mineMessageBody]}>{message.body}</Text>
+        <Text style={[styles.time, mine && styles.mineTime]}>{timestamp}</Text>
+      </View>
+    );
+  },
+  (previous, next) => (
+    previous.message.message_id === next.message.message_id
+    && previous.message.sender_role === next.message.sender_role
+    && previous.message.body === next.message.body
+    && previous.message.created_at === next.message.created_at
+  ),
+);
 
 export const MarketplaceMessageList = memo(function MarketplaceMessageList({
   messages,
