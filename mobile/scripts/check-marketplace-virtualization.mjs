@@ -14,7 +14,11 @@ const reject = (source, pattern, message) => {
   if (pattern.test(source)) failures.push(message);
 };
 
-requireText(screen, "import { MarketplaceBrowseList } from './MarketplaceBrowseList';", 'MarketplaceScreen must import MarketplaceBrowseList.');
+requireMatch(
+  screen,
+  /import\s*\{[^}]*\bMarketplaceBrowseList\b[^}]*\}\s*from\s*['"]\.\/MarketplaceBrowseList['"];?/,
+  'MarketplaceScreen must import MarketplaceBrowseList.',
+);
 requireText(screen, '<MarketplaceBrowseList', 'MarketplaceScreen must render MarketplaceBrowseList for discovery.');
 requireMatch(
   screen,

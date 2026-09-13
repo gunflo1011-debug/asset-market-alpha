@@ -9,7 +9,7 @@ import {
   setMyMarketplaceInterest,
 } from '../../data/inventory';
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
-import { MarketplaceBrowseList } from './MarketplaceBrowseList';
+import { MarketplaceBrowseList, type MarketplaceBrowseListingState } from './MarketplaceBrowseList';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
 import { PublicListingImage } from './PublicListingImage';
 import { marketplaceFailureMessage } from './consumerErrors';
@@ -175,9 +175,13 @@ export function MarketplaceScreen({ onBack }: Props) {
     }
   }
 
-  const renderBrowseListing = React.useCallback((listing: MarketplaceListing) => {
+  const getBrowseListingState = React.useCallback((listing: MarketplaceListing): MarketplaceBrowseListingState => {
     const interested = interestByItem.get(listing.item_id) === 'INTERESTED';
-    const buyerConversation = (conversationsByItem.get(listing.item_id) ?? []).find((row) => row.role === 'BUYER');
+    const conversationOpen = (conversationsByItem.get(listing.item_id) ?? []).some((row) => row.role === 'BUYER');
+    return { interested, conversationOpen };
+  }, [interestByItem, conversationsByItem]);
+
+  const renderBrowseListing = React.useCallback((listing: MarketplaceListing, state: MarketplaceBrowseListingState) => {
     return (
       <TouchableOpacity
         accessibilityRole="button"
@@ -200,11 +204,11 @@ export function MarketplaceScreen({ onBack }: Props) {
             {listing.condition_label ? <Text style={styles.listingMeta}>· {listing.condition_label}</Text> : null}
             <Text style={styles.listingMeta}>· {listing.category}</Text>
           </View>
-          {interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{buyerConversation ? 'Conversation open' : 'Interested'}</Text></View> : null}
+          {state.interested ? <View style={styles.interestedChip}><Text style={styles.interestedChipText}>{state.conversationOpen ? 'Conversation open' : 'Interested'}</Text></View> : null}
         </View>
       </TouchableOpacity>
     );
-  }, [interestByItem, conversationsByItem]);
+  }, []);
 
   if (selectedConversation) {
     return (
@@ -404,6 +408,7 @@ export function MarketplaceScreen({ onBack }: Props) {
       <MarketplaceBrowseList
         listings={error ? [] : filteredBrowseListings}
         renderListing={renderBrowseListing}
+        getListingState={getBrowseListingState}
         header={browseHeader}
         footer={browseFooter}
         empty={browseEmpty}
