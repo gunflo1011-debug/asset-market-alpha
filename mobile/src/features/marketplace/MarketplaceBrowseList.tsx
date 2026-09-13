@@ -2,9 +2,15 @@ import React, { memo, type ReactElement, type ReactNode, useCallback } from 'rea
 import { FlatList, Platform, StyleSheet, View, type ListRenderItemInfo } from 'react-native';
 import type { MarketplaceListing } from '../inventory/types';
 
+export type MarketplaceBrowseListingState = {
+  interested: boolean;
+  conversationOpen: boolean;
+};
+
 type Props = {
   listings: MarketplaceListing[];
-  renderListing: (listing: MarketplaceListing) => ReactElement;
+  renderListing: (listing: MarketplaceListing, state: MarketplaceBrowseListingState) => ReactElement;
+  getListingState: (listing: MarketplaceListing) => MarketplaceBrowseListingState;
   header?: ReactNode;
   footer?: ReactNode;
   empty?: ReactNode;
@@ -14,8 +20,18 @@ type Props = {
 
 type MarketplaceBrowseRowProps = {
   listing: MarketplaceListing;
-  renderListing: (listing: MarketplaceListing) => ReactElement;
+  state: MarketplaceBrowseListingState;
+  renderListing: (listing: MarketplaceListing, state: MarketplaceBrowseListingState) => ReactElement;
 };
+
+function stableRemoteImageIdentity(uri: string): string {
+  const queryIndex = uri.indexOf('?');
+  const hashIndex = uri.indexOf('#');
+  let cutoff = uri.length;
+  if (queryIndex >= 0) cutoff = Math.min(cutoff, queryIndex);
+  if (hashIndex >= 0) cutoff = Math.min(cutoff, hashIndex);
+  return uri.slice(0, cutoff);
+}
 
 function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceListing): boolean {
   return (
@@ -28,16 +44,19 @@ function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceL
     && previous.public_location === next.public_location
     && previous.published_at === next.published_at
     && previous.image_urls.length === next.image_urls.length
-    && previous.image_urls.every((uri, index) => uri === next.image_urls[index])
+    && previous.image_urls.every(
+      (uri, index) => stableRemoteImageIdentity(uri) === stableRemoteImageIdentity(next.image_urls[index]),
+    )
   );
 }
 
 const MarketplaceBrowseRow = memo(
-  function MarketplaceBrowseRow({ listing, renderListing }: MarketplaceBrowseRowProps) {
-    return renderListing(listing);
+  function MarketplaceBrowseRow({ listing, state, renderListing }: MarketplaceBrowseRowProps) {
+    return renderListing(listing, state);
   },
   (previous, next) => (
-    previous.renderListing === next.renderListing
+    previous.state.interested === next.state.interested
+    && previous.state.conversationOpen === next.state.conversationOpen
     && sameMarketplaceListing(previous.listing, next.listing)
   ),
 );
@@ -49,6 +68,7 @@ const MarketplaceBrowseSeparator = memo(function MarketplaceBrowseSeparator() {
 function MarketplaceBrowseListComponent({
   listings,
   renderListing,
+  getListingState,
   header,
   footer,
   empty,
@@ -57,9 +77,13 @@ function MarketplaceBrowseListComponent({
 }: Props) {
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<MarketplaceListing>) => (
-      <MarketplaceBrowseRow listing={item} renderListing={renderListing} />
+      <MarketplaceBrowseRow
+        listing={item}
+        state={getListingState(item)}
+        renderListing={renderListing}
+      />
     ),
-    [renderListing],
+    [getListingState, renderListing],
   );
   const keyExtractor = useCallback((item: MarketplaceListing) => item.item_id, []);
 
