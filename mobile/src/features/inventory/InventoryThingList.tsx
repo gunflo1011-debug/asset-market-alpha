@@ -15,6 +15,11 @@ type Props = {
   onRefresh?: () => void;
 };
 
+type InventoryThingRowProps = {
+  item: PrivateInventoryItem;
+  onOpenItem: (itemId: string) => void;
+};
+
 function formatEuroCents(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', {
     style: 'currency',
@@ -24,7 +29,34 @@ function formatEuroCents(cents: number): string {
   });
 }
 
-const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: { item: PrivateInventoryItem; onOpenItem: (itemId: string) => void }) {
+function sameInventoryThingRowProps(previous: InventoryThingRowProps, next: InventoryThingRowProps): boolean {
+  if (previous.onOpenItem !== next.onOpenItem) return false;
+
+  const previousItem = previous.item;
+  const nextItem = next.item;
+  const previousVariant = previousItem.product_variants;
+  const nextVariant = nextItem.product_variants;
+  const previousProduct = previousVariant?.products;
+  const nextProduct = nextVariant?.products;
+  const previousSnapshot = previousItem.condition_snapshots[0];
+  const nextSnapshot = nextItem.condition_snapshots[0];
+
+  return (
+    previousItem.id === nextItem.id &&
+    previousItem.custom_name === nextItem.custom_name &&
+    previousItem.category === nextItem.category &&
+    previousItem.market_state === nextItem.market_state &&
+    previousItem.cover_image_url === nextItem.cover_image_url &&
+    previousItem.value_evidence?.estimated_value_cents === nextItem.value_evidence?.estimated_value_cents &&
+    previousVariant?.id === nextVariant?.id &&
+    previousVariant?.storage_gb === nextVariant?.storage_gb &&
+    previousProduct?.brand === nextProduct?.brand &&
+    previousProduct?.family === nextProduct?.family &&
+    previousSnapshot?.housing_state === nextSnapshot?.housing_state
+  );
+}
+
+const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: InventoryThingRowProps) {
   const snapshot = item.condition_snapshots[0];
   const generic = !item.product_variants;
   const sale = buildSaleStartSurface(item.id, item.value_evidence?.estimated_value_cents ?? null);
@@ -65,7 +97,7 @@ const InventoryThingRow = memo(function InventoryThingRow({ item, onOpenItem }: 
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
   );
-});
+}, sameInventoryThingRowProps);
 
 export const InventoryThingList = memo(function InventoryThingList({ items, onOpenItem, header = null, emptyState = null, refreshing = false, onRefresh }: Props) {
   const renderItem = useCallback(({ item }: ListRenderItemInfo<PrivateInventoryItem>) => (
