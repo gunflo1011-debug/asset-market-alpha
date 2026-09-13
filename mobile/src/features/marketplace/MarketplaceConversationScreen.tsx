@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessages, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
+import { adoptMySoldMarketplaceThing, loadMyMarketplaceConversations, loadMyMarketplaceMessagePage, loadMyMarketplaceOffers, makeMyMarketplaceOffer, MAX_FINAL_SALE_CENTS, MAX_OFFER_CENTS, respondToMyMarketplaceOffer, sendMyMarketplaceMessage, setMyMarketplaceConversationStatus } from '../../data/inventory';
 import { viewPurchasedThingInInventory } from '../../lib/purchasedThingNavigation';
 import type { MarketplaceConversation, MarketplaceConversationStatus, MarketplaceMessage, MarketplaceOffer } from '../inventory/types';
 import { marketplaceFailureMessage } from './consumerErrors';
@@ -40,6 +40,17 @@ function parseEuroAmount(value: string, maxCents: number): { cents: number; vali
   return { cents, valid: Number.isFinite(euros) && cents > 0 && cents <= maxCents };
 }
 
+function mergeMessages(...pages: MarketplaceMessage[][]): MarketplaceMessage[] {
+  const byId = new Map<string, MarketplaceMessage>();
+  for (const page of pages) {
+    for (const message of page) byId.set(message.message_id, message);
+  }
+  return [...byId.values()].sort((left, right) => {
+    const createdAtOrder = left.created_at.localeCompare(right.created_at);
+    return createdAtOrder !== 0 ? createdAtOrder : left.message_id.localeCompare(right.message_id);
+  });
+}
+
 export function MarketplaceConversationScreen({ conversation, title, onBack }: Props) {
   const [messages, setMessages] = useState<MarketplaceMessage[]>([]);
   const [offers, setOffers] = useState<MarketplaceOffer[]>([]);
@@ -53,6 +64,8 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const [showOfferComposer, setShowOfferComposer] = useState(conversation.role === 'BUYER' && conversation.status === 'OPEN');
   const [showCounterComposer, setShowCounterComposer] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [offerBusy, setOfferBusy] = useState(false);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
@@ -69,19 +82,21 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
   const pendingOffer = useMemo(() => offers.find((offer) => offer.status === 'PENDING') ?? null, [offers]);
   const acceptedOffer = useMemo(() => [...offers].reverse().find((offer) => offer.status === 'ACCEPTED') ?? null, [offers]);
 
-  async function refresh() {
+  async function refresh(preserveLoadedHistory = true) {
     const requestId = ++refreshRequestRef.current;
     const conversationId = conversation.conversation_id;
+    const preserveHistory = preserveLoadedHistory && messages.length > 0;
     try {
       setLoading(true);
       setError(null);
-      const [nextMessages, conversations, nextOffers] = await Promise.all([
-        loadMyMarketplaceMessages(conversationId),
+      const [messagePage, conversations, nextOffers] = await Promise.all([
+        loadMyMarketplaceMessagePage(conversationId),
         loadMyMarketplaceConversations(),
         loadMyMarketplaceOffers(conversationId),
       ]);
       if (requestId !== refreshRequestRef.current) return;
-      setMessages(nextMessages);
+      setMessages((current) => preserveHistory ? mergeMessages(current, messagePage.messages) : messagePage.messages);
+      if (!preserveHistory) setHasOlderMessages(messagePage.hasOlder);
       setOffers(nextOffers);
       const currentConversation = conversations.find((entry) => entry.conversation_id === conversationId);
       if (currentConversation) {
@@ -96,6 +111,24 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     }
   }
 
+  async function loadOlderMessages() {
+    if (loadingOlderMessages || !hasOlderMessages || messages.length === 0) return;
+    const conversationId = conversation.conversation_id;
+    const before = messages[0];
+    try {
+      setLoadingOlderMessages(true);
+      setError(null);
+      const page = await loadMyMarketplaceMessagePage(conversationId, before);
+      if (activeConversationRef.current !== conversationId) return;
+      setMessages((current) => mergeMessages(page.messages, current));
+      setHasOlderMessages(page.hasOlder);
+    } catch {
+      if (activeConversationRef.current === conversationId) setError(marketplaceFailureMessage('LOAD_CONVERSATION'));
+    } finally {
+      if (activeConversationRef.current === conversationId) setLoadingOlderMessages(false);
+    }
+  }
+
   useEffect(() => {
     setStatus(conversation.status);
     setConfirmedFinalSalePriceCents(conversation.final_sale_price_cents ?? null);
@@ -106,6 +139,8 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     activeConversationRef.current = conversation.conversation_id;
     refreshRequestRef.current += 1;
     setMessages([]);
+    setHasOlderMessages(false);
+    setLoadingOlderMessages(false);
     setOffers([]);
     setDraft('');
     setSending(false);
@@ -120,7 +155,7 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
     setCounterMessage('');
     setShowOfferComposer(conversation.role === 'BUYER' && conversation.status === 'OPEN');
     setShowCounterComposer(false);
-    void refresh();
+    void refresh(false);
     return () => { refreshRequestRef.current += 1; };
   }, [conversation.conversation_id]);
 
@@ -276,6 +311,9 @@ export function MarketplaceConversationScreen({ conversation, title, onBack }: P
             buyer={buyer}
             closed={closed}
             onUseQuickMessage={() => setDraft(QUICK_MESSAGE)}
+            hasOlder={hasOlderMessages}
+            loadingOlder={loadingOlderMessages}
+            onLoadOlder={() => void loadOlderMessages()}
           />
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           {closed ? <View style={styles.closed}><Text style={styles.closedTitle}>Conversation closed</Text><Text style={styles.copy}>New messages are disabled because this transaction is {STATUS_LABELS[status].toLowerCase()}.</Text></View> : <View style={styles.composer}><TextInput accessibilityLabel="Message about this Thing" value={draft} onChangeText={setDraft} placeholder="Message about this Thing" multiline maxLength={1200} style={styles.input} /><Text style={styles.counter}>{draft.length}/1200</Text><TouchableOpacity accessibilityRole="button" disabled={sending || !draft.trim()} style={[styles.sendButton, (sending || !draft.trim()) && styles.disabled]} onPress={() => void send()}><Text style={styles.sendText}>{sending ? 'Sending…' : 'Send'}</Text></TouchableOpacity></View>}
