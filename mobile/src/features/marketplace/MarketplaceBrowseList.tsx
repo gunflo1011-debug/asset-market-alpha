@@ -17,11 +17,29 @@ type MarketplaceBrowseRowProps = {
   renderListing: (listing: MarketplaceListing) => ReactElement;
 };
 
+function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceListing): boolean {
+  return (
+    previous.item_id === next.item_id
+    && previous.title === next.title
+    && previous.category === next.category
+    && previous.asking_price_cents === next.asking_price_cents
+    && previous.estimated_value_cents === next.estimated_value_cents
+    && previous.condition_label === next.condition_label
+    && previous.public_location === next.public_location
+    && previous.published_at === next.published_at
+    && previous.image_urls.length === next.image_urls.length
+    && previous.image_urls.every((uri, index) => uri === next.image_urls[index])
+  );
+}
+
 const MarketplaceBrowseRow = memo(
   function MarketplaceBrowseRow({ listing, renderListing }: MarketplaceBrowseRowProps) {
     return renderListing(listing);
   },
-  (previous, next) => previous.listing === next.listing && previous.renderListing === next.renderListing,
+  (previous, next) => (
+    previous.renderListing === next.renderListing
+    && sameMarketplaceListing(previous.listing, next.listing)
+  ),
 );
 
 const MarketplaceBrowseSeparator = memo(function MarketplaceBrowseSeparator() {
