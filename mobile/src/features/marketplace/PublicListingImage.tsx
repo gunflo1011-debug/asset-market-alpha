@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { ActivityIndicator, Image, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { premiumColors } from '../../lib/premiumTheme';
-import { remoteImageIdentity, useRemoteImageState } from '../../lib/useRemoteImageState';
+import { useRemoteImageState } from '../../lib/useRemoteImageState';
 
 type Props = {
   uri?: string | null;
@@ -17,13 +17,12 @@ function PublicListingImageComponent({
   fallbackLabel = 'Public photo unavailable',
 }: Props) {
   const image = useRemoteImageState(uri);
-  const imageIdentity = uri?.trim() ? remoteImageIdentity(uri.trim()) : 'public-listing-image';
 
   if (image.source && !image.failed) {
     return (
       <View style={[styles.frame, style]}>
         <Image
-          key={imageIdentity}
+          key={image.renderKey}
           source={image.source}
           style={styles.image}
           resizeMode="cover"
