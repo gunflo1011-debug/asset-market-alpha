@@ -12,6 +12,22 @@ type Props = {
   onRefresh?: () => void;
 };
 
+type MarketplaceBrowseRowProps = {
+  listing: MarketplaceListing;
+  renderListing: (listing: MarketplaceListing) => ReactElement;
+};
+
+const MarketplaceBrowseRow = memo(
+  function MarketplaceBrowseRow({ listing, renderListing }: MarketplaceBrowseRowProps) {
+    return renderListing(listing);
+  },
+  (previous, next) => previous.listing === next.listing && previous.renderListing === next.renderListing,
+);
+
+const MarketplaceBrowseSeparator = memo(function MarketplaceBrowseSeparator() {
+  return <View style={styles.separator} />;
+});
+
 function MarketplaceBrowseListComponent({
   listings,
   renderListing,
@@ -22,7 +38,9 @@ function MarketplaceBrowseListComponent({
   onRefresh,
 }: Props) {
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<MarketplaceListing>) => renderListing(item),
+    ({ item }: ListRenderItemInfo<MarketplaceListing>) => (
+      <MarketplaceBrowseRow listing={item} renderListing={renderListing} />
+    ),
     [renderListing],
   );
   const keyExtractor = useCallback((item: MarketplaceListing) => item.item_id, []);
@@ -36,7 +54,7 @@ function MarketplaceBrowseListComponent({
       ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : null}
       ListFooterComponent={footer ? <View style={styles.footer}>{footer}</View> : null}
       ListEmptyComponent={empty ? <View style={styles.empty}>{empty}</View> : null}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ItemSeparatorComponent={MarketplaceBrowseSeparator}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
