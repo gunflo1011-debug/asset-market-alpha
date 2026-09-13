@@ -2,15 +2,24 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ImageSourcePropType } from 'react-native';
 
 const MAX_SESSION_LOADED_URIS = 256;
-const sessionLoadedUris = new Set<string>();
+const sessionLoadedImageKeys = new Set<string>();
 
-function rememberLoadedUri(uri: string) {
-  if (sessionLoadedUris.has(uri)) return;
-  sessionLoadedUris.add(uri);
-  if (sessionLoadedUris.size <= MAX_SESSION_LOADED_URIS) return;
+function remoteImageCacheKey(uri: string): string {
+  const queryIndex = uri.indexOf('?');
+  const hashIndex = uri.indexOf('#');
+  let cutoff = uri.length;
+  if (queryIndex >= 0) cutoff = Math.min(cutoff, queryIndex);
+  if (hashIndex >= 0) cutoff = Math.min(cutoff, hashIndex);
+  return uri.slice(0, cutoff);
+}
 
-  const oldestUri = sessionLoadedUris.values().next().value as string | undefined;
-  if (oldestUri) sessionLoadedUris.delete(oldestUri);
+function rememberLoadedImageKey(key: string) {
+  if (sessionLoadedImageKeys.has(key)) return;
+  sessionLoadedImageKeys.add(key);
+  if (sessionLoadedImageKeys.size <= MAX_SESSION_LOADED_URIS) return;
+
+  const oldestKey = sessionLoadedImageKeys.values().next().value as string | undefined;
+  if (oldestKey) sessionLoadedImageKeys.delete(oldestKey);
 }
 
 type RemoteImageState = {
@@ -24,11 +33,12 @@ type RemoteImageState = {
 
 export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const normalizedUri = uri?.trim() || null;
+  const imageKey = normalizedUri ? remoteImageCacheKey(normalizedUri) : null;
   const currentUriRef = useRef(normalizedUri);
   currentUriRef.current = normalizedUri;
-  const [failedUri, setFailedUri] = useState<string | null>(null);
-  const [loadedUri, setLoadedUri] = useState<string | null>(() =>
-    normalizedUri && sessionLoadedUris.has(normalizedUri) ? normalizedUri : null,
+  const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
+  const [loadedImageKey, setLoadedImageKey] = useState<string | null>(() =>
+    imageKey && sessionLoadedImageKeys.has(imageKey) ? imageKey : null,
   );
 
   const source = useMemo<ImageSourcePropType | null>(
@@ -37,32 +47,32 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
   );
 
   const onLoadStart = useCallback(() => {
-    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
-    setFailedUri((current) => (current === normalizedUri ? null : current));
-    if (!sessionLoadedUris.has(normalizedUri)) {
-      setLoadedUri((current) => (current === normalizedUri ? null : current));
+    if (!normalizedUri || !imageKey || currentUriRef.current !== normalizedUri) return;
+    setFailedImageKey((current) => (current === imageKey ? null : current));
+    if (!sessionLoadedImageKeys.has(imageKey)) {
+      setLoadedImageKey((current) => (current === imageKey ? null : current));
     }
-  }, [normalizedUri]);
+  }, [normalizedUri, imageKey]);
 
   const onLoadEnd = useCallback(() => {
-    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
-    rememberLoadedUri(normalizedUri);
-    setLoadedUri(normalizedUri);
-  }, [normalizedUri]);
+    if (!normalizedUri || !imageKey || currentUriRef.current !== normalizedUri) return;
+    rememberLoadedImageKey(imageKey);
+    setLoadedImageKey(imageKey);
+  }, [normalizedUri, imageKey]);
 
   const onError = useCallback(() => {
-    if (!normalizedUri || currentUriRef.current !== normalizedUri) return;
-    sessionLoadedUris.delete(normalizedUri);
-    setFailedUri(normalizedUri);
-  }, [normalizedUri]);
+    if (!normalizedUri || !imageKey || currentUriRef.current !== normalizedUri) return;
+    sessionLoadedImageKeys.delete(imageKey);
+    setFailedImageKey(imageKey);
+  }, [normalizedUri, imageKey]);
 
-  const wasLoadedThisSession = Boolean(normalizedUri && sessionLoadedUris.has(normalizedUri));
+  const wasLoadedThisSession = Boolean(imageKey && sessionLoadedImageKeys.has(imageKey));
 
   return {
     source,
-    failed: Boolean(normalizedUri && failedUri === normalizedUri),
+    failed: Boolean(imageKey && failedImageKey === imageKey),
     loading: Boolean(
-      normalizedUri && !wasLoadedThisSession && loadedUri !== normalizedUri && failedUri !== normalizedUri,
+      imageKey && !wasLoadedThisSession && loadedImageKey !== imageKey && failedImageKey !== imageKey,
     ),
     onLoadStart,
     onLoadEnd,
