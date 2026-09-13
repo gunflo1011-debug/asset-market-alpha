@@ -26,6 +26,7 @@ type RemoteImageState = {
   source: ImageSourcePropType | null;
   failed: boolean;
   loading: boolean;
+  renderKey: string;
   onLoadStart: () => void;
   onLoadEnd: () => void;
   onError: () => void;
@@ -36,6 +37,29 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const imageKey = normalizedUri ? remoteImageIdentity(normalizedUri) : null;
   const currentUriRef = useRef(normalizedUri);
   currentUriRef.current = normalizedUri;
+  const renderKeyRef = useRef({
+    imageKey,
+    uri: normalizedUri,
+    renderKey: normalizedUri || 'remote-image',
+  });
+
+  if (renderKeyRef.current.imageKey !== imageKey) {
+    renderKeyRef.current = {
+      imageKey,
+      uri: normalizedUri,
+      renderKey: normalizedUri || 'remote-image',
+    };
+  } else if (renderKeyRef.current.uri !== normalizedUri) {
+    const canReuseLoadedImage = Boolean(imageKey && sessionLoadedImageKeys.has(imageKey));
+    renderKeyRef.current = {
+      imageKey,
+      uri: normalizedUri,
+      renderKey: canReuseLoadedImage
+        ? renderKeyRef.current.renderKey
+        : normalizedUri || 'remote-image',
+    };
+  }
+
   const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
   const [loadedImageKey, setLoadedImageKey] = useState<string | null>(() =>
     imageKey && sessionLoadedImageKeys.has(imageKey) ? imageKey : null,
@@ -74,6 +98,7 @@ export function useRemoteImageState(uri?: string | null): RemoteImageState {
     loading: Boolean(
       imageKey && !wasLoadedThisSession && loadedImageKey !== imageKey && failedImageKey !== imageKey,
     ),
+    renderKey: renderKeyRef.current.renderKey,
     onLoadStart,
     onLoadEnd,
     onError,
