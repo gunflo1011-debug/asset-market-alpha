@@ -4,7 +4,7 @@ import type { ImageSourcePropType } from 'react-native';
 const MAX_SESSION_LOADED_URIS = 256;
 const sessionLoadedImageKeys = new Set<string>();
 
-function remoteImageCacheKey(uri: string): string {
+export function remoteImageIdentity(uri: string): string {
   const queryIndex = uri.indexOf('?');
   const hashIndex = uri.indexOf('#');
   let cutoff = uri.length;
@@ -33,7 +33,7 @@ type RemoteImageState = {
 
 export function useRemoteImageState(uri?: string | null): RemoteImageState {
   const normalizedUri = uri?.trim() || null;
-  const imageKey = normalizedUri ? remoteImageCacheKey(normalizedUri) : null;
+  const imageKey = normalizedUri ? remoteImageIdentity(normalizedUri) : null;
   const currentUriRef = useRef(normalizedUri);
   currentUriRef.current = normalizedUri;
   const [failedImageKey, setFailedImageKey] = useState<string | null>(null);
