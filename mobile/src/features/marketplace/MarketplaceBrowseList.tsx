@@ -45,7 +45,7 @@ function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceL
     && previous.published_at === next.published_at
     && previous.image_urls.length === next.image_urls.length
     && previous.image_urls.every(
-      (uri, index) => stableRemoteImageIdentity(uri) === stableRemoteImageIdentity(next.image_urls[index]),
+      (uri, index) => stableRemoteImageIdentity(uri) === stableRemoteImageIdentity(next.image_urls[index] ?? ''),
     )
   );
 }
