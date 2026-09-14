@@ -63,7 +63,8 @@ if (!marketplaceScreen.includes('Make an offer') || !marketplaceScreen.includes(
 if (!marketplaceScreen.includes('loadMyMarketplaceConversations') || !marketplaceScreen.includes('openMyMarketplaceConversation')) {
   throw new Error('Marketplace must load and open authenticated listing-bound conversations.');
 }
-if (!marketplaceScreen.includes("row.role === 'SELLER'") || !marketplaceScreen.includes('Reply ›')) {
+const hasSellerConversationFilter = marketplaceScreen.includes("row.role === 'SELLER'") || marketplaceScreen.includes("conversation.role !== 'SELLER'");
+if (!hasSellerConversationFilter || !marketplaceScreen.includes('Reply ›')) {
   throw new Error('Seller listing surfaces must expose participant-safe reply entry points.');
 }
 if (!marketplaceScreen.includes('Your transactions') || !marketplaceScreen.includes("row.status === 'RESERVED'") || !marketplaceScreen.includes("row.status === 'SOLD'")) {

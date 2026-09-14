@@ -64,9 +64,27 @@ export function MarketplaceScreen({ onBack }: Props) {
     () => conversations.filter((row) => row.status === 'RESERVED' || row.status === 'SOLD' || row.status === 'CLOSED'),
     [conversations],
   );
+  const listingTitleByItem = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const listing of listings) map.set(listing.item_id, listing.title);
+    for (const listing of myListings) {
+      if (listing.title && !map.has(listing.item_id)) map.set(listing.item_id, listing.title);
+    }
+    return map;
+  }, [listings, myListings]);
   const conversationsByItem = useMemo(() => {
     const map = new Map<string, MarketplaceConversation[]>();
     for (const conversation of conversations) {
+      const current = map.get(conversation.item_id) ?? [];
+      current.push(conversation);
+      map.set(conversation.item_id, current);
+    }
+    return map;
+  }, [conversations]);
+  const sellerConversationsByItem = useMemo(() => {
+    const map = new Map<string, MarketplaceConversation[]>();
+    for (const conversation of conversations) {
+      if (conversation.role !== 'SELLER') continue;
       const current = map.get(conversation.item_id) ?? [];
       current.push(conversation);
       map.set(conversation.item_id, current);
@@ -81,8 +99,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
   function titleForConversation(conversation: MarketplaceConversation): string {
     return conversation.title
-      || listings.find((row) => row.item_id === conversation.item_id)?.title
-      || myListings.find((row) => row.item_id === conversation.item_id)?.title
+      || listingTitleByItem.get(conversation.item_id)
       || 'Marketplace Thing';
   }
 
@@ -380,7 +397,7 @@ export function MarketplaceScreen({ onBack }: Props) {
 
       {publishedMine.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your listings</Text><Text style={styles.sectionMeta}>{publishedMine.length} for sale</Text></View> : null}
       {publishedMine.map((ownerListing) => {
-        const sellerConversations = (conversationsByItem.get(ownerListing.item_id) ?? []).filter((row) => row.role === 'SELLER');
+        const sellerConversations = sellerConversationsByItem.get(ownerListing.item_id) ?? [];
         return (
           <View key={ownerListing.item_id} style={styles.ownerCard}>
             <View style={styles.cardTop}><View style={styles.ownerPill}><Text style={styles.ownerPillText}>FOR SALE</Text></View><Text style={styles.ask}>{euro(ownerListing.asking_price_cents)}</Text></View>
