@@ -28,17 +28,7 @@ jobs:
         with:
           version: 2.117.0
       - name: Start local Supabase
-        run: |
-          set -o pipefail
-          supabase start --debug 2>&1 | tee supabase-start-debug.log
-      - name: Upload Supabase startup diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: supabase-start-debug
-          path: supabase-start-debug.log
-          if-no-files-found: ignore
-          retention-days: 7
+        run: supabase start
       - name: Rebuild database from migrations
         run: supabase db reset
       - name: Run pgTAP tests
