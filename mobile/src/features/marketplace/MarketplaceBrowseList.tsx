@@ -1,5 +1,6 @@
 import React, { memo, type ReactElement, type ReactNode, useCallback } from 'react';
 import { FlatList, Platform, StyleSheet, View, type ListRenderItemInfo } from 'react-native';
+import { remoteImageIdentity } from '../../lib/useRemoteImageState';
 import type { MarketplaceListing } from '../inventory/types';
 
 export type MarketplaceBrowseListingState = {
@@ -24,15 +25,6 @@ type MarketplaceBrowseRowProps = {
   renderListing: (listing: MarketplaceListing, state: MarketplaceBrowseListingState) => ReactElement;
 };
 
-function stableRemoteImageIdentity(uri: string): string {
-  const queryIndex = uri.indexOf('?');
-  const hashIndex = uri.indexOf('#');
-  let cutoff = uri.length;
-  if (queryIndex >= 0) cutoff = Math.min(cutoff, queryIndex);
-  if (hashIndex >= 0) cutoff = Math.min(cutoff, hashIndex);
-  return uri.slice(0, cutoff);
-}
-
 function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceListing): boolean {
   return (
     previous.item_id === next.item_id
@@ -45,7 +37,7 @@ function sameMarketplaceListing(previous: MarketplaceListing, next: MarketplaceL
     && previous.published_at === next.published_at
     && previous.image_urls.length === next.image_urls.length
     && previous.image_urls.every(
-      (uri, index) => stableRemoteImageIdentity(uri) === stableRemoteImageIdentity(next.image_urls[index] ?? ''),
+      (uri, index) => remoteImageIdentity(uri) === remoteImageIdentity(next.image_urls[index] ?? ''),
     )
   );
 }
