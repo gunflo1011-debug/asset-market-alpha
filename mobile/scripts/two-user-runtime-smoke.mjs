@@ -12,14 +12,18 @@ for (const name of required) {
   if (!process.env[name]) throw new Error(`Missing required environment variable: ${name}`);
 }
 
+const hasAccountCEmail = Boolean(process.env.ALPHA_TEST_C_EMAIL);
+const hasAccountCPassword = Boolean(process.env.ALPHA_TEST_C_PASSWORD);
+if (hasAccountCEmail !== hasAccountCPassword) {
+  throw new Error('Account C runtime smoke requires both ALPHA_TEST_C_EMAIL and ALPHA_TEST_C_PASSWORD when either is provided.');
+}
+
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 if (!url.startsWith('https://')) throw new Error('Supabase URL must use HTTPS.');
 if (/service_role|secret/i.test(key)) throw new Error('Refusing to run with a privileged Supabase key.');
 
 const client = () => createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-const a = client();
-const b = client();
 const anon = client();
 const pass = (label) => console.log(`✓ ${label}`);
 
@@ -42,7 +46,7 @@ async function readOwnInventory(supabase, expectedOwner, label) {
 
 function requireEvidenceRows(rows, label) {
   if (rows.length === 0) {
-    throw new Error(`${label} has no inventory row. Create one disposable item through the normal app flow before running this smoke; empty inventories cannot prove A/B isolation.`);
+    throw new Error(`${label} has no inventory row. Create one disposable item through the normal app flow before running this smoke; empty inventories cannot prove account isolation.`);
   }
   pass(`${label} has at least one owned row for non-vacuous isolation evidence`);
 }
@@ -52,33 +56,50 @@ async function assertNoKnownForeignIds(rows, foreignIds, label) {
   pass(`${label} cannot see known foreign inventory rows`);
 }
 
-async function main() {
-  const userA = await signIn(a, process.env.ALPHA_TEST_A_EMAIL, process.env.ALPHA_TEST_A_PASSWORD, 'Account A');
-  const rowsA = await readOwnInventory(a, userA.id, 'Account A');
-  requireEvidenceRows(rowsA, 'Account A');
-  const aIds = new Set(rowsA.map((row) => row.id));
+async function signOutQuietly(account) {
+  try { await account.supabase.auth.signOut(); } catch {}
+}
 
-  const userB = await signIn(b, process.env.ALPHA_TEST_B_EMAIL, process.env.ALPHA_TEST_B_PASSWORD, 'Account B');
-  if (userA.id === userB.id) throw new Error('Two-user smoke requires two distinct normal accounts.');
-  const rowsB = await readOwnInventory(b, userB.id, 'Account B');
-  requireEvidenceRows(rowsB, 'Account B');
-  const bIds = new Set(rowsB.map((row) => row.id));
-  await assertNoKnownForeignIds(rowsB, aIds, 'Account B');
-  await assertNoKnownForeignIds(rowsA, bIds, 'Account A');
+async function main() {
+  const accountConfigs = [
+    { label: 'Account A', email: process.env.ALPHA_TEST_A_EMAIL, password: process.env.ALPHA_TEST_A_PASSWORD },
+    { label: 'Account B', email: process.env.ALPHA_TEST_B_EMAIL, password: process.env.ALPHA_TEST_B_PASSWORD },
+  ];
+  if (hasAccountCEmail && hasAccountCPassword) {
+    accountConfigs.push({ label: 'Account C', email: process.env.ALPHA_TEST_C_EMAIL, password: process.env.ALPHA_TEST_C_PASSWORD });
+  }
+
+  const accounts = [];
+  for (const config of accountConfigs) {
+    const supabase = client();
+    const user = await signIn(supabase, config.email, config.password, config.label);
+    const rows = await readOwnInventory(supabase, user.id, config.label);
+    requireEvidenceRows(rows, config.label);
+    accounts.push({ ...config, supabase, user, rows, ids: new Set(rows.map((row) => row.id)) });
+  }
+
+  const distinctUserIds = new Set(accounts.map((account) => account.user.id));
+  if (distinctUserIds.size !== accounts.length) {
+    throw new Error(`${accounts.length}-account smoke requires distinct normal accounts.`);
+  }
+
+  for (const account of accounts) {
+    for (const foreignAccount of accounts) {
+      if (foreignAccount.user.id === account.user.id) continue;
+      await assertNoKnownForeignIds(account.rows, foreignAccount.ids, `${account.label} vs ${foreignAccount.label}`);
+    }
+  }
 
   const { data: anonRows, error: anonError } = await anon.from('items').select('id').limit(1);
   if (!anonError && (anonRows?.length ?? 0) > 0) throw new Error('Anonymous privacy failure: private item row readable.');
   pass('anonymous client cannot read private inventory rows');
 
-  await a.auth.signOut();
-  await b.auth.signOut();
-  console.log('Two-user runtime RLS smoke passed. No writes were performed.');
+  for (const account of accounts) await signOutQuietly(account);
+  console.log(`${accounts.length}-account runtime RLS smoke passed. No writes were performed.`);
 }
 
 main().catch(async (error) => {
-  console.error('Two-user runtime RLS smoke failed.');
+  console.error('Multi-account runtime RLS smoke failed.');
   console.error(error instanceof Error ? error.message : error);
-  try { await a.auth.signOut(); } catch {}
-  try { await b.auth.signOut(); } catch {}
   process.exitCode = 1;
 });
