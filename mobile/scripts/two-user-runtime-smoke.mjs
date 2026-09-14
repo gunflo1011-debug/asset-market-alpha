@@ -70,35 +70,42 @@ async function main() {
   }
 
   const accounts = [];
-  for (const config of accountConfigs) {
-    const supabase = client();
-    const user = await signIn(supabase, config.email, config.password, config.label);
-    const rows = await readOwnInventory(supabase, user.id, config.label);
-    requireEvidenceRows(rows, config.label);
-    accounts.push({ ...config, supabase, user, rows, ids: new Set(rows.map((row) => row.id)) });
-  }
+  try {
+    for (const config of accountConfigs) {
+      const supabase = client();
+      const user = await signIn(supabase, config.email, config.password, config.label);
+      const account = { ...config, supabase, user, rows: [], ids: new Set() };
+      accounts.push(account);
 
-  const distinctUserIds = new Set(accounts.map((account) => account.user.id));
-  if (distinctUserIds.size !== accounts.length) {
-    throw new Error(`${accounts.length}-account smoke requires distinct normal accounts.`);
-  }
-
-  for (const account of accounts) {
-    for (const foreignAccount of accounts) {
-      if (foreignAccount.user.id === account.user.id) continue;
-      await assertNoKnownForeignIds(account.rows, foreignAccount.ids, `${account.label} vs ${foreignAccount.label}`);
+      const rows = await readOwnInventory(supabase, user.id, config.label);
+      requireEvidenceRows(rows, config.label);
+      account.rows = rows;
+      account.ids = new Set(rows.map((row) => row.id));
     }
+
+    const distinctUserIds = new Set(accounts.map((account) => account.user.id));
+    if (distinctUserIds.size !== accounts.length) {
+      throw new Error(`${accounts.length}-account smoke requires distinct normal accounts.`);
+    }
+
+    for (const account of accounts) {
+      for (const foreignAccount of accounts) {
+        if (foreignAccount.user.id === account.user.id) continue;
+        await assertNoKnownForeignIds(account.rows, foreignAccount.ids, `${account.label} vs ${foreignAccount.label}`);
+      }
+    }
+
+    const { data: anonRows, error: anonError } = await anon.from('items').select('id').limit(1);
+    if (!anonError && (anonRows?.length ?? 0) > 0) throw new Error('Anonymous privacy failure: private item row readable.');
+    pass('anonymous client cannot read private inventory rows');
+
+    console.log(`${accounts.length}-account runtime RLS smoke passed. No writes were performed.`);
+  } finally {
+    await Promise.all(accounts.map(signOutQuietly));
   }
-
-  const { data: anonRows, error: anonError } = await anon.from('items').select('id').limit(1);
-  if (!anonError && (anonRows?.length ?? 0) > 0) throw new Error('Anonymous privacy failure: private item row readable.');
-  pass('anonymous client cannot read private inventory rows');
-
-  for (const account of accounts) await signOutQuietly(account);
-  console.log(`${accounts.length}-account runtime RLS smoke passed. No writes were performed.`);
 }
 
-main().catch(async (error) => {
+main().catch((error) => {
   console.error('Multi-account runtime RLS smoke failed.');
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
