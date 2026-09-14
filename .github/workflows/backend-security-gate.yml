@@ -28,7 +28,7 @@ jobs:
         with:
           version: 2.117.0
       - name: Start local Supabase
-        run: supabase start
+        run: supabase start --debug
       - name: Rebuild database from migrations
         run: supabase db reset
       - name: Run pgTAP tests
