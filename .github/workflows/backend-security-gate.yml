@@ -26,7 +26,7 @@ jobs:
         run: node scripts/check-marketplace-lifecycle-release-gate.mjs
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.115.0
+          version: 2.117.0
       - name: Start local Supabase
         run: supabase start
       - name: Rebuild database from migrations
