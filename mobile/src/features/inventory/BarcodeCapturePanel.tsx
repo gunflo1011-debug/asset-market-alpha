@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { isGtinLike, normalizeScannedProductCode, resolveBarcodeProduct, type ProductSuggestion } from '../../lib/barcodeProductResolver';
 
@@ -86,11 +86,20 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
   if (!permission) return <View style={styles.center}><ActivityIndicator accessibilityLabel="Checking camera permission" /></View>;
 
   if (!permission.granted) {
+    const canAskAgain = permission.canAskAgain !== false;
     return (
       <View style={styles.permissionCard}>
         <Text style={styles.title}>Scan a barcode</Text>
-        <Text style={styles.copy}>Use the camera to read EAN, UPC or QR codes. Things only sends normal product barcodes to the lookup provider; arbitrary QR contents stay on your device.</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera" accessibilityHint="Allows camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
+        <Text style={styles.copy}>
+          {canAskAgain
+            ? 'Use the camera to read EAN, UPC or QR codes. Things only sends normal product barcodes to the lookup provider; arbitrary QR contents stay on your device.'
+            : 'Camera access is turned off for Things. Enable it in your device settings to scan EAN, UPC or QR codes, or continue with manual entry.'}
+        </Text>
+        {canAskAgain ? (
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera" accessibilityHint="Allows camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
+        ) : (
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open app settings" accessibilityHint="Opens device settings where camera access can be enabled" style={styles.primaryButton} onPress={() => void Linking.openSettings()}><Text style={styles.primaryButtonText}>Open settings</Text></TouchableOpacity>
+        )}
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter manually instead" accessibilityHint="Opens manual Thing entry" style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
       </View>
     );
