@@ -21,7 +21,7 @@ function publishedTime(value: string | null): number {
 }
 
 export function MarketplaceDiscoveryHome({ listings, categories, onOpenListing, onSelectCategory }: Props) {
-  const nearby = useMemo(
+  const listingsWithArea = useMemo(
     () => listings.filter((listing) => Boolean(listing.public_location)).slice(0, 6),
     [listings],
   );
@@ -34,20 +34,20 @@ export function MarketplaceDiscoveryHome({ listings, categories, onOpenListing, 
 
   return (
     <View style={styles.root}>
-      {nearby.length > 0 ? (
+      {listingsWithArea.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
             <View>
-              <Text style={styles.sectionTitle}>Nearby</Text>
-              <Text style={styles.sectionCue}>Listings with a seller area shared</Text>
+              <Text style={styles.sectionTitle}>Explore listings</Text>
+              <Text style={styles.sectionCue}>Sellers who shared a general area</Text>
             </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
-            {nearby.map((listing) => (
+            {listingsWithArea.map((listing) => (
               <TouchableOpacity
                 key={listing.item_id}
                 accessibilityRole="button"
-                accessibilityLabel={`Open nearby listing ${listing.title}, asking price ${euro(listing.asking_price_cents)}, ${listing.public_location}`}
+                accessibilityLabel={`Open listing ${listing.title}, asking price ${euro(listing.asking_price_cents)}, ${listing.public_location}`}
                 style={styles.nearbyCard}
                 onPress={() => onOpenListing(listing.item_id)}
               >
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   newCard: { width: '48.2%', borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E9EDF2' },
   newImage: { width: '100%', height: 132, backgroundColor: '#EEF2F6' },
   newBody: { padding: 11, gap: 3 },
-  newTitle: { minHeight: 36, fontSize: 13, lineHeight: 18, fontWeight: '850', color: '#0C1628' },
+  newTitle: { minHeight: 36, fontSize: 13, lineHeight: 18, fontWeight: '800', color: '#0C1628' },
   newPrice: { fontSize: 16, lineHeight: 20, fontWeight: '900', color: '#0C1628' },
   newMeta: { fontSize: 10, lineHeight: 15, color: '#7C8798' },
 });
