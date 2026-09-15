@@ -40,6 +40,7 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
   const [error, setError] = useState<ScanError | null>(null);
   const [lastCode, setLastCode] = useState<string | null>(null);
   const [lastCaptureWasQr, setLastCaptureWasQr] = useState(false);
+  const [settingsOpenFailed, setSettingsOpenFailed] = useState(false);
 
   async function lookup(code: string, symbology?: string) {
     const normalized = code.trim();
@@ -83,6 +84,15 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
     setLastCaptureWasQr(false);
   }
 
+  async function openCameraSettings() {
+    setSettingsOpenFailed(false);
+    try {
+      await Linking.openSettings();
+    } catch {
+      setSettingsOpenFailed(true);
+    }
+  }
+
   if (!permission) return <View style={styles.center}><ActivityIndicator accessibilityLabel="Checking camera permission" /></View>;
 
   if (!permission.granted) {
@@ -98,8 +108,9 @@ export function BarcodeCapturePanel({ onUseSuggestion, onEnterManually }: Props)
         {canAskAgain ? (
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Allow camera" accessibilityHint="Allows camera access for barcode scanning" style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryButtonText}>Allow camera</Text></TouchableOpacity>
         ) : (
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open app settings" accessibilityHint="Opens device settings where camera access can be enabled" style={styles.primaryButton} onPress={() => void Linking.openSettings()}><Text style={styles.primaryButtonText}>Open settings</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open app settings" accessibilityHint="Opens device settings where camera access can be enabled" style={styles.primaryButton} onPress={() => void openCameraSettings()}><Text style={styles.primaryButtonText}>Open settings</Text></TouchableOpacity>
         )}
+        {settingsOpenFailed ? <Text accessibilityRole="alert" style={styles.settingsError}>Things couldn't open device settings. Open Settings manually and allow camera access for Things, or continue with manual entry.</Text> : null}
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Enter manually instead" accessibilityHint="Opens manual Thing entry" style={styles.secondaryButton} onPress={onEnterManually}><Text style={styles.secondaryButtonText}>Enter manually instead</Text></TouchableOpacity>
       </View>
     );
@@ -174,6 +185,7 @@ const styles = StyleSheet.create({
   permissionCard: { gap: 12 },
   title: { fontSize: 20, fontWeight: '800', color: '#0F1728' },
   copy: { fontSize: 13, lineHeight: 19, color: '#667085' },
+  settingsError: { fontSize: 12, lineHeight: 18, color: '#B42318', backgroundColor: '#FFF6F5', borderRadius: 10, padding: 10 },
   cameraFrame: { height: 260, overflow: 'hidden', borderRadius: 18, backgroundColor: '#101828' },
   camera: { flex: 1 },
   scanPaused: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, gap: 10 },
