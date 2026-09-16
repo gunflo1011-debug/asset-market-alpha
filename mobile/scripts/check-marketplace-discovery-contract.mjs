@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const source = fs.readFileSync(new URL('../src/features/marketplace/marketplaceDiscovery.ts', import.meta.url), 'utf8');
+const screenSource = fs.readFileSync(new URL('../src/features/marketplace/MarketplaceScreen.tsx', import.meta.url), 'utf8');
 
 const required = [
   'filterMarketplaceListings',
@@ -33,4 +34,20 @@ if (!source.includes("normalize('NFKD')") || !source.includes("toLocaleLowerCase
   throw new Error('Marketplace discovery must normalize user-visible text for resilient search.');
 }
 
-console.log('Marketplace discovery privacy/search contract OK');
+const requiredScreenWiring = [
+  "import { MarketplaceDiscoveryHome } from './MarketplaceDiscoveryHome';",
+  '<MarketplaceDiscoveryHome',
+  'listings={browseListings}',
+  'categories={discoveryCategories}',
+  'onSelectCategory={setSelectedCategory}',
+];
+
+for (const token of requiredScreenWiring) {
+  if (!screenSource.includes(token)) throw new Error(`Marketplace discovery home is not wired into the consumer screen: ${token}`);
+}
+
+if (!screenSource.includes('discoveryActive') || !screenSource.includes('filteredBrowseListings')) {
+  throw new Error('Marketplace search/category results must retain the focused discovery results state.');
+}
+
+console.log('Marketplace discovery privacy/search/wiring contract OK');
