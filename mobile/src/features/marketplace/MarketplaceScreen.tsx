@@ -11,6 +11,7 @@ import {
 import type { MarketplaceConversation, MarketplaceInterest, MarketplaceListing, OwnerMarketplaceListing } from '../inventory/types';
 import { MarketplaceBrowseList, type MarketplaceBrowseListingState } from './MarketplaceBrowseList';
 import { MarketplaceConversationScreen } from './MarketplaceConversationScreen';
+import { MarketplaceDiscoveryHome } from './MarketplaceDiscoveryHome';
 import { PublicListingImage } from './PublicListingImage';
 import { marketplaceFailureMessage } from './consumerErrors';
 import { MARKETPLACE_DISCOVERY_ALL, filterMarketplaceListings, marketplaceDiscoveryCategories } from './marketplaceDiscovery';
@@ -369,7 +370,16 @@ export function MarketplaceScreen({ onBack }: Props) {
         </View>
       ) : null}
 
-      {filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{discoveryActive ? `${filteredBrowseListings.length} matching` : 'From other sellers'}</Text></View> : null}
+      {!error && !loading && !discoveryActive && browseListings.length > 0 ? (
+        <MarketplaceDiscoveryHome
+          listings={browseListings}
+          categories={discoveryCategories}
+          onOpenListing={(itemId) => { setSelectedItemId(itemId); setMessage(null); }}
+          onSelectCategory={setSelectedCategory}
+        />
+      ) : null}
+
+      {discoveryActive && filteredBrowseListings.length > 0 ? <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Available now</Text><Text style={styles.sectionMeta}>{`${filteredBrowseListings.length} matching`}</Text></View> : null}
     </View>
   );
 
@@ -423,7 +433,7 @@ export function MarketplaceScreen({ onBack }: Props) {
   return (
     <SafeAreaView style={styles.safe}>
       <MarketplaceBrowseList
-        listings={error ? [] : filteredBrowseListings}
+        listings={error || !discoveryActive ? [] : filteredBrowseListings}
         renderListing={renderBrowseListing}
         getListingState={getBrowseListingState}
         header={browseHeader}
