@@ -370,7 +370,7 @@ export function MarketplaceScreen({ onBack }: Props) {
         </View>
       ) : null}
 
-      {!error && !loading && !discoveryActive && browseListings.length > 0 ? (
+      {!error && !discoveryActive && browseListings.length > 0 ? (
         <MarketplaceDiscoveryHome
           listings={browseListings}
           categories={discoveryCategories}
