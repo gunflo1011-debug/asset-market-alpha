@@ -8,6 +8,7 @@ import { MarketplaceScreen } from '../marketplace/MarketplaceScreen';
 import { SellListingPanel } from '../marketplace/SellListingPanel';
 import { BarcodeCapturePanel } from './BarcodeCapturePanel';
 import { InventoryThingList } from './InventoryThingList';
+import { ItemImagesPanel } from './ItemImagesPanel';
 import { PrivateThingCover } from './PrivateThingCover';
 import { inventoryLifecyclePresentation, itemTitle, matchesInventoryLifecycleFilter, savedDate, variantTitle } from './presentation';
 import type { InventoryLifecycleFilter } from './presentation';
@@ -197,6 +198,8 @@ export function InventoryScreen(props: Props) {
           </View>
 
           <ValueEstimatePanel itemId={selectedItem.id} busy={props.actionBusy} onEstimated={props.onRefreshInventory} />
+
+          <ItemImagesPanel itemId={selectedItem.id} />
 
           <View style={styles.detailCard}>
             <Text style={styles.cardEyebrow}>DETAILS</Text>
