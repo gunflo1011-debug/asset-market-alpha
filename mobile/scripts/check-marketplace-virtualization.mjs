@@ -22,8 +22,8 @@ requireMatch(
 requireText(screen, '<MarketplaceBrowseList', 'MarketplaceScreen must render MarketplaceBrowseList for discovery.');
 requireMatch(
   screen,
-  /listings=\{(?:filteredBrowseListings|error\s*\?\s*\[\]\s*:\s*filteredBrowseListings)\}/,
-  'MarketplaceBrowseList must own filtered public discovery data, optionally guarded by the existing error state.',
+  /listings=\{(?:filteredBrowseListings|error\s*\?\s*\[\]\s*:\s*filteredBrowseListings|error\s*\|\|\s*!discoveryActive\s*\?\s*\[\]\s*:\s*filteredBrowseListings)\}/,
+  'MarketplaceBrowseList must own filtered public discovery data, optionally guarded by the existing error state and neutral discovery-home state.',
 );
 requireText(screen, 'renderListing={renderBrowseListing}', 'Marketplace listing cards must render through the virtualized list.');
 reject(screen, /filteredBrowseListings\s*\.map\s*\(/, 'Marketplace discovery must not regress to full-mount filteredBrowseListings.map(...).');
