@@ -300,12 +300,27 @@ export function MarketplaceScreen({ onBack }: Props) {
             {message ? <Text accessibilityRole="alert" style={styles.feedback}>{message}</Text> : null}
           </View>
 
+          <View style={styles.priceContextCard}>
+            <Text style={styles.sectionTitle}>Price context</Text>
+            <View style={styles.priceContextRow}>
+              <View style={styles.priceContextColumn}>
+                <Text style={styles.priceContextLabel}>SELLER ASKING PRICE</Text>
+                <Text style={styles.priceContextPrimary}>{euro(selected.asking_price_cents)}</Text>
+              </View>
+              <View style={styles.priceContextColumn}>
+                <Text style={styles.priceContextLabel}>THINGS ESTIMATE</Text>
+                <Text style={styles.priceContextSecondary}>{selected.estimated_value_cents != null ? euro(selected.estimated_value_cents) : 'Estimating'}</Text>
+              </View>
+            </View>
+            <Text style={styles.priceContextCopy}>The asking price is set by the seller. The Things Estimate is separate guidance, not a guaranteed sale or final price.</Text>
+          </View>
+
           <View style={styles.detailCard}>
             <Text style={styles.sectionTitle}>Listing details</Text>
             {selected.public_location ? <View style={styles.detailRow}><Text style={styles.detailKey}>Seller area</Text><Text style={styles.detailValue}>{selected.public_location}</Text></View> : null}
+            {selected.public_location ? <Text style={styles.privacyCue}>Only the seller's coarse public area is shown. Exact seller details stay private.</Text> : null}
             {selected.public_location && selected.condition_label ? <View style={styles.divider} /> : null}
             {selected.condition_label ? <View style={styles.detailRow}><Text style={styles.detailKey}>Condition</Text><Text style={styles.detailValue}>{selected.condition_label}</Text></View> : null}
-            {selected.estimated_value_cents != null ? <><View style={styles.divider} /><View style={styles.detailRow}><Text style={styles.detailKey}>Things estimate</Text><Text style={styles.detailValue}>{euro(selected.estimated_value_cents)}</Text></View></> : null}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -501,6 +516,14 @@ const styles = StyleSheet.create({
   detailMetaText: { fontSize: 12, color: '#C8D0DB' },
   pillDark: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: '#26354C', paddingHorizontal: 10, paddingVertical: 6 },
   pillDarkText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
+  priceContextCard: { backgroundColor: '#F5F7FA', borderRadius: 22, padding: 19, gap: 13, borderWidth: 1, borderColor: '#E4E9EF' },
+  priceContextRow: { flexDirection: 'row', gap: 12 },
+  priceContextColumn: { flex: 1, gap: 4 },
+  priceContextLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.05, color: '#7C8798' },
+  priceContextPrimary: { fontSize: 21, lineHeight: 27, fontWeight: '900', color: '#0C1628' },
+  priceContextSecondary: { fontSize: 18, lineHeight: 25, fontWeight: '800', color: '#475467' },
+  priceContextCopy: { fontSize: 12, lineHeight: 18, color: '#667085' },
+  privacyCue: { marginTop: -5, fontSize: 11, lineHeight: 17, color: '#7C8798' },
   detailCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 19, gap: 13, borderWidth: 1, borderColor: '#E9EDF2' },
   detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   detailKey: { flex: 1, fontSize: 13, color: '#667085' },
