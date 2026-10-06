@@ -41,18 +41,7 @@ export function ItemImagesPanel({ itemId }: Props) {
 
   useEffect(() => { void refresh(); }, [itemId]);
 
-  async function addPhoto() {
-    if (busy || images.length >= 8) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setNotice({ tone: 'error', text: 'Allow photo-library access to choose a photo for this Thing.' });
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
-      allowsEditing: false,
-    });
+  async function uploadPickedPhoto(result: ImagePicker.ImagePickerResult) {
     if (result.canceled || !result.assets[0]) return;
 
     try {
@@ -67,6 +56,36 @@ export function ItemImagesPanel({ itemId }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function takePhoto() {
+    if (busy || images.length >= 8) return;
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setNotice({ tone: 'error', text: 'Allow camera access to take a private photo for this Thing.' });
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    await uploadPickedPhoto(result);
+  }
+
+  async function choosePhoto() {
+    if (busy || images.length >= 8) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setNotice({ tone: 'error', text: 'Allow photo-library access to choose a private photo for this Thing.' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    await uploadPickedPhoto(result);
   }
 
   async function makePrimary(imageId: string) {
@@ -139,16 +158,30 @@ export function ItemImagesPanel({ itemId }: Props) {
           <Text style={styles.title}>Thing photos</Text>
           <Text style={styles.copy}>Private by default. Add up to 8 photos, then explicitly choose up to 6 that may appear in a Marketplace listing.</Text>
         </View>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={images.length >= 8 ? 'Photo limit reached' : 'Add a private Thing photo'}
-          accessibilityState={{ disabled: busy || images.length >= 8, busy }}
-          disabled={busy || images.length >= 8}
-          style={[styles.addButton, (busy || images.length >= 8) && styles.disabled]}
-          onPress={() => void addPhoto()}
-        >
-          <Text style={styles.addButtonText}>{busy ? '…' : '+ Photo'}</Text>
-        </TouchableOpacity>
+        <View style={styles.photoActions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={images.length >= 8 ? 'Photo limit reached' : 'Take a private Thing photo'}
+            accessibilityHint="Opens the camera. The photo stays private unless you later select it for Marketplace."
+            accessibilityState={{ disabled: busy || images.length >= 8, busy }}
+            disabled={busy || images.length >= 8}
+            style={[styles.addButton, (busy || images.length >= 8) && styles.disabled]}
+            onPress={() => void takePhoto()}
+          >
+            <Text style={styles.addButtonText}>{busy ? '…' : 'Camera'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={images.length >= 8 ? 'Photo limit reached' : 'Choose a private Thing photo from library'}
+            accessibilityHint="Opens your photo library. The photo stays private unless you later select it for Marketplace."
+            accessibilityState={{ disabled: busy || images.length >= 8, busy }}
+            disabled={busy || images.length >= 8}
+            style={[styles.libraryButton, (busy || images.length >= 8) && styles.disabled]}
+            onPress={() => void choosePhoto()}
+          >
+            <Text style={styles.libraryButtonText}>Library</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {transactionPhotoState === 'locked' || transactionPhotoState === 'unknown' ? (
@@ -253,8 +286,11 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#7A8494' },
   title: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: '#0F1728', marginTop: 4 },
   copy: { fontSize: 12, lineHeight: 18, color: '#7A8494' },
+  photoActions: { gap: 8, alignItems: 'stretch' },
   addButton: { minHeight: 44, borderRadius: 13, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F1728' },
   addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  libraryButton: { minHeight: 44, borderRadius: 13, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD' },
+  libraryButtonText: { color: '#344054', fontSize: 13, fontWeight: '800' },
   disabled: { opacity: 0.45 },
   disabledActionText: { color: '#98A2B3' },
   lockState: { backgroundColor: '#F2F4F7', borderRadius: 14, padding: 13, gap: 4, borderWidth: 1, borderColor: '#D0D5DD' },
